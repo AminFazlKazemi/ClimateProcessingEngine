@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+orchestrator/process_block.py
+================================================================================
+Orchestrator اصلی.
+فقط هماهنگ‌کننده است. محاسبه‌ای انجام نمی‌دهد.
+================================================================================
+"""
+
+import time
+import gc
+from io_pipeline.read_month_files import read_month_files
+from io_pipeline.assemble_block import assemble_block
+from io_pipeline.validate_block import validate_block, print_validation_report
+from numerical_engine.merge_results import create_and_merge_results
+from result_pipeline.validate_result import validate_result, print_validation_report as print_result_report
+from result_pipeline.write_block import write_block_safe
+from monitoring.checkpoint import save_checkpoint
+from monitoring.logger import logger
+from constants import VALIDATE_AFTER_LOAD, VALIDATE_BEFORE_WRITE, VALIDATE_EVERY_N_BLOCKS
+
+class FitError(Exception):
+    pass
+
+class DataError(Exception):
+    pass
+
+class IOError(Exception):
+    pass
+
+def process_block(block_start, block_end, block_idx, file_map, doy_table, window_table, year_list, root, var_idx, last_checkpoint_station=None):
+    block_size = block_end - block_start
+    start_time = time.time()
+    times = {}
+
+    logger.info(f"📦 Block {block_idx}: stations {block_start:,} - {block_end:,} ({block_size:,} stations)")
+
+    try:
+        t0 = time.time()
+        logger.info("   📂 Loading...")
+        data_dict = read_month_files(block_start, block_size, file_map, year_list)
+        block_data = assemble_block(data_dict, doy_table, block_size, year_list)
+        times["load"] = time.time() - t0
+    except Exception as e:
+        logger.error(f"   ❌ Load failed: {e}")
+        save_checkpoint(block_idx, block_start)
+        raise IOError(f"Load failed: {e}")
+
+    if VALIDATE_AFTER_LOAD or block_idx % VALIDATE_EVERY_N_BLOCKS == 0:
+        t0 = time.time()
+        logger.info("   🔍 Validating block...")
+        try:
+            report = validate_block(block_data, block_start, block_size, strict=True)
+            print_validation_report(report)
+            times["validate_load"] = time.time() - t0
+        except Exception as e:
+            logger.error(f"   ❌ Validation failed: {e}")
+            save_checkpoint(block_idx, block_start)
+            raise DataError(f"Block validation failed: {e}")
+
+    t0 = time.time()
+    logger.info("   ⚙️ Analyzing...")
+    try:
+        block_result = create_and_merge_results(block_data, window_table, var_idx)
+        times["analyze"] = time.time() - t0
+    except Exception as e:
+        logger.error(f"   ❌ Analysis failed: {e}")
+        save_checkpoint(block_idx, block_start)
+        raise FitError(str(e))
+
+    if VALIDATE_BEFORE_WRITE or block_idx % VALIDATE_EVERY_N_BLOCKS == 0:
+        t0 = time.time()
+        logger.info("   🔍 Validating results...")
+        try:
+            report = validate_result(block_result, block_start, block_size, strict=True)
+            print_result_report(report)
+            times["validate_write"] = time.time() - t0
+        except Exception as e:
+            logger.error(f"   ❌ Result validation failed: {e}")
+            save_checkpoint(block_idx, block_start)
+            raise DataError(f"Result validation failed: {e}")
+
+    t0 = time.time()
+    logger.info("   💾 Writing to Zarr...")
+    try:
+        write_block_safe(root, block_result, block_start, block_end, validate=False)
+        times["write"] = time.time() - t0
+    except Exception as e:
+        logger.error(f"   ❌ Write failed: {e}")
+        save_checkpoint(block_idx, block_start)
+        raise IOError(f"Write failed: {e}")
+
+    del data_dict, block_data, block_result
+    gc.collect()
+
+    save_checkpoint(block_idx, block_end - 1)
+
+    total_time = time.time() - start_time
+    stations_per_sec = block_size / times["analyze"] if times["analyze"] > 0 else 0
+
+    logger.info(f"   ✅ Block {block_idx} completed in {total_time:.1f}s")
+    logger.info(f"      Load: {times['load']:.1f}s | Analyze: {times['analyze']:.1f}s | Write: {times['write']:.1f}s")
+    logger.info(f"      Stations/sec: {stations_per_sec:.1f}")
+
+    return {"block_idx": block_idx, "times": times, "total_time": total_time, "stations_per_sec": stations_per_sec}

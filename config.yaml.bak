@@ -1,0 +1,51 @@
+# ============================================================================
+# climatology_engine/config.yaml
+# تنظیمات اصلی موتور پردازش اقلیم‌شناسی - نسخه نهایی
+# ============================================================================
+
+# ---------- بازه زمانی ----------
+years:
+  start: 1990
+  end: 2020          # 31 سال (1990 تا 2020)
+
+days: 366            # تعداد روزهای سال (با احتساب 29 اسفند در سال کبیسه)
+window_days: 2       # ±۲ روز برای پنجره لغزنده (مجموعاً ۵ روز)
+
+# ---------- متغیرها ----------
+variables:
+  - tmin            # اندیس ۰
+  - tmean           # اندیس ۱ (متغیر اصلی برای برازش)
+  - tmax            # اندیس ۲
+
+fit_variable_index: 1   # ۱ = tmean
+
+# ---------- مسیرها ----------
+paths:
+  zarr_base: "K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly"
+  output_dir: "I:/climatology_366_rolling"
+  output_zarr_name: "climatology_stationwise_final.zarr"
+  checkpoint_file: "checkpoint.csv"
+  calendar_file: "K:/Temp/needed/calendar.txt"
+
+# ---------- اجرا ----------
+block_size: 1000     # تعداد ایستگاه در هر بلوک (پیش‌فرض، Benchmark می‌تواند تغییر دهد)
+cores: 6             # تعداد هسته‌های CPU (فعلاً فقط برای اطلاعات، در این نسخه تک‌هسته‌ای است)
+use_parallel: false  # نسخه اول: فقط تک‌پردازه
+
+# ---------- اعتبارسنجی ----------
+validation:
+  validate_after_load: true
+  validate_before_write: true
+  validate_every_n_blocks: 5
+
+# ---------- لاگ ----------
+logging:
+  level: INFO        # DEBUG, INFO, WARNING, ERROR
+  log_file: "climatology.log"
+  log_timestamps: true
+
+# ---------- Benchmark ----------
+benchmark:
+  enabled: true
+  run_on_first_block: true
+  test_block_sizes: [500, 1000, 1500, 2000, 3000]

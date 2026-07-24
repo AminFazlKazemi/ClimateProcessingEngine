@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+fix_imports.py
+================================================================================
+رفع خودکار خطای ImportError: N_OUTPUTS از constants
+این اسکریپت تمام فایل‌های پروژه را اسکن کرده و importهای اشتباه را اصلاح می‌کند.
+================================================================================
+"""
+
+import os
+import re
+import glob
+import shutil
+from pathlib import Path
+
+# ============================================================================
+# پیدا کردن مسیر پروژه
+# ============================================================================
+
+def find_project_root():
+    """پیدا کردن پوشه‌ی climatology_engine"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # اگر خودمان داخل climatology_engine هستیم
+    if os.path.exists(os.path.join(script_dir, "config.yaml")):
+        return script_dir
+    
+    # اگر در پوشه‌ی parent هستیم (climatology)
+    possible = os.path.join(script_dir, "climatology_engine")
+    if os.path.exists(os.path.join(possible, "config.yaml")):
+        return possible
+    
+    # جستجوی بالاتر
+    for parent in Path(script_dir).parents:
+        if os.path.exists(os.path.join(parent, "climatology_engine", "config.yaml")):
+            return str(parent / "climatology_engine")
+        if os.path.exists(os.path.join(parent, "config.yaml")):
+            return str(parent)
+    
+    raise FileNotFoundError("config.yaml یافت نشد! مطمئن شوید در پوشه‌ی پروژه هستید.")
+
+PROJECT_ROOT = find_project_root()
+print(f"📁 مسیر پروژه: {PROJECT_ROOT}")
+
+# ============================================================================
+# اصلاح فایل‌ها
+# ============================================================================
+
+def fix_file(filepath):
+    """یک فایل را بررسی و در صورت نیاز اصلاح می‌کند"""
+    with open(filepath, "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    original = content
+    modified = False
+    
+    # ۱. اگر از constants N_OUTPUTS را import کرده باشد
+    if "from constants import" in content and "N_OUTPUTS" in content:
+        # خطوط را جدا می‌کنیم
+        lines = content.split("\n")
+        new_lines = []
+        constants_line_found = False
+        
+        for line in lines:
+            # اگر خط مربوط به from constants import است
+            if "from constants import" in line:
+                constants_line_found = True
+                # N_OUTPUTS را از خط حذف می‌کنیم
+                if "N_OUTPUTS" in line:
+                    # اگر تنها چیزی که import شده N_OUTPUTS باشد
+                    if line.strip() == "from constants import N_OUTPUTS":
+                        # کل خط را حذف می‌کنیم
+                        continue
+                    else:
+                        # N_OUTPUTS را از لیست حذف می‌کنیم
+                        # (با دقت و بدون ایجاد خطای سینتکسی)
+                        line = line.replace(", N_OUTPUTS", "")
+                        line = line.replace("N_OUTPUTS,", "")
+                        line = line.replace("N_OUTPUTS", "")
+                        # اگر بعد از حذف، فقط "from constants import" باقی ماند، خط را حذف می‌کنیم
+                        if line.strip() == "from constants import":
+                            continue
+                        # اگر import چیزی ندارد
+                        if "import" in line and line.split("import")[-1].strip() == "":
+                            continue
+                        new_lines.append(line)
+                else:
+                    new_lines.append(line)
+            else:
+                new_lines.append(line)
+        
+        # اگر خط constants پیدا نشد، نیازی به اصلاح نیست
+        if constants_line_found:
+            # حالا باید import N_OUTPUTS از zarr_schema اضافه شود
+            # بررسی می‌کنیم که آیا قبلاً from zarr_schema import وجود دارد
+            zarr_import_exists = False
+            for i, line in enumerate(new_lines):
+                if "from zarr_schema import" in line:
+                    if "N_OUTPUTS" not in line:
+                        new_lines[i] = line.rstrip() + ", N_OUTPUTS"
+                    zarr_import_exists = True
+                    break
+            
+            if not zarr_import_exists:
+                # اضافه کردن import جدید
+                # پیدا کردن آخرین import
+                last_import_idx = -1
+                for i, line in enumerate(new_lines):
+                    if line.strip().startswith("import") or line.strip().startswith("from"):
+                        last_import_idx = i
+                if last_import_idx >= 0:
+                    new_lines.insert(last_import_idx + 1, "from zarr_schema import N_OUTPUTS")
+                else:
+                    new_lines.insert(0, "from zarr_schema import N_OUTPUTS")
+            
+            content = "\n".join(new_lines)
+            modified = True
+    
+    # ۲. اگر از constants.N_OUTPUTS استفاده شده باشد
+    if "constants.N_OUTPUTS" in content:
+        content = content.replace("constants.N_OUTPUTS", "zarr_schema.N_OUTPUTS")
+        # اگر zarr_schema import نشده، اضافه می‌کنیم
+        if "import zarr_schema" not in content and "from zarr_schema" not in content:
+            lines = content.split("\n")
+            for i, line in enumerate(lines):
+                if line.strip().startswith("import") or line.strip().startswith("from"):
+                    lines.insert(i+1, "import zarr_schema")
+                    break
+            content = "\n".join(lines)
+        modified = True
+    
+    # ۳. اگر N_OUTPUTS در constants تعریف شده، آن را حذف می‌کنیم
+    if os.path.basename(filepath) == "constants.py":
+        if "N_OUTPUTS" in content and "N_YEARS" in content:
+            # خطوطی که N_OUTPUTS را تعریف می‌کنند حذف می‌کنیم
+            lines = content.split("\n")
+            new_lines = []
+            for line in lines:
+                if "N_OUTPUTS" in line and "=" in line and "constants" not in line:
+                    continue
+                new_lines.append(line)
+            content = "\n".join(new_lines)
+            modified = True
+    
+    # ذخیره اگر تغییر کرده باشد
+    if modified and content != original:
+        # پشتیبان
+        backup = filepath + ".bak2"
+        shutil.copy2(filepath, backup)
+        
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"   ✅ اصلاح شد: {os.path.basename(filepath)}")
+        return True
+    
+    return False
+
+# ============================================================================
+# تابع اصلی
+# ============================================================================
+
+def main():
+    print("="*80)
+    print("  🔧 FIX IMPORTS - climatology_engine")
+    print("  رفع خطای N_OUTPUTS")
+    print("="*80)
+    
+    # پیدا کردن همه فایل‌های پایتون به جز __init__.py
+    py_files = glob.glob(os.path.join(PROJECT_ROOT, "**", "*.py"), recursive=True)
+    py_files = [f for f in py_files if not f.endswith("__init__.py")]
+    
+    print(f"\n📂 {len(py_files)} فایل پایتون یافت شد.\n")
+    
+    fixed_count = 0
+    for filepath in py_files:
+        if fix_file(filepath):
+            fixed_count += 1
+    
+    print("\n" + "="*80)
+    if fixed_count > 0:
+        print(f"✅ {fixed_count} فایل اصلاح شد.")
+        print("\n📁 پشتیبان‌ها با پسوند .bak2 ذخیره شدند.")
+        print("\n🔄 حالا می‌توانید دوباره اجرا کنید:")
+        print(f"   cd {PROJECT_ROOT}")
+        print("   python main.py")
+    else:
+        print("ℹ️ هیچ فایلی نیاز به اصلاح نداشت.")
+    print("="*80)
+
+if __name__ == "__main__":
+    main()
