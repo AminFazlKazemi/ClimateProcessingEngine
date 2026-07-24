@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+
+message: "If you use ClimateProcessingEngine in your research, please cite this software."
+
+title: "ClimateProcessingEngine"
+
+type: software
+
+authors:
+  - family-names: "Kazemi"
+    given-names: "Amin Fazl"
+
+version: "v1.0.0"
+
+date-released: "2026-07-24"
+
+repository-code: "https://github.com/AminFazlKazemi/ClimateProcessingEngine"
+
+license: "MIT"
+
+keywords:
+  - climate
+  - climatology
+  - meteorology
+  - geospatial
+  - climate-data
+  - remote-sensing
+  - python
+  - xarray
+  - rasterio
+  - environmental-science
+
+abstract: >
+  ClimateProcessingEngine is an open-source Python framework for climate data
+  processing, geospatial analysis, scientific visualization, and environmental
+  research workflows.
+
+preferred-citation:
+  type: software
+  title: "ClimateProcessingEngine"
+  authors:
+    - family-names: "Kazemi"
+      given-names: "Amin Fazl"
+  year: 2026
+  version: "v1.0.0"
+  doi: ""
