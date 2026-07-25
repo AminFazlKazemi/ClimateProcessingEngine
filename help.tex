@@ -1,0 +1,1540 @@
+﻿\documentclass[12pt,a4paper]{report}
+
+% ============================================================
+% بسته‌های اصلی (سازگار با LuaLaTeX)
+% ============================================================
+\usepackage{fontspec}            % برای LuaLaTeX – پشتیبانی از فونت‌های سیستمی
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+\usepackage[colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue]{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{cleveref}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, shapes.geometric}
+
+% ============================================================
+% تنظیمات صفحه
+% ============================================================
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+\setlength{\headheight}{14.5pt}
+
+% ============================================================
+% تنظیمات فونت (LuaLaTeX) – با مسیر مستقیم فونت ایموجی
+% ============================================================
+\setmainfont{Latin Modern Roman}
+\setmonofont{Latin Modern Mono}
+
+% تعریف فونت ایموجی با مسیر مستقیم
+\newfontfamily{\emojifont}[
+    Path=C:/ProgramData/anaconda3/envs/xeofs/fonts/,
+    Extension=.ttf,
+    UprightFont=NotoEmoji-Regular,
+    BoldFont=NotoEmoji-Regular,
+    ItalicFont=NotoEmoji-Regular,
+    BoldItalicFont=NotoEmoji-Regular
+]{NotoEmoji-Regular}
+
+% دستور کمکی برای ایموجی‌ها
+\newcommand{\emoji}[1]{{\emojifont #1}}
+
+% ============================================================
+% تعریف رنگ‌ها
+% ============================================================
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codeblue}{rgb}{0,0,0.8}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% ============================================================
+% تنظیمات lstlisting (با پشتیبانی از کاراکترهای خاص)
+% ============================================================
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{codeblue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codegreen},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=4,
+    literate=
+        {─}{-}1
+        {└}{-}1
+        {┌}{-}1
+        {├}{-}1
+        {┐}{-}1
+        {┘}{-}1
+        {┴}{-}1
+        {┬}{-}1
+        {│}{|}1
+        {×}{x}1
+        {±}{+/-}1
+        {√}{sqrt}1
+}
+
+\lstset{style=mystyle}
+
+% ============================================================
+% تنظیمات هدر و فوتر
+% ============================================================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{ClimateProcessingEngine v2.1}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ============================================================
+% عنوان و اطلاعات نویسنده
+% ============================================================
+\title{\Huge\textbf{ClimateProcessingEngine}\\ \Large A Comprehensive Python Framework for Climate Data Processing}
+\author{Amin Fazl Kazemi\\ \texttt{aminfazlkazemi@gmail.com}}
+\date{Version 2.1 \\ \today}
+
+% ============================================================
+% شروع سند
+% ============================================================
+\begin{document}
+
+\maketitle
+\tableofcontents
+\listoffigures
+\listoftables
+\lstlistoflistings
+
+% ============================================================
+% فصل ۱: معرفی
+% ============================================================
+\chapter{Introduction}
+\section{Overview}
+
+\textbf{ClimateProcessingEngine} is an open-source Python framework designed for processing large-scale climate datasets, performing statistical distribution fitting, and generating climatological summaries. The engine is optimized for station-wise time series data with support for multiple variables (temperature, precipitation, etc.) and handles missing data through robust window-based approaches.
+
+\subsection{Key Features}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Block-oriented processing} – Handles millions of stations efficiently using configurable block sizes
+    \item \textbf{Multi-distribution fitting} – Supports Normal, Skew-Normal, Bimodal, and Pearson Type III distributions
+    \item \textbf{Parallel processing} – Optional multi-core execution for accelerated computation
+    \item \textbf{Checkpoint recovery} – Automatic resumption from the last completed block
+    \item \textbf{Zarr output} – Efficient, chunked, cloud-optimized storage format
+    \item \textbf{Comprehensive validation} – Data integrity checks at multiple pipeline stages
+    \item \textbf{Benchmarking} – Automatic selection of optimal block size based on system resources
+\end{itemize}
+
+\subsection{Target Audience}
+\begin{itemize}
+    \item Climate scientists and meteorologists
+    \item Environmental researchers
+    \item Data engineers working with geospatial time series
+    \item Graduate students in climate science
+\end{itemize}
+
+\subsection{System Requirements}
+\begin{table}[H]
+    \centering
+    \caption{Minimum System Requirements}
+    \begin{tabular}{l l}
+        \toprule
+        \textbf{Component} & \textbf{Requirement} \\
+        \midrule
+        Operating System & Windows 10/11, Linux, or macOS \\
+        Python & 3.8 or higher \\
+        RAM & 16 GB minimum (32 GB recommended) \\
+        Storage & 100 GB free space (for intermediate and output data) \\
+        CPU & 4 cores minimum (8+ recommended for parallel mode) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Dependencies}
+The following Python packages are required:
+\begin{lstlisting}[caption=Required Dependencies]
+numpy>=1.24.0
+pandas>=2.0.0
+xarray>=2023.0.0
+dask>=2023.0.0
+rasterio>=1.3.0
+geopandas>=0.14.0
+cartopy>=0.22.0
+matplotlib>=3.7.0
+scipy>=1.10.0
+scikit-learn>=1.3.0
+shapely>=2.0.0
+netcdf4>=1.6.0
+zarr>=2.15.0
+numba>=0.57.0
+pyyaml>=6.0
+psutil>=5.9.0 (optional, for RAM monitoring)
+\end{lstlisting}
+
+% ============================================================
+% فصل ۲: معماری
+% ============================================================
+\chapter{Architecture Overview}
+\section{System Architecture}
+
+The ClimateProcessingEngine follows a modular, pipeline-based architecture with clear separation of concerns. Figure~\ref{fig:architecture} illustrates the overall system design.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[node distance=1.5cm, auto, every node/.style={rectangle, draw, minimum width=3cm, minimum height=1cm, align=center, font=\small}]
+        \node (config) {Configuration Layer\\\texttt{config.yaml + constants.py}};
+        \node (io) [below=of config] {I/O Pipeline\\\texttt{read\_month\_files.py}};
+        \node (numeric) [below=of io] {Numerical Engine\\\texttt{distributions.py}};
+        \node (result) [below=of numeric] {Result Pipeline\\\texttt{write\_block.py}};
+        \node (monitor) [below=of result] {Monitoring\\\texttt{benchmark.py}};
+        \draw[->] (config) -- (io);
+        \draw[->] (io) -- (numeric);
+        \draw[->] (numeric) -- (result);
+        \draw[->] (result) -- (monitor);
+    \end{tikzpicture}
+    \caption{System Architecture Overview}
+    \label{fig:architecture}
+\end{figure}
+
+\section{Core Components}
+
+\subsection{Configuration Layer (\texttt{constants.py + config.yaml})}
+Centralizes all settings in a single YAML file, parsed by \texttt{constants.py}. This ensures consistent configuration across all modules.
+
+\subsection{I/O Pipeline (\texttt{io\_pipeline/*.py})}
+Responsible for reading input data from Zarr archives, assembling blocks, and validating loaded data.
+
+\subsection{Numerical Engine (\texttt{numerical\_engine/*.py})}
+Performs the core statistical analysis, including window extraction, distribution fitting, and result aggregation.
+
+\subsection{Result Pipeline (\texttt{result\_pipeline/*.py})}
+Validates and writes results to the output Zarr store.
+
+\subsection{Monitoring (\texttt{monitoring/*.py})}
+Handles logging, checkpointing, and benchmarking.
+
+\subsection{Orchestrator (\texttt{orchestrator/*.py})}
+Coordinates the execution flow, managing the block processing loop.
+
+\section{Data Flow}
+The data flow follows a linear pipeline:
+\begin{enumerate}
+    \item \textbf{Load Phase}: Read raw data from input Zarr files for a block of stations
+    \item \textbf{Assembly Phase}: Arrange data into a 4D array (station, year, day, variable)
+    \item \textbf{Validation Phase}: Validate the assembled data against the data contract
+    \item \textbf{Analysis Phase}: For each station, extract windows and fit distributions
+    \item \textbf{Result Validation}: Validate analysis results before writing
+    \item \textbf{Write Phase}: Write validated results to the output Zarr store
+    \item \textbf{Checkpoint}: Record progress for recovery
+\end{enumerate}
+
+% ============================================================
+% فصل ۳: نصب و راه‌اندازی
+% ============================================================
+\chapter{Installation and Setup}
+\section{Installation}
+\subsection{Clone the Repository}
+\begin{lstlisting}[caption=Cloning the Repository]
+git clone https://github.com/AminFazlKazemi/ClimateProcessingEngine.git
+cd ClimateProcessingEngine
+\end{lstlisting}
+
+\subsection{Create a Virtual Environment}
+\begin{lstlisting}[caption=Creating Virtual Environment]
+# Windows
+python -m venv venv
+venv\Scripts\activate
+
+# Linux/macOS
+python3 -m venv venv
+source venv/bin/activate
+\end{lstlisting}
+
+\subsection{Install Dependencies}
+\begin{lstlisting}[caption=Installing Dependencies]
+pip install -r requirements.txt
+\end{lstlisting}
+
+\section{Configuration}
+\subsection{Configuration File Structure}
+The \texttt{config.yaml} file contains all runtime settings:
+\begin{lstlisting}[caption=Example config.yaml]
+# Paths
+paths:
+  calendar_file: K:/Temp/needed/calendar.txt
+  checkpoint_file: checkpoint.csv
+  output_dir: I:/climatology_366_rolling
+  output_zarr_name: climatology_stationwise_final.zarr
+  zarr_base: K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly
+
+# Time Range
+years:
+  start: 1369
+  end: 1399
+days: 366
+window_days: 2
+
+# Processing
+block_size: 1000
+cores: 6
+use_parallel: false
+
+# Variables
+variables:
+- tmin
+- tmean
+- tmax
+fit_variable_index: 1
+
+# Validation
+validation:
+  validate_after_load: true
+  validate_before_write: true
+  validate_every_n_blocks: 5
+
+# Logging
+logging:
+  level: INFO
+  log_file: climatology.log
+  log_timestamps: true
+
+# Benchmark
+benchmark:
+  enabled: true
+  run_on_first_block: true
+  test_block_sizes:
+  - 500
+  - 1000
+  - 1500
+  - 2000
+  - 3000
+\end{lstlisting}
+
+\subsection{Understanding Configuration Parameters}
+\subsubsection{Paths}
+\begin{table}[H]
+    \centering
+    \caption{Path Configuration Parameters}
+    \begin{tabular}{p{4cm} p{8cm}}
+        \toprule
+        \textbf{Parameter} & \textbf{Description} \\
+        \midrule
+        \texttt{calendar\_file} & Path to the Persian calendar mapping file \\
+        \texttt{checkpoint\_file} & Location for storing recovery checkpoint \\
+        \texttt{output\_dir} & Directory where output Zarr will be saved \\
+        \texttt{output\_zarr\_name} & Name of the output Zarr file \\
+        \texttt{zarr\_base} & Directory containing input Zarr files (organized as \texttt{YYYY\_MM.zarr}) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsubsection{Time Configuration}
+\begin{table}[H]
+    \centering
+    \caption{Time Configuration Parameters}
+    \begin{tabular}{p{4cm} p{8cm}}
+        \toprule
+        \textbf{Parameter} & \textbf{Description} \\
+        \midrule
+        \texttt{years.start} & First year of the analysis (Persian calendar) \\
+        \texttt{years.end} & Last year of the analysis (inclusive) \\
+        \texttt{days} & Number of days in the year (365 or 366) \\
+        \texttt{window\_days} & Days before/after each target day for window extraction \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+The window size is calculated as: \texttt{WINDOW\_SIZE = 2 * window\_days + 1}
+
+\subsubsection{Processing Configuration}
+\begin{table}[H]
+    \centering
+    \caption{Processing Configuration Parameters}
+    \begin{tabular}{p{4cm} p{8cm}}
+        \toprule
+        \textbf{Parameter} & \textbf{Description} \\
+        \midrule
+        \texttt{block\_size} & Number of stations per processing block \\
+        \texttt{cores} & Number of CPU cores to use when parallel processing is enabled \\
+        \texttt{use\_parallel} & If true, enables multi-core processing \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Preparing Input Data}
+\subsection{Input Zarr Structure}
+The engine expects input Zarr files organized by year and month:
+\begin{lstlisting}[caption=Input Zarr Directory Structure]
+zarr_base/
+├── 1369_01.zarr/
+│   ├── tmin (2D: day, point)
+│   ├── tmax (2D: day, point)
+│   ├── tmean (2D: day, point)
+│   ├── stationid (1D: point)
+│   ├── lat (1D: point)
+│   ├── lon (1D: point)
+│   └── elev (1D: point)
+├── 1369_02.zarr/
+└── ...
+\end{lstlisting}
+
+\subsection{Calendar File Format}
+The calendar file (\texttt{calendar.txt}) maps Persian dates to day-of-year indices:
+\begin{lstlisting}[caption=calendar.txt Format]
+ShamsiDate  ShamsiDOY  GregorianDate  GregorianDOY
+13690101    1          19900322      80
+13690102    2          19900323      81
+...
+\end{lstlisting}
+
+% ============================================================
+% فصل ۴: ماژول‌های اصلی
+% ============================================================
+\chapter{Core Modules Reference}
+
+\section{Configuration Module (\texttt{constants.py})}
+\subsection{Overview}
+The \texttt{constants.py} module loads configuration from \texttt{config.yaml} and defines all constants used throughout the engine.
+
+\subsection{Key Constants}
+\begin{lstlisting}[caption=Constants Defined]
+# Time
+YEAR_START = 1369
+YEAR_END = 1399
+N_YEARS = 31
+N_DAYS = 366
+WINDOW_DAYS = 2
+WINDOW_SIZE = 5              # 2*window_days + 1
+
+# Variables
+VARS = ['tmin', 'tmean', 'tmax']
+N_VARS = 3
+FIT_VARS = ['tmin', 'tmean', 'tmax']
+N_OUTPUTS = 87               # 29 outputs per variable × 3 variables
+
+# Paths
+ZARR_BASE = "..."
+OUTPUT_DIR = "..."
+OUTPUT_ZARR = "..."
+
+# Processing
+BLOCK_SIZE = 1000
+N_CORES = 6
+USE_PARALLEL = False
+
+# Validation thresholds
+MAX_VALUES_PER_FIT = 155     # N_YEARS * WINDOW_SIZE
+MIN_VALID_VALUES = 5
+VALID_BEST_DIST = {-1, 0, 1, 2, 3}
+
+# Data types
+FLOAT_DTYPE = np.float32
+INT_DTYPE = np.int32
+\end{lstlisting}
+
+\subsection{Configuration Functions}
+\begin{lstlisting}[caption=Configuration Functions]
+def load_config(path):
+    """Load YAML configuration file"""
+    with open(path, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
+
+def ensure_directories():
+    """Create output directories if they don't exist"""
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+def validate_config():
+    """Validate configuration values and raise errors on invalid settings"""
+    # Checks for valid year range, block size, etc.
+\end{lstlisting}
+
+\section{Zarr Schema Module (\texttt{zarr\_schema.py})}
+\subsection{Overview}
+The \texttt{zarr\_schema.py} module defines the output schema for the Zarr store. It serves as the single source of truth for all output variables.
+
+\subsection{Variable Definitions}
+Each output variable is defined as a tuple: \texttt{(name, dtype, fill\_value, description)}.
+\begin{table}[H]
+    \centering
+    \caption{Output Variables per Temperature Variable}
+    \begin{tabular}{l l l}
+        \toprule
+        \textbf{Category} & \textbf{Variables} & \textbf{Count} \\
+        \midrule
+        Best Distribution & \texttt{best\_dist} & 1 \\
+        Statistics & \texttt{mean, std, skewness, median, count} & 5 \\
+        Normal Parameters & \texttt{normal\_p1, p2, loglik, aicc, bic} & 5 \\
+        Skew-Normal Parameters & \texttt{skew\_p1, p2, p3, loglik, aicc, bic} & 6 \\
+        Bimodal Parameters & \texttt{bimodal\_p1, p2, p3, p4, p5, loglik, aicc, bic} & 8 \\
+        Pearson III Parameters & \texttt{pearson\_p1, p2, p3, loglik, aicc} & 5 \\
+        \midrule
+        \textbf{Total per variable} & & \textbf{30} \\
+        \textbf{Total for 3 variables} & & \textbf{90} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+\textbf{Note:} The actual implementation uses 29 outputs per variable (excluding \texttt{pearson\_bic}), resulting in 87 total variables.
+
+\subsection{Key Functions}
+\begin{lstlisting}[caption=Zarr Schema Functions]
+def create_zarr_store(output_path, n_stations, chunk_size=(366, 100)):
+    """
+    Create a Zarr store with all output variables.
+    
+    Parameters:
+        output_path: str - Path to create the Zarr store
+        n_stations: int - Total number of stations
+        chunk_size: tuple - Chunk size for Zarr arrays (day, station)
+    
+    Returns:
+        zarr.Group: The root group of the Zarr store
+    """
+    # Creates arrays for each variable with specified dtype and fill value
+
+def add_coords_and_metadata(ds, station_ids, lons, lats, elevs):
+    """
+    Add coordinate variables and metadata to an xarray Dataset.
+    
+    Parameters:
+        ds: xarray.Dataset - Dataset to augment
+        station_ids: array - Station identifiers
+        lons, lats, elevs: arrays - Geographic metadata
+    
+    Returns:
+        xarray.Dataset: Dataset with coordinates and metadata
+    """
+
+def create_empty_block_result(block_size):
+    """
+    Create an empty block_result dictionary.
+    
+    Parameters:
+        block_size: int - Number of stations in the block
+    
+    Returns:
+        dict: Empty result container with all variables initialized
+    """
+\end{lstlisting}
+
+\section{Calendar Tables Module (\texttt{calendar\_tables.py})}
+\subsection{Overview}
+Provides calendar conversion functions for the Persian calendar system.
+
+\subsection{Key Functions}
+\begin{lstlisting}[caption=Calendar Functions]
+def is_persian_leap_year(year):
+    """Check if a Persian year is a leap year."""
+    
+def get_persian_month_days(month, year):
+    """Get the number of days in a Persian month."""
+    
+def get_shamsi_doy(year, month, day):
+    """Calculate the day-of-year for a Persian date."""
+    
+def build_doy_table():
+    """Build the day-of-year lookup table."""
+    
+def build_calendar_tables():
+    """Build all calendar tables, using calendar.txt if available."""
+\end{lstlisting}
+
+\section{Runtime Tables Module (\texttt{runtime\_tables.py})}
+\subsection{Overview}
+Builds tables needed at runtime, independent of the calendar system.
+
+\subsection{Key Functions}
+\begin{lstlisting}[caption=Runtime Tables Functions]
+def build_window_table():
+    """Build the window table for all days."""
+    # For each day i, returns [i-2, i-1, i, i+1, i+2] with wrapping at boundaries
+
+def build_file_map(zarr_base):
+    """Build a map from (year, month) to Zarr file path."""
+    
+def build_runtime_tables(zarr_base):
+    """Build all runtime tables."""
+\end{lstlisting}
+
+\section{I/O Pipeline Module (\texttt{io\_pipeline/*.py})}
+\subsection{\texttt{read\_month\_files.py}}
+\begin{lstlisting}[caption=read\_month\_files.py]
+def read_month_files(block_start, block_size, file_map, year_list):
+    """
+    Read data from Zarr files for a block of stations.
+    
+    Parameters:
+        block_start: int - Starting station index
+        block_size: int - Number of stations to read
+        file_map: dict - Mapping from (year, month) to file path
+        year_list: list - All years in the analysis period
+    
+    Returns:
+        dict: {(year_idx, month, var_idx): ndarray}
+    """
+    # For each year and month, opens the corresponding Zarr file
+    # Slices the required station range
+    # Extracts temperature variables and applies scaling for tmean
+    # Returns a dictionary of raw arrays
+\end{lstlisting}
+
+\subsection{\texttt{assemble\_block.py}}
+\begin{lstlisting}[caption=assemble\_block.py]
+def assemble_block(data_dict, doy_table, block_size, year_list):
+    """
+    Assemble raw data into a 4D array.
+    
+    Parameters:
+        data_dict: dict - Raw data from read_month_files
+        doy_table: ndarray - Day-of-year lookup table
+        block_size: int - Number of stations
+        year_list: list - All years
+    
+    Returns:
+        ndarray: Shape (block_size, N_YEARS, N_DAYS, N_VARS)
+    """
+    # Initializes array with NaN values
+    # For each year, month, and variable:
+    #   Maps days to correct day-of-year positions
+    #   Copies data to the assembled array
+    # Missing days remain as NaN
+\end{lstlisting}
+
+\subsection{\texttt{validate\_block.py}}
+\begin{lstlisting}[caption=validate\_block.py]
+def validate_block(block_data, block_start, block_size, strict=True):
+    """
+    Validate assembled block data against the data contract.
+    
+    Parameters:
+        block_data: ndarray - The assembled block
+        block_start: int - Starting station index
+        block_size: int - Number of stations
+        strict: bool - Whether to raise exceptions on validation failure
+    
+    Returns:
+        dict: Validation report with status, warnings, and errors
+    """
+    # Checks:
+    #   - Shape correctness
+    #   - Data type
+    #   - Contiguous memory layout
+    #   - NaN ratio
+    #   - Infinite values
+    #   - Per-station data completeness
+\end{lstlisting}
+
+\section{Numerical Engine Module (\texttt{numerical\_engine/*.py})}
+\subsection{\texttt{window\_engine.py}}
+\begin{lstlisting}[caption=window\_engine.py]
+def extract_window_values_fast(station_data, window_table, var_idx):
+    """
+    Extract window values for all days of a station.
+    
+    Parameters:
+        station_data: ndarray - Shape (N_YEARS, N_DAYS, N_VARS)
+        window_table: list - Window indices for each day
+        var_idx: int - Variable index to extract
+    
+    Returns:
+        list: 366 entries, each containing clean values array or None
+    """
+    # For each day:
+    #   Extracts values from window days
+    #   Removes NaN values
+    #   Returns array if length >= MIN_VALID_VALUES, else None
+\end{lstlisting}
+
+\subsection{\texttt{distributions.py}}
+This module implements the core distribution fitting functions using Numba JIT compilation.
+
+\subsubsection{Normal Distribution}
+\begin{lstlisting}[caption=Normal Distribution Fitting]
+@njit
+def fit_normal_full_numba(data):
+    """
+    Fit a Normal distribution to data.
+    
+    Returns:
+        tuple: (mean, std, loglikelihood, AICc, BIC, n_parameters)
+    """
+    # Calculates mean and standard deviation
+    # Computes log-likelihood
+    # Calculates AICc and BIC
+\end{lstlisting}
+
+\subsubsection{Skew-Normal Distribution}
+\begin{lstlisting}[caption=Skew-Normal Fitting]
+@njit
+def skewness_to_alpha(skew):
+    """Convert sample skewness to skew-normal shape parameter alpha"""
+
+@njit
+def fit_skewnorm_full_numba(data):
+    """
+    Fit a Skew-Normal distribution using method of moments.
+    
+    Returns:
+        tuple: (alpha, loc, scale, loglikelihood, AICc, BIC, n_parameters)
+    """
+    # Estimates initial parameters from moments
+    # Computes log-likelihood
+    # Calculates AICc and BIC
+\end{lstlisting}
+
+\subsubsection{Bimodal Normal Distribution}
+\begin{lstlisting}[caption=Bimodal Fitting]
+@njit
+def fit_bimodal_full_numba(data):
+    """
+    Fit a Bimodal Normal distribution using moment-based estimation.
+    
+    Returns:
+        tuple: (w1, mu1, sigma1, mu2, sigma2, loglikelihood, AICc, BIC, n_parameters)
+    """
+    # Estimates 5 parameters from moments:
+    #   w1: mixing weight of component 1
+    #   mu1, sigma1: mean and std of component 1
+    #   mu2, sigma2: mean and std of component 2
+    # Uses kurtosis to estimate separation between modes
+\end{lstlisting}
+
+\subsubsection{Pearson Type III Distribution}
+\begin{lstlisting}[caption=Pearson Type III Fitting]
+@njit
+def fit_pearson3_full_numba(data):
+    """
+    Fit a Pearson Type III (Gamma) distribution.
+    
+    Returns:
+        tuple: (shape, scale, location, loglikelihood, AICc, BIC, n_parameters)
+    """
+    # Uses method of moments with skewness adjustment
+    # Applies Wilson-Hilferty transformation for initial estimates
+    # Computes log-likelihood via Gamma PDF
+\end{lstlisting}
+
+\subsubsection{Master Fitting Function}
+\begin{lstlisting}[caption=fit\_all\_distributions\_numba]
+@njit
+def fit_all_distributions_numba(data):
+    """
+    Fit all four distributions and select the best.
+    
+    Returns:
+        ndarray: 30-element array containing:
+            [0]  best_dist (0=Normal, 1=Skew, 2=Bimodal, 3=Pearson, -1=failed)
+            [1]  mean
+            [2]  std
+            [3]  skewness
+            [4]  median
+            [5]  count
+            [6]  normal_p1 (mean)
+            [7]  normal_p2 (std)
+            [8]  normal_loglik
+            [9]  normal_aicc
+            [10] normal_bic
+            [11] skew_p1 (alpha)
+            [12] skew_p2 (loc)
+            [13] skew_p3 (scale)
+            [14] skew_loglik
+            [15] skew_aicc
+            [16] skew_bic
+            [17] bimodal_p1 (w1)
+            [18] bimodal_p2 (mu1)
+            [19] bimodal_p3 (sigma1)
+            [20] bimodal_p4 (mu2)
+            [21] bimodal_p5 (sigma2)
+            [22] bimodal_loglik
+            [23] bimodal_aicc
+            [24] bimodal_bic
+            [25] pearson_p1 (shape)
+            [26] pearson_p2 (scale)
+            [27] pearson_p3 (location)
+            [28] pearson_loglik
+            [29] pearson_aicc
+    """
+    # Fits all 4 distributions
+    # Selects best using AICc
+    # Returns 30-element array with all parameters
+\end{lstlisting}
+
+\subsection{\texttt{analyze\_station.py}}
+\begin{lstlisting}[caption=analyze\_station.py]
+def analyze_station(station_data, window_table, var_indices):
+    """
+    Analyze a single station for multiple variables.
+    
+    Parameters:
+        station_data: ndarray - Shape (N_YEARS, N_DAYS, N_VARS)
+        window_table: list - Window indices
+        var_indices: list - Variable indices to analyze
+    
+    Returns:
+        dict: Result dictionary with 87 keys (29 per variable)
+    """
+    # For each variable index:
+    #   Extracts window values using extract_window_values_fast
+    #   For each day:
+    #     Fits distributions using fit_distribution
+    #     Populates result dictionary with parameters
+\end{lstlisting}
+
+\subsection{\texttt{merge\_results.py}}
+\begin{lstlisting}[caption=merge\_results.py]
+def merge_station_result(block_result, station_result, local_idx):
+    """Merge a station's results into the block result."""
+
+def create_and_merge_results(block_data, window_table, var_indices):
+    """
+    Process all stations in a block and merge results.
+    
+    Returns:
+        dict: Complete block result with 87 variables
+    """
+    # Iterates through stations
+    # Calls analyze_station for each
+    # Merges results into block_result
+\end{lstlisting}
+
+\section{Result Pipeline Module (\texttt{result\_pipeline/*.py})}
+\subsection{\texttt{validate\_result.py}}
+\begin{lstlisting}[caption=validate\_result.py]
+def validate_result(block_result, block_start, block_size, strict=True):
+    """
+    Validate analysis results before writing.
+    
+    Returns:
+        dict: Validation report
+    """
+    # Checks:
+    #   - Shape of each variable
+    #   - Data type matches schema
+    #   - best_dist contains only valid codes
+    #   - count values in valid range
+    #   - No negative standard deviations
+    #   - No infinite values in loglik/AICc/BIC
+\end{lstlisting}
+
+\subsection{\texttt{write\_block.py}}
+\begin{lstlisting}[caption=write\_block.py]
+def write_block(root, block_result, block_start, block_end):
+    """Write block results to Zarr store."""
+
+def write_block_safe(root, block_result, block_start, block_end, validate=True):
+    """Write block results with optional validation."""
+\end{lstlisting}
+
+\section{Orchestrator Module (\texttt{orchestrator/*.py})}
+\subsection{\texttt{process\_block.py}}
+\begin{lstlisting}[caption=process\_block.py]
+class FitError(Exception): pass
+class DataError(Exception): pass
+class IOError(Exception): pass
+
+def process_block(block_start, block_end, block_idx, file_map, doy_table,
+                  window_table, year_list, root, var_indices, last_checkpoint_station=None):
+    """
+    Process a single block of stations.
+    
+    Returns:
+        dict: Processing statistics for the block
+    """
+    # 1. Load data using read_month_files and assemble_block
+    # 2. Validate loaded data
+    # 3. Analyze using create_and_merge_results
+    # 4. Validate results
+    # 5. Write results
+    # 6. Save checkpoint
+    # 7. Return statistics
+\end{lstlisting}
+
+\section{Monitoring Module (\texttt{monitoring/*.py})}
+\subsection{\texttt{benchmark.py}}
+\begin{lstlisting}[caption=benchmark.py]
+def run_benchmark(load_func, analyze_func, write_func, test_sizes=None):
+    """
+    Run benchmark tests to determine optimal block size.
+    
+    Returns:
+        dict: Benchmark results with recommended block size
+    """
+    # For each test size:
+    #   Measures load, analyze, write times
+    #   Monitors RAM usage
+    #   Counts failed fits
+    #   Calculates stations per second
+    # Returns best performing size
+
+def print_benchmark_report(report):
+    """Pretty-print benchmark results."""
+\end{lstlisting}
+
+\subsection{\texttt{checkpoint.py}}
+\begin{lstlisting}[caption=checkpoint.py]
+def save_checkpoint(block_idx, station_idx, elapsed=None):
+    """Save checkpoint information to file."""
+    
+def load_checkpoint():
+    """Load checkpoint information from file."""
+    
+def delete_checkpoint():
+    """Delete the checkpoint file after successful completion."""
+\end{lstlisting}
+
+\subsection{\texttt{logger.py}}
+\begin{lstlisting}[caption=logger.py]
+def setup_logger():
+    """Set up logging configuration."""
+    
+logger = setup_logger()
+\end{lstlisting}
+
+% ============================================================
+% فصل ۵: قرارداد داده
+% ============================================================
+\chapter{Data Contract}
+
+\section{Load Phase Contract}
+\subsection{Input}
+\begin{itemize}[leftmargin=*]
+    \item \texttt{block\_start}: integer – Starting station index
+    \item \texttt{block\_size}: integer – Number of stations
+    \item \texttt{file\_map}: dict – \texttt{(year, month) → file\_path}
+    \item \texttt{year\_list}: list – All years in analysis period
+    \item \texttt{doy\_table}: ndarray – Shape \texttt{(N\_YEARS, 13, 32)}
+\end{itemize}
+\subsection{Output}
+\begin{itemize}[leftmargin=*]
+    \item \texttt{block\_data}: ndarray – Shape \texttt{(block\_size, N\_YEARS, N\_DAYS, N\_VARS)}
+    \item Data type: \texttt{float32}
+    \item Memory layout: C-contiguous
+    \item Missing values: \texttt{NaN}
+\end{itemize}
+
+\section{Window Phase Contract}
+\subsection{Input}
+\begin{itemize}[leftmargin=*]
+    \item \texttt{station\_data}: ndarray – Shape \texttt{(N\_YEARS, N\_DAYS, N\_VARS)}
+    \item \texttt{window\_table}: list – 366 entries
+\end{itemize}
+\subsection{Output}
+\begin{itemize}[leftmargin=*]
+    \item List of 366 entries
+    \item Each entry: \texttt{ndarray} or \texttt{None}
+    \item Non-None arrays contain valid values (NaNs removed)
+    \item Length $\ge$ \texttt{MIN\_VALID\_VALUES} = 5
+\end{itemize}
+
+\section{Analyze Phase Contract}
+\subsection{Input}
+\begin{itemize}[leftmargin=*]
+    \item \texttt{station\_data}: ndarray – Shape \texttt{(N\_YEARS, N\_DAYS, N\_VARS)}
+\end{itemize}
+\subsection{Output}
+\begin{itemize}[leftmargin=*]
+    \item Dict with 87 keys
+    \item Each key: ndarray – Shape \texttt{(N\_DAYS,)}
+    \item Types: \texttt{int32} for \texttt{best\_dist} and \texttt{count}
+    \item Types: \texttt{float32} for all others
+\end{itemize}
+
+\section{Write Phase Contract}
+\subsection{Input}
+\begin{itemize}[leftmargin=*]
+    \item \texttt{block\_result}: dict – 87 variables
+    \item Each variable: Shape \texttt{(N\_DAYS, block\_size)}
+\end{itemize}
+\subsection{Output}
+\begin{itemize}[leftmargin=*]
+    \item Zarr store with 87 variables
+    \item Shape: \texttt{(N\_DAYS, n\_stations)}
+    \item Coordinated with \texttt{day\_of\_year} and \texttt{point} dimensions
+\end{itemize}
+
+\section{Constants}
+\begin{table}[H]
+    \centering
+    \caption{Key Constants}
+    \begin{tabular}{l r l}
+        \toprule
+        \textbf{Constant} & \textbf{Value} & \textbf{Description} \\
+        \midrule
+        \texttt{WINDOW\_SIZE} & 5 & Days in window (2 before + target + 2 after) \\
+        \texttt{MAX\_VALUES\_PER\_FIT} & 155 & \texttt{N\_YEARS * WINDOW\_SIZE} \\
+        \texttt{MIN\_VALID\_VALUES} & 5 & Minimum valid values for fitting \\
+        \texttt{N\_OUTPUTS} & 87 & Number of output variables \\
+        \texttt{VALID\_BEST\_DIST} & \{-1,0,1,2,3\} & Valid distribution codes \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Error Types}
+\begin{table}[H]
+    \centering
+    \caption{Error Types}
+    \begin{tabular}{l l}
+        \toprule
+        \textbf{Error Type} & \textbf{Description} \\
+        \midrule
+        \texttt{IOError} & Read/write errors (file not found, permission denied) \\
+        \texttt{DataError} & Invalid data (shape mismatch, missing values, infinite values) \\
+        \texttt{FitError} & Distribution fitting failed (insufficient data, numerical issues) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+% ============================================================
+% فصل ۶: ریاضیات
+% ============================================================
+\chapter{Mathematical Background}
+
+\section{Distributions}
+\subsection{Normal Distribution}
+\[
+f(x) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
+\]
+Parameters: $\mu$ (location), $\sigma > 0$ (scale)
+
+\subsection{Skew-Normal Distribution}
+\[
+f(x) = \frac{2}{\omega} \phi\left(\frac{x-\xi}{\omega}\right) \Phi\left(\alpha\frac{x-\xi}{\omega}\right)
+\]
+where $\phi$ is the standard Normal PDF, $\Phi$ the standard Normal CDF, $\xi$ location, $\omega > 0$ scale, $\alpha$ shape.
+
+\subsection{Bimodal Normal Distribution}
+\[
+f(x) = w_1 \mathcal{N}(x; \mu_1, \sigma_1^2) + w_2 \mathcal{N}(x; \mu_2, \sigma_2^2)
+\]
+with $w_1 + w_2 = 1$, $0 \le w_i \le 1$, $\sigma_i > 0$.
+
+\subsection{Pearson Type III Distribution}
+\[
+f(x) = \frac{1}{\Gamma(\alpha)\beta^\alpha} (x-\gamma)^{\alpha-1} \exp\left(-\frac{x-\gamma}{\beta}\right)
+\]
+with shape $\alpha > 0$, scale $\beta > 0$, location $\gamma$.
+
+\section{Model Selection Criteria}
+\subsection{AIC (Akaike Information Criterion)}
+\[
+\text{AIC} = 2k - 2\ln(\hat{L})
+\]
+\subsection{AICc (Corrected AIC)}
+\[
+\text{AICc} = \text{AIC} + \frac{2k(k+1)}{n - k - 1}
+\]
+\subsection{BIC (Bayesian Information Criterion)}
+\[
+\text{BIC} = k\ln(n) - 2\ln(\hat{L})
+\]
+
+\section{Bimodality Metrics}
+\subsection{Ashman's D}
+\[
+D = \frac{|\mu_2 - \mu_1|}{\sqrt{\frac{\sigma_1^2 + \sigma_2^2}{2}}}
+\]
+\subsection{Bimodality Coefficient}
+\[
+\text{BC} = \frac{\text{skewness}^2 + 1}{\text{kurtosis} + 1}
+\]
+\subsection{Overlap Coefficient}
+\[
+\text{OVL} = \int_{-\infty}^{\infty} \min\{f_1(x), f_2(x)\} \, dx
+\]
+
+\section{Window-Based Estimation}
+For each day $d$, the engine extracts values from days $d-2$ to $d+2$ (total 5 days) across all years:
+\[
+\text{Window}_d = \{x_{y, t} : y \in \text{years}, t \in [d-2, d+2]\}
+\]
+with wrapping at boundaries.
+
+% ============================================================
+% فصل ۷: جریان اجرا
+% ============================================================
+\chapter{Execution Flow}
+\section{Main Function}
+\begin{lstlisting}[caption=Main Execution Flow]
+def main():
+    # 1. Load configuration
+    # 2. Get station information from input data
+    # 3. Build calendar and runtime tables
+    # 4. Run benchmark (if enabled)
+    # 5. Create Zarr output store
+    # 6. Load checkpoint (if exists)
+    # 7. Process blocks in a loop
+    #    - For each block: load, validate, analyze, write, checkpoint
+    # 8. Finalize Zarr store
+    #    - Add coordinates and metadata
+    #    - Consolidate metadata
+    # 9. Delete checkpoint
+    # 10. Log completion
+\end{lstlisting}
+
+\section{Block Processing Flow}
+\begin{figure}[H]
+    \centering
+    \begin{enumerate}
+        \item Load data for block
+        \item Validate loaded data
+        \item Analyze each station
+        \item Validate results
+        \item Write results to Zarr
+        \item Save checkpoint
+    \end{enumerate}
+    \caption{Block Processing Steps}
+    \label{fig:block_flow}
+\end{figure}
+
+\section{Recovery Flow}
+When a failure occurs:
+\begin{enumerate}
+    \item On startup, check for checkpoint file
+    \item If checkpoint exists, load the last successful block
+    \item Resume processing from the next station in that block
+    \item Continue with the main processing loop
+\end{enumerate}
+
+% ============================================================
+% فصل ۸: فرمت ورودی
+% ============================================================
+\chapter{Input Data Format}
+\section{Input Zarr Structure}
+Each monthly Zarr file must contain:
+\begin{table}[H]
+    \centering
+    \caption{Input Zarr Variables}
+    \begin{tabular}{l l l}
+        \toprule
+        \textbf{Variable} & \textbf{Shape} & \textbf{Description} \\
+        \midrule
+        \texttt{tmin} & \texttt{(days, points)} & Minimum temperature (raw) \\
+        \texttt{tmax} & \texttt{(days, points)} & Maximum temperature (raw) \\
+        \texttt{tmean} & \texttt{(days, points)} & Mean temperature (raw, scaled by 10) \\
+        \texttt{stationid} & \texttt{(points,)} & Station identifiers \\
+        \texttt{lat} & \texttt{(points,)} & Latitude \\
+        \texttt{lon} & \texttt{(points,)} & Longitude \\
+        \texttt{elev} & \texttt{(points,)} & Elevation \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Data Scaling}
+The \texttt{tmean} data is stored with a scaling factor of 10 (actual = stored / 10). The engine automatically handles this scaling during loading.
+
+\section{Missing Data}
+Missing values are stored as \texttt{NaN} and are handled appropriately.
+
+% ============================================================
+% فصل ۹: فرمت خروجی
+% ============================================================
+\chapter{Output Format}
+\section{Zarr Structure}
+The output Zarr store contains:
+\begin{lstlisting}[caption=Output Zarr Structure]
+/
+├── tmin_best_dist        (day_of_year, point)
+├── tmin_mean             (day_of_year, point)
+├── tmin_std              (day_of_year, point)
+├── tmin_skewness         (day_of_year, point)
+├── tmin_median           (day_of_year, point)
+├── tmin_count            (day_of_year, point)
+├── tmin_normal_p1        (day_of_year, point)
+├── tmin_normal_p2        (day_of_year, point)
+├── tmin_normal_loglik    (day_of_year, point)
+├── tmin_normal_aicc      (day_of_year, point)
+├── tmin_normal_bic       (day_of_year, point)
+├── tmin_skew_p1          (day_of_year, point)
+├── tmin_skew_p2          (day_of_year, point)
+├── tmin_skew_p3          (day_of_year, point)
+├── tmin_skew_loglik      (day_of_year, point)
+├── tmin_skew_aicc        (day_of_year, point)
+├── tmin_skew_bic         (day_of_year, point)
+├── tmin_bimodal_p1       (day_of_year, point)
+├── tmin_bimodal_p2       (day_of_year, point)
+├── tmin_bimodal_p3       (day_of_year, point)
+├── tmin_bimodal_p4       (day_of_year, point)
+├── tmin_bimodal_p5       (day_of_year, point)
+├── tmin_bimodal_loglik   (day_of_year, point)
+├── tmin_bimodal_aicc     (day_of_year, point)
+├── tmin_bimodal_bic      (day_of_year, point)
+├── tmin_pearson_p1       (day_of_year, point)
+├── tmin_pearson_p2       (day_of_year, point)
+├── tmin_pearson_p3       (day_of_year, point)
+├── tmin_pearson_loglik   (day_of_year, point)
+├── tmin_pearson_aicc     (day_of_year, point)
+├── ... (same for tmean and tmax)
+├── day_of_year           (day_of_year,)
+├── point                 (point,)
+├── stationid             (point,)
+├── lat                   (point,)
+├── lon                   (point,)
+├── elev                  (point,)
+└── ...
+\end{lstlisting}
+
+\section{Metadata}
+Global attributes:
+\begin{table}[H]
+    \centering
+    \caption{Global Attributes}
+    \begin{tabular}{l l}
+        \toprule
+        \textbf{Attribute} & \textbf{Description} \\
+        \midrule
+        \texttt{description} & "Climatology 366 days - Station-wise architecture" \\
+        \texttt{source} & Years range, e.g., "Years 1369-1399, Window ±2 days" \\
+        \texttt{architecture} & "Station-wise, Block-oriented" \\
+        \texttt{version} & Engine version \\
+        \texttt{n\_outputs} & Number of output variables \\
+        \texttt{min\_valid\_values} & Minimum values required for fitting \\
+        \texttt{var\_defs} & List of all variable definitions \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+% ============================================================
+% فصل ۱۰: بهینه‌سازی
+% ============================================================
+\chapter{Performance Optimization}
+\section{Block Size Selection}
+The optimal block size depends on available RAM, CPU cache, disk I/O speed, and number of cores. The benchmarking system automatically evaluates block sizes from 500 to 3000 and selects the one with the highest stations-per-second rate.
+
+\section{Parallel Processing}
+When \texttt{use\_parallel} is enabled, the engine uses \texttt{multiprocessing} or \texttt{concurrent.futures}; each worker processes a separate block; the \texttt{cores} parameter controls the number of workers.
+
+\section{Memory Management}
+\begin{enumerate}
+    \item \textbf{Block-based processing}: Data is processed in blocks to limit memory usage
+    \item \textbf{Garbage collection}: Active memory is reclaimed after each block
+    \item \textbf{NaN handling}: Missing values use \texttt{float32} to reduce memory footprint
+    \item \textbf{Chunked Zarr}: Output is stored in chunks for efficient access
+\end{enumerate}
+
+\section{Performance Tips}
+\begin{enumerate}
+    \item Use SSD storage for both input and output data
+    \item Increase the number of cores if available
+    \item Use smaller block sizes if RAM is limited
+    \item Disable validation for production runs to reduce overhead
+    \item Run on a dedicated machine without memory-intensive applications
+\end{enumerate}
+
+% ============================================================
+% فصل ۱۱: عیب‌یابی
+% ============================================================
+\chapter{Troubleshooting}
+
+\section{Common Errors and Solutions}
+\subsection{FileNotFoundError}
+\begin{lstlisting}[caption=FileNotFoundError]
+FileNotFoundError: [Errno 2] No such file or directory: 'path/to/file'
+\end{lstlisting}
+\textbf{Solution:}
+\begin{enumerate}
+    \item Verify the file path in \texttt{config.yaml}
+    \item Check that the file exists and is readable
+    \item Use absolute paths to avoid ambiguity
+\end{enumerate}
+
+\subsection{MemoryError}
+\begin{lstlisting}[caption=MemoryError]
+MemoryError: Unable to allocate array
+\end{lstlisting}
+\textbf{Solution:}
+\begin{enumerate}
+    \item Reduce the \texttt{block\_size} in \texttt{config.yaml}
+    \item Disable validation for lower memory usage
+    \item Use \texttt{use\_parallel: false}
+    \item Increase system RAM or use a machine with more memory
+\end{enumerate}
+
+\subsection{KeyError}
+\begin{lstlisting}[caption=KeyError]
+KeyError: 'variable_name'
+\end{lstlisting}
+\textbf{Solution:}
+\begin{enumerate}
+    \item Check that the variable exists in the input Zarr files
+    \item Verify variable naming matches the schema
+    \item Ensure the \texttt{VARS} list in \texttt{config.yaml} is correct
+\end{enumerate}
+
+\subsection{ImportError}
+\begin{lstlisting}[caption=ImportError]
+ImportError: No module named 'module_name'
+\end{lstlisting}
+\textbf{Solution:}
+\begin{enumerate}
+    \item Install missing dependencies
+    \item Check Python environment (use \texttt{which python})
+    \item Use \texttt{pip install -r requirements.txt}
+\end{enumerate}
+
+\subsection{IndentationError}
+\begin{lstlisting}[caption=IndentationError]
+IndentationError: unexpected indent
+\end{lstlisting}
+\textbf{Solution:}
+\begin{enumerate}
+    \item Check that Python files use consistent indentation (4 spaces)
+    \item Avoid mixing tabs and spaces
+    \item Use an editor with Python indentation support
+\end{enumerate}
+
+\section{Logging}
+The engine logs all major events to:
+\begin{itemize}
+    \item \textbf{Console}: Real-time progress information
+    \item \textbf{Log file}: \texttt{climatology.log} in the output directory
+\end{itemize}
+Log levels: \texttt{DEBUG}, \texttt{INFO} (default), \texttt{WARNING}, \texttt{ERROR}.
+
+\section{Debugging Tips}
+\begin{enumerate}
+    \item Set \texttt{logging.level: DEBUG} for more verbose output
+    \item Check the log file for detailed error traces
+    \item Run a small test with \texttt{block\_size: 100} to verify setup
+    \item Use Python's interactive debugger (\texttt{pdb}) for deep troubleshooting
+    \item Verify input data quality before large-scale processing
+\end{enumerate}
+
+% ============================================================
+% فصل ۱۲: پشتیبانی
+% ============================================================
+\chapter{Support and Community}
+\section{Citation}
+If you use ClimateProcessingEngine in your research, please cite:
+\begin{lstlisting}[caption=CITATION.cff]
+cff-version: 1.2.0
+title: ClimateProcessingEngine
+authors:
+  - family-names: Kazemi
+    given-names: Amin Fazl
+version: v1.0.0
+date-released: 2026-07-24
+repository-code: https://github.com/AminFazlKazemi/ClimateProcessingEngine
+license: MIT
+\end{lstlisting}
+
+\section{Repository}
+\url{https://github.com/AminFazlKazemi/ClimateProcessingEngine}
+
+\section{License}
+MIT License.
+
+\section{Contact}
+For questions, issues, or contributions:
+\begin{itemize}
+    \item Email: \texttt{aminfazlkazemi@gmail.com}
+    \item GitHub Issues: \url{https://github.com/AminFazlKazemi/ClimateProcessingEngine/issues}
+\end{itemize}
+
+% ============================================================
+% پیوست‌ها
+% ============================================================
+\appendix
+
+\chapter{Full Variable Definitions}
+\begin{longtable}{p{4cm} p{2cm} p{8cm}}
+    \caption{Complete Variable Definitions}
+    \label{tab:full_vars} \\
+    \toprule
+    \textbf{Variable Name} & \textbf{Dtype} & \textbf{Description} \\
+    \midrule
+    \endfirsthead
+    \toprule
+    \textbf{Variable Name} & \textbf{Dtype} & \textbf{Description} \\
+    \midrule
+    \endhead
+    \bottomrule
+    \endfoot
+    
+    \multicolumn{3}{c}{\textbf{tmin Variables}} \\
+    \midrule
+    tmin\_best\_dist & int32 & Best distribution code (-1=failed, 0=Normal, 1=Skew, 2=Bimodal, 3=Pearson) \\
+    tmin\_mean & float32 & Mean temperature \\
+    tmin\_std & float32 & Standard deviation \\
+    tmin\_skewness & float32 & Skewness \\
+    tmin\_median & float32 & Median \\
+    tmin\_count & int32 & Number of valid values \\
+    tmin\_normal\_p1 & float32 & Normal: mean \\
+    tmin\_normal\_p2 & float32 & Normal: standard deviation \\
+    tmin\_normal\_loglik & float32 & Normal: log-likelihood \\
+    tmin\_normal\_aicc & float32 & Normal: AICc \\
+    tmin\_normal\_bic & float32 & Normal: BIC \\
+    tmin\_skew\_p1 & float32 & Skew-Normal: alpha (shape) \\
+    tmin\_skew\_p2 & float32 & Skew-Normal: location \\
+    tmin\_skew\_p3 & float32 & Skew-Normal: scale \\
+    tmin\_skew\_loglik & float32 & Skew-Normal: log-likelihood \\
+    tmin\_skew\_aicc & float32 & Skew-Normal: AICc \\
+    tmin\_skew\_bic & float32 & Skew-Normal: BIC \\
+    tmin\_bimodal\_p1 & float32 & Bimodal: w1 (mixing weight) \\
+    tmin\_bimodal\_p2 & float32 & Bimodal: mu1 (mean of component 1) \\
+    tmin\_bimodal\_p3 & float32 & Bimodal: sigma1 (std of component 1) \\
+    tmin\_bimodal\_p4 & float32 & Bimodal: mu2 (mean of component 2) \\
+    tmin\_bimodal\_p5 & float32 & Bimodal: sigma2 (std of component 2) \\
+    tmin\_bimodal\_loglik & float32 & Bimodal: log-likelihood \\
+    tmin\_bimodal\_aicc & float32 & Bimodal: AICc \\
+    tmin\_bimodal\_bic & float32 & Bimodal: BIC \\
+    tmin\_pearson\_p1 & float32 & Pearson Type III: shape \\
+    tmin\_pearson\_p2 & float32 & Pearson Type III: scale \\
+    tmin\_pearson\_p3 & float32 & Pearson Type III: location \\
+    tmin\_pearson\_loglik & float32 & Pearson Type III: log-likelihood \\
+    tmin\_pearson\_aicc & float32 & Pearson Type III: AICc \\
+    
+    \midrule
+    \multicolumn{3}{c}{\textbf{tmean Variables (same structure)}} \\
+    \midrule
+    \multicolumn{3}{c}{\textit{... (29 variables with tmean\_ prefix)}} \\
+    
+    \midrule
+    \multicolumn{3}{c}{\textbf{tmax Variables (same structure)}} \\
+    \midrule
+    \multicolumn{3}{c}{\textit{... (29 variables with tmax\_ prefix)}} \\
+    
+\end{longtable}
+
+\chapter{Configuration File Reference}
+\begin{lstlisting}[caption=Full config.yaml with Descriptions]
+# Paths
+paths:
+  calendar_file: K:/Temp/needed/calendar.txt      # Path to Persian calendar file
+  checkpoint_file: checkpoint.csv                 # Checkpoint file name
+  output_dir: I:/climatology_366_rolling          # Output directory
+  output_zarr_name: climatology_stationwise_final.zarr  # Output file name
+  zarr_base: K:/.../zarr_yearly_monthly           # Input Zarr base directory
+
+# Time Range
+years:
+  start: 1369                                     # First year (Persian calendar)
+  end: 1399                                       # Last year (inclusive)
+days: 366                                         # Days per year (365 or 366)
+window_days: 2                                    # Window size ± days
+
+# Processing
+block_size: 1000                                  # Stations per block
+cores: 6                                          # CPU cores for parallel
+use_parallel: false                               # Enable parallel processing
+
+# Variables
+variables:
+- tmin                                           # Variables to process
+- tmean
+- tmax
+fit_variable_index: 1                            # Index for fitting (0=tmin, 1=tmean, 2=tmax)
+
+# Validation
+validation:
+  validate_after_load: true                      # Validate after loading
+  validate_before_write: true                    # Validate before writing
+  validate_every_n_blocks: 5                     # Validate every N blocks
+
+# Logging
+logging:
+  level: INFO                                    # Log level (DEBUG, INFO, WARNING, ERROR)
+  log_file: climatology.log                      # Log file name
+  log_timestamps: true                           # Include timestamps in logs
+
+# Benchmark
+benchmark:
+  enabled: true                                  # Enable benchmarking
+  run_on_first_block: true                       # Run benchmark on first run
+  test_block_sizes:                              # Block sizes to test
+  - 500
+  - 1000
+  - 1500
+  - 2000
+  - 3000
+\end{lstlisting}
+
+\chapter{Example Usage}
+\section{Running the Engine}
+\begin{lstlisting}[caption=Basic Execution]
+cd K:/gozareshha/dr vazife/140504 - qc temp/climatology/climatology_engine
+python main.py
+\end{lstlisting}
+
+\section{Resuming After Interruption}
+Simply run \texttt{python main.py} again. The engine will automatically detect the checkpoint and resume.
+
+\section{Starting Fresh}
+To start from scratch:
+\begin{lstlisting}[caption=Starting Fresh]
+rm checkpoint.csv
+rm -rf I:/climatology_366_rolling/climatology_stationwise_final.zarr
+python main.py
+\end{lstlisting}
+
+\section{Analyzing Results}
+After the engine completes:
+\begin{lstlisting}[caption=Analyzing Results]
+cd ../..
+python analyze_distributions1.py
+\end{lstlisting}
+
+\section{Example: Custom Configuration}
+\begin{lstlisting}[caption=Custom Configuration Example]
+# config.yaml
+paths:
+  output_dir: /data/climate/output
+  output_zarr_name: my_climate_results.zarr
+  zarr_base: /data/climate/input
+years:
+  start: 1370
+  end: 1400
+block_size: 2000
+cores: 8
+use_parallel: true
+variables:
+- tmin
+- tmax
+\end{lstlisting}
+
+\chapter{Glossary}
+\begin{longtable}{p{3cm} p{10cm}}
+    \caption{Glossary of Terms}
+    \label{tab:glossary} \\
+    \toprule
+    \textbf{Term} & \textbf{Definition} \\
+    \midrule
+    \endfirsthead
+    \toprule
+    \textbf{Term} & \textbf{Definition} \\
+    \midrule
+    \endhead
+    \bottomrule
+    \endfoot
+    
+    \textbf{AIC} & Akaike Information Criterion – measures model quality balancing fit and complexity. \\
+    \textbf{AICc} & Corrected AIC – with small-sample correction. \\
+    \textbf{BIC} & Bayesian Information Criterion – alternative to AIC with stronger penalty for complexity. \\
+    \textbf{Block} & A contiguous group of stations processed together for efficiency. \\
+    \textbf{Checkpoint} & A saved state that allows resuming after interruption. \\
+    \textbf{Doy} & Day of Year – a number from 1 to 365 (or 366) representing the day. \\
+    \textbf{Fit} & The process of estimating distribution parameters from data. \\
+    \textbf{GEV} & Generalized Extreme Value – a family of distributions for extreme events. \\
+    \textbf{Log-likelihood} & The logarithm of the likelihood function, used in model selection. \\
+    \textbf{NaN} & Not a Number – used to represent missing data. \\
+    \textbf{Numba} & A Python library for just-in-time compilation that accelerates numerical computations. \\
+    \textbf{Pearson III} & A three-parameter Gamma distribution, also known as a shifted Gamma. \\
+    \textbf{Skew-Normal} & A distribution that extends the Normal with a shape parameter for asymmetry. \\
+    \textbf{Window} & A set of days around a target day used for estimation (e.g., ±2 days). \\
+    \textbf{Zarr} & A Python library for chunked, compressed, N-dimensional arrays. \\
+    \textbf{Zarr Store} & A directory containing Zarr data and metadata. \\
+    
+\end{longtable}
+
+\end{document}	
