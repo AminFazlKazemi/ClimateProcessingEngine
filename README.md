@@ -258,14 +258,14 @@ selects the optimal model using information criteria.
 
 The probability density function is:
 
-$$$$
+$$
 f(x)=
 \frac{1}{\sqrt{2\pi\sigma^2}}
 \exp
 \left(
 -\frac{(x-\mu)^2}{2\sigma^2}
 \right)
-$$$$
+$$
 
 Parameters:
 
@@ -277,7 +277,7 @@ Parameters:
 
 The skew-normal density is:
 
-$$$$
+$$
 f(x)=
 \frac{2}{\omega}
 \phi
@@ -289,7 +289,7 @@ f(x)=
 \alpha
 \frac{x-\xi}{\omega}
 \right)
-$$$$
+$$
 
 Parameters:
 
@@ -303,14 +303,14 @@ Parameters:
 
 The bimodal model is defined as a mixture distribution:
 
-$$$$
+$$
 f(x)=
 w_1
 N(x;\mu_1,\sigma_1^2)
 +
 w_2
 N(x;\mu_2,\sigma_2^2)
-$$$$
+$$
 
 where:
 
@@ -324,7 +324,7 @@ where:
 
 The Pearson Type III probability density function:
 
-$$$$
+$$
 f(x)=
 \frac{
 1
@@ -336,7 +336,7 @@ f(x)=
 \left(
 -\frac{x-\gamma}{\beta}
 \right)
-$$$$
+$$
 
 Parameters:
 
@@ -352,26 +352,26 @@ The engine evaluates candidate distributions using:
 
 ## AIC
 
-$$$$
+$$
 AIC=2k-2\ln(\hat{L})
-$$$$
+$$
 
 ## Corrected AIC
 
-$$$$
+$$
 AIC_c
 =
 AIC+
 \frac{2k(k+1)}
 {n-k-1}
-$$$$
+$$
 
 ## Bayesian Information Criterion
 
-$$$$
+$$
 BIC=
 k\ln(n)-2\ln(\hat{L})
-$$$$
+$$
 
 where:
 
@@ -387,7 +387,7 @@ where:
 
 The separation between two Gaussian modes:
 
-$$$$
+$$
 D=
 \frac{
 |\mu_2-\mu_1|
@@ -397,17 +397,17 @@ D=
 \frac{\sigma_1^2+\sigma_2^2}{2}
 }
 }
-$$$$
+$$
 
 ## Overlap Coefficient
 
-$$$$
+$$
 OVL=
 \int_{-\infty}^{\infty}
 \min
 \{f_1(x),f_2(x)\}
 dx
-$$$$
+$$
 
 # Installation
 
