@@ -258,15 +258,14 @@ selects the optimal model using information criteria.
 
 The probability density function is:
 
-$$\begin{equation}
-
+$$$$
 f(x)=
 \frac{1}{\sqrt{2\pi\sigma^2}}
 \exp
 \left(
 -\frac{(x-\mu)^2}{2\sigma^2}
 \right)
-\end{equation}$$
+$$$$
 
 Parameters:
 
@@ -278,8 +277,7 @@ Parameters:
 
 The skew-normal density is:
 
-$$\begin{equation}
-
+$$$$
 f(x)=
 \frac{2}{\omega}
 \phi
@@ -291,7 +289,7 @@ f(x)=
 \alpha
 \frac{x-\xi}{\omega}
 \right)
-\end{equation}$$
+$$$$
 
 Parameters:
 
@@ -305,15 +303,14 @@ Parameters:
 
 The bimodal model is defined as a mixture distribution:
 
-$$\begin{equation}
-
+$$$$
 f(x)=
 w_1
 N(x;\mu_1,\sigma_1^2)
 +
 w_2
 N(x;\mu_2,\sigma_2^2)
-\end{equation}$$
+$$$$
 
 where:
 
@@ -327,8 +324,7 @@ where:
 
 The Pearson Type III probability density function:
 
-$$\begin{equation}
-
+$$$$
 f(x)=
 \frac{
 1
@@ -340,7 +336,7 @@ f(x)=
 \left(
 -\frac{x-\gamma}{\beta}
 \right)
-\end{equation}$$
+$$$$
 
 Parameters:
 
@@ -356,29 +352,26 @@ The engine evaluates candidate distributions using:
 
 ## AIC
 
-$$\begin{equation}
-
+$$$$
 AIC=2k-2\ln(\hat{L})
-\end{equation}$$
+$$$$
 
 ## Corrected AIC
 
-$$\begin{equation}
-
+$$$$
 AIC_c
 =
 AIC+
 \frac{2k(k+1)}
 {n-k-1}
-\end{equation}$$
+$$$$
 
 ## Bayesian Information Criterion
 
-$$\begin{equation}
-
+$$$$
 BIC=
 k\ln(n)-2\ln(\hat{L})
-\end{equation}$$
+$$$$
 
 where:
 
@@ -394,8 +387,7 @@ where:
 
 The separation between two Gaussian modes:
 
-$$\begin{equation}
-
+$$$$
 D=
 \frac{
 |\mu_2-\mu_1|
@@ -405,18 +397,17 @@ D=
 \frac{\sigma_1^2+\sigma_2^2}{2}
 }
 }
-\end{equation}$$
+$$$$
 
 ## Overlap Coefficient
 
-$$\begin{equation}
-
+$$$$
 OVL=
 \int_{-\infty}^{\infty}
 \min
 \{f_1(x),f_2(x)\}
 dx
-\end{equation}$$
+$$$$
 
 # Installation
 
