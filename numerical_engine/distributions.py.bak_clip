@@ -1,0 +1,460 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+numerical_engine/distributions.py
+================================================================================
+توابع برازش ۴ توزیع آماری: Normal, Skew-Normal, Bimodal, Pearson
+با Numba برای سرعت بالا.
+================================================================================
+ورژن: 3.0 - نهایی (بدون GEV، با Bimodal)
+"""
+
+import numpy as np
+from numba import njit
+import math
+from constants import MIN_VALID_VALUES
+
+# ============================================================================
+# توابع کمکی
+# ============================================================================
+@njit
+def compute_stats_numba(data):
+    n = len(data)
+    if n < MIN_VALID_VALUES:
+        return np.nan, np.nan, np.nan, np.nan, 0
+    mean = np.mean(data)
+    std = np.std(data)
+    sorted_data = np.sort(data)
+    median = sorted_data[n // 2] if n % 2 == 1 else (sorted_data[n//2 - 1] + sorted_data[n//2]) / 2
+    skew = np.mean(((data - mean) / std) ** 3) if std > 0 else 0.0
+    return mean, std, skew, median, n
+
+@njit
+def compute_aicc_numba(loglik, k, n):
+    aic = 2 * k - 2 * loglik
+    if n - k - 1 <= 0:
+        return aic
+    return aic + (2 * k * (k + 1)) / (n - k - 1)
+
+@njit
+def compute_bic_numba(loglik, k, n):
+    return k * np.log(n) - 2 * loglik
+
+# ============================================================================
+# توزیع نرمال
+# ============================================================================
+@njit
+def logpdf_normal_numba(x, mu, sigma):
+    return -0.5 * np.log(2 * np.pi) - np.log(sigma) - 0.5 * ((x - mu) / sigma) ** 2
+
+@njit
+def fit_normal_full_numba(data):
+    n = len(data)
+    mean = np.mean(data)
+    std = np.std(data)
+    if std == 0:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, 2
+    loglik = 0.0
+    for i in range(n):
+        loglik += logpdf_normal_numba(data[i], mean, std)
+    aicc = compute_aicc_numba(loglik, 2, n)
+    bic = compute_bic_numba(loglik, 2, n)
+    return mean, std, loglik, aicc, bic, 2
+
+# ============================================================================
+# توزیع Skew-normal
+# ============================================================================
+@njit
+def skewness_to_alpha(skew):
+    if abs(skew) < 0.1:
+        return 0.0
+    elif abs(skew) < 0.3:
+        return 0.5 * skew
+    elif abs(skew) < 0.6:
+        return 1.0 * skew
+    else:
+        return 2.0 * skew
+
+@njit
+def skewnorm_logpdf_scalar(x, a, loc, scale):
+    z = (x - loc) / scale
+    phi = (1.0 / math.sqrt(2 * math.pi)) * math.exp(-0.5 * z * z)
+    Phi = 0.5 * (1 + math.erf(a * z / math.sqrt(2)))
+    if Phi <= 0:
+        return -np.inf
+    return math.log(2) + math.log(phi) + math.log(Phi) - math.log(scale)
+
+@njit
+def fit_skewnorm_full_numba(data):
+    n = len(data)
+    mean = np.mean(data)
+    std = np.std(data)
+    if std == 0:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+    skew = np.mean(((data - mean) / std) ** 3)
+    if abs(skew) >= 0.99:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+    alpha = skewness_to_alpha(skew)
+    alpha = max(-10.0, min(10.0, alpha))
+    delta = alpha / np.sqrt(1 + alpha**2)
+    scale = std / np.sqrt(1 - 2 * delta**2 / np.pi)
+    loc = mean - scale * delta * np.sqrt(2 / np.pi)
+    if scale <= 0:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+    loglik = 0.0
+    for i in range(n):
+        val = skewnorm_logpdf_scalar(data[i], alpha, loc, scale)
+        if np.isinf(val):
+            return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+        loglik += val
+    aicc = compute_aicc_numba(loglik, 3, n)
+    bic = compute_bic_numba(loglik, 3, n)
+    return alpha, loc, scale, loglik, aicc, bic, 3
+
+# ============================================================================
+# توزیع Bimodal Normal (روش گشتاورها – سریع و بدون نیاز به GMM)
+# ============================================================================
+@njit
+def fit_bimodal_full_numba(data):
+    """
+    برازش Bimodal با استفاده از گشتاورهای نمونه‌ای (تخمین سریع).
+    خروجی: w1, mu1, sigma1, mu2, sigma2, loglik, aicc, bic, k=5
+    """
+    n = len(data)
+    if n < 10:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 5
+
+    mean = np.mean(data)
+    std = np.std(data)
+    if std == 0:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 5
+
+    skew = np.mean(((data - mean) / std) ** 3)
+    kurt = np.mean(((data - mean) / std) ** 4) - 3
+
+    # تخمین اولیه
+    if abs(skew) < 0.1:
+        w1 = 0.5
+        w2 = 0.5
+        if kurt > 0:
+            delta = std * np.sqrt(max(0, kurt / 2))
+        else:
+            delta = std * 0.5
+        mu1 = mean - delta
+        mu2 = mean + delta
+        sigma1 = np.sqrt(max(0.1, std**2 - delta**2))
+        sigma2 = sigma1
+    else:
+        w1 = 0.5 - 0.4 * np.clip(skew, -1, 1)
+        w2 = 1 - w1
+        delta = std * (0.5 + 0.3 * abs(skew))
+        if skew > 0:
+            mu1 = mean - w2 * delta
+            mu2 = mean + w1 * delta
+        else:
+            mu1 = mean + w2 * delta
+            mu2 = mean - w1 * delta
+        sigma1 = np.sqrt(max(0.1, std**2 - w1 * w2 * delta**2))
+        sigma2 = sigma1
+
+    # محدودیت‌ها
+    w1 = np.clip(w1, 0.01, 0.99)
+    w2 = 1 - w1
+    sigma1 = max(sigma1, 0.1)
+    sigma2 = max(sigma2, 0.1)
+
+    # محاسبه log-likelihood (تقریبی)
+    loglik = 0.0
+    inv_sqrt_2pi = 1.0 / math.sqrt(2 * math.pi)
+    for x in data:
+        pdf1 = inv_sqrt_2pi / sigma1 * math.exp(-0.5 * ((x - mu1) / sigma1) ** 2)
+        pdf2 = inv_sqrt_2pi / sigma2 * math.exp(-0.5 * ((x - mu2) / sigma2) ** 2)
+        pdf = w1 * pdf1 + w2 * pdf2
+        if pdf > 1e-300:
+            loglik += math.log(pdf)
+        else:
+            loglik += -1e6
+
+    aicc = compute_aicc_numba(loglik, 5, n)
+    bic = compute_bic_numba(loglik, 5, n)
+    return w1, mu1, sigma1, mu2, sigma2, loglik, aicc, bic, 5
+
+# ============================================================================
+# توزیع Pearson III (همانند قبل)
+# ============================================================================
+@njit
+def _norm_ppf_approx(p):
+    if p <= 0:
+        return -10.0
+    if p >= 1:
+        return 10.0
+    y = p - 0.5
+    if abs(y) < 0.42:
+        r = y * y
+        a = np.array([2.50662823884, -18.61500062529, 41.39119773534, -25.44106049637], dtype=np.float64)
+        b = np.array([-8.47351093090, 23.08336743743, -21.06224101826, 3.13082909833], dtype=np.float64)
+        x = y * (((a[3]*r + a[2])*r + a[1])*r + a[0]) / ((((b[3]*r + b[2])*r + b[1])*r + b[0])*r + 1.0)
+    else:
+        r = p if y > 0 else 1-p
+        s = math.log(-math.log(r))
+        c = np.array([0.3374754822726147, 0.9761690190917186, 0.1607979714918209,
+                      0.0276438810333863, 0.0038405729373609, 0.0003951896511919,
+                      0.0000321767881768, 0.0000002888167364, 0.0000003960315187], dtype=np.float64)
+        x = c[0] + s*(c[1] + s*(c[2] + s*(c[3] + s*(c[4] + s*(c[5] + s*(c[6] + s*(c[7] + s*c[8])))))))
+        if y < 0:
+            x = -x
+    return x
+
+@njit
+def _gamma_ppf_approx(p, alpha, scale, max_iter=50, tol=1e-7):
+    if p <= 0:
+        return 0.0
+    if p >= 1:
+        return 1e10
+    z = _norm_ppf_approx(p)
+    x0 = alpha * (1 - 1/(9*alpha) + z * math.sqrt(1/(9*alpha)))**3
+    x = max(x0, 0.1)
+    for _ in range(max_iter):
+        logpdf = (alpha-1)*math.log(x) - x - math.lgamma(alpha)
+        res = 0.0
+        term = 1.0 / alpha
+        for i in range(1, 50):
+            res += term
+            term *= x / (alpha + i)
+            if term < 1e-15:
+                break
+        cdf = 1.0 - math.exp(-x) * (x**alpha) * res / math.exp(math.lgamma(alpha))
+        cdf = min(max(cdf, 0.0), 1.0)
+        diff = cdf - p
+        if abs(diff) < tol:
+            break
+        pdf = math.exp(logpdf)
+        if pdf < 1e-20:
+            break
+        x = x - diff / pdf
+        if x <= 0:
+            x = 0.1
+    return x * scale
+
+@njit
+def _rankdata_max(data):
+    n = len(data)
+    order = np.argsort(data)
+    ranks = np.zeros(n, dtype=np.int32)
+    i = 0
+    while i < n:
+        j = order[i]
+        k = i
+        while k < n-1 and data[order[k+1]] == data[j]:
+            k += 1
+        rank_val = k + 1
+        for l in range(i, k+1):
+            ranks[order[l]] = rank_val
+        i = k + 1
+    return ranks.astype(np.float64)
+
+@njit
+def fit_pearson3_full_numba(data):
+    n = len(data)
+    if n < 5:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+
+    MEAN_ = np.mean(data)
+    STD_ = np.std(data)
+    if STD_ == 0:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+
+    sumy1 = np.sum(data)
+    sumy2 = np.sum(data**2)
+    sumy3 = np.sum(data**3)
+    SKEW_ = (sumy3 - 3*MEAN_*sumy2 + 3*MEAN_**2*sumy1 - MEAN_**3*n) * n / (n-1) / (n-2) / (STD_**3)
+
+    if SKEW_ > 2.999:
+        SKEW = 2.999
+    elif SKEW_ < -2.999:
+        SKEW = -2.999
+    else:
+        SKEW = SKEW_
+
+    INVERTED = False
+    if SKEW_ < 0:
+        DATA_111 = -data.copy()
+        INVERTED = True
+    else:
+        DATA_111 = data.copy()
+
+    minim = np.min(DATA_111)
+    DATA_111 = DATA_111 - minim
+    DATA_111 = np.where(DATA_111 == 0.0, 0.1, DATA_111)
+
+    XBAR = np.mean(DATA_111)
+    STD = np.std(DATA_111)
+    lnX_BAR = np.mean(np.log(DATA_111))
+    A = np.log(XBAR) - lnX_BAR
+    if A <= 0:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+
+    shape1 = 1/(4*A) * (1 + np.sqrt(1 + 4*A/3))
+    scale1 = XBAR / shape1
+
+    q = np.sum(DATA_111 == 0.1) / (n + 0.3*abs(SKEW) + 0.05)
+    beg = _gamma_ppf_approx(q, shape1, scale1)
+    DATA_111 += beg
+
+    XBAR = np.mean(DATA_111)
+    STD = np.std(DATA_111)
+    lnX_BAR = np.mean(np.log(DATA_111))
+    A = np.log(XBAR) - lnX_BAR
+    if A <= 0:
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+
+    shape = 1/(4*A) * (1 + np.sqrt(1 + 4*A/3))
+    scale = XBAR / shape
+
+    ranks = _rankdata_max(DATA_111)
+    q_ = (ranks - 0.42) / (n + 0.3*SKEW + 0.05)
+
+    CDF = np.zeros(n, dtype=np.float64)
+    for i in range(n):
+        x = DATA_111[i]
+        if x > 0:
+            res = 0.0
+            term = 1.0 / shape
+            for j in range(1, 50):
+                res += term
+                term *= x / (shape + j)
+                if term < 1e-15:
+                    break
+            cdf_val = 1.0 - math.exp(-x) * (x**shape) * res / math.exp(math.lgamma(shape))
+            CDF[i] = min(max(cdf_val, 0.0), 1.0)
+        else:
+            CDF[i] = 0.0
+
+    if INVERTED:
+        CDF = 1.0 - CDF
+
+    loglik = 0.0
+    for i in range(n):
+        x = DATA_111[i]
+        if x <= 0:
+            loglik = np.nan
+            break
+        loglik += (shape - 1)*math.log(x) - x/scale - shape*math.log(scale) - math.lgamma(shape)
+
+    if np.isnan(loglik):
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+
+    aicc = compute_aicc_numba(loglik, 3, n)
+    bic = compute_bic_numba(loglik, 3, n)
+
+    if INVERTED:
+        loc_main = -minim
+    else:
+        loc_main = minim
+
+    return shape, scale, loc_main, loglik, aicc, bic, 3
+
+# ============================================================================
+# تابع اصلی برازش همه توزیع‌ها (خروجی ۳۰ عنصری)
+# ============================================================================
+@njit
+def fit_all_distributions_numba(data):
+    out = np.full(30, np.nan, dtype=np.float64)
+    n = len(data)
+    if n < MIN_VALID_VALUES:
+        out[0] = -1
+        return out
+
+    data_clean = data[~np.isnan(data)]
+    n_clean = len(data_clean)
+    if n_clean < MIN_VALID_VALUES:
+        out[0] = -1
+        out[1] = np.nanmean(data)
+        out[2] = np.nanstd(data)
+        out[3] = 0.0
+        out[4] = np.nanmedian(data)
+        out[5] = n_clean
+        return out
+
+    mean, std, skew, median, count = compute_stats_numba(data_clean)
+    if std < 1e-10:
+        out[0] = -1
+        out[1] = mean
+        out[2] = std
+        out[3] = skew
+        out[4] = median
+        out[5] = count
+        return out
+
+    # برازش ۴ توزیع
+    n_p1, n_p2, n_ll, n_aicc, n_bic, n_k = fit_normal_full_numba(data_clean)
+    s_p1, s_p2, s_p3, s_ll, s_aicc, s_bic, s_k = fit_skewnorm_full_numba(data_clean)
+    b_p1, b_p2, b_p3, b_p4, b_p5, b_ll, b_aicc, b_bic, b_k = fit_bimodal_full_numba(data_clean)
+    p_p1, p_p2, p_p3, p_ll, p_aicc, p_bic, p_k = fit_pearson3_full_numba(data_clean)
+
+    # انتخاب بهترین با AICc
+    best_code = -1
+    best_aicc = np.inf
+    if not np.isnan(n_aicc) and n_aicc < best_aicc:
+        best_aicc = n_aicc
+        best_code = 0  # Normal
+    if not np.isnan(s_aicc) and s_aicc < best_aicc:
+        best_aicc = s_aicc
+        best_code = 1  # Skew-Normal
+    if not np.isnan(b_aicc) and b_aicc < best_aicc:
+        best_aicc = b_aicc
+        best_code = 2  # Bimodal
+    if not np.isnan(p_aicc) and p_aicc < best_aicc:
+        best_aicc = p_aicc
+        best_code = 3  # Pearson
+
+    # پر کردن خروجی (30 عنصر)
+    out[0] = best_code                     # 0
+    out[1] = mean                          # 1
+    out[2] = std                           # 2
+    out[3] = skew                          # 3
+    out[4] = median                        # 4
+    out[5] = count                         # 5
+    out[6] = n_p1                          # 6: normal_p1
+    out[7] = n_p2                          # 7: normal_p2
+    out[8] = n_ll                          # 8: normal_loglik
+    out[9] = n_aicc                        # 9: normal_aicc
+    out[10] = n_bic                        # 10: normal_bic
+    out[11] = s_p1                         # 11: skew_p1
+    out[12] = s_p2                         # 12: skew_p2
+    out[13] = s_p3                         # 13: skew_p3
+    out[14] = s_ll                         # 14: skew_loglik
+    out[15] = s_aicc                       # 15: skew_aicc
+    out[16] = s_bic                        # 16: skew_bic
+    out[17] = b_p1                         # 17: bimodal_p1 (w1)
+    out[18] = b_p2                         # 18: bimodal_p2 (mu1)
+    out[19] = b_p3                         # 19: bimodal_p3 (sigma1)
+    out[20] = b_p4                         # 20: bimodal_p4 (mu2)
+    out[21] = b_p5                         # 21: bimodal_p5 (sigma2)
+    out[22] = b_ll                         # 22: bimodal_loglik
+    out[23] = b_aicc                       # 23: bimodal_aicc
+    out[24] = b_bic                        # 24: bimodal_bic
+    out[25] = p_p1                         # 25: pearson_p1
+    out[26] = p_p2                         # 26: pearson_p2
+    out[27] = p_p3                         # 27: pearson_p3
+    out[28] = p_ll                         # 28: pearson_loglik
+    out[29] = p_aicc                       # 29: pearson_aicc
+    # توجه: p_bic در خروجی ۳۰ عنصری جایی ندارد (چون فقط ۳۰ عنصر داریم)
+    # اما در analyze_station از res[30] استفاده شده که باید اصلاح شود.
+    # بنابراین p_bic را حذف می‌کنیم تا خروجی دقیقاً ۳۰ عنصر باشد.
+    # در analyze_station نیز باید این تغییر اعمال شود.
+
+    return out
+
+# ============================================================================
+# Wrapper
+# ============================================================================
+def fit_distribution(values):
+    if values is None or len(values) < MIN_VALID_VALUES:
+        return None
+    return fit_all_distributions_numba(values)
+
+if __name__ == "__main__":
+    sample = np.random.randn(200).astype(np.float64)
+    _ = fit_all_distributions_numba(sample)
+    print("✅ Numba distributions compiled successfully.")

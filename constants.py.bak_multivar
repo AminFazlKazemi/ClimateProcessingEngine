@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+constants.py
+================================================================================
+خواندن config.yaml و تعریف ثابت‌های پروژه.
+همه تنظیمات از یک فایل خوانده می‌شوند. هیچ عدد ثابتی در کد تکرار نشده است.
+================================================================================
+ورژن: 2.0 - نهایی
+"""
+
+import os
+import yaml
+import numpy as np
+
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
+
+def load_config(path=CONFIG_PATH):
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+CONFIG = load_config()
+
+# ---------- بازه زمانی ----------
+YEAR_START = CONFIG["years"]["start"]
+YEAR_END = CONFIG["years"]["end"]
+N_YEARS = YEAR_END - YEAR_START + 1
+N_DAYS = CONFIG["days"]
+WINDOW_DAYS = CONFIG["window_days"]
+
+# ---------- متغیرها ----------
+VARS = CONFIG["variables"]
+FIT_VARS = ['tmin', 'tmean', 'tmax']  # متغیرهای مورد نظر برای برازش
+N_VARS = len(VARS)
+N_FIT_VARS = 3
+N_OUTPUTS_PER_VAR = 30
+VAR_INDEX_FOR_FIT = CONFIG["fit_variable_index"]
+
+# ---------- مسیرها ----------
+PATHS = CONFIG["paths"]
+ZARR_BASE = PATHS["zarr_base"]
+OUTPUT_DIR = PATHS["output_dir"]
+OUTPUT_ZARR = os.path.join(OUTPUT_DIR, PATHS["output_zarr_name"])
+CHECKPOINT_FILE = os.path.join(OUTPUT_DIR, PATHS["checkpoint_file"])
+CALENDAR_FILE = PATHS["calendar_file"]
+
+# ---------- اجرا ----------
+BLOCK_SIZE = CONFIG["block_size"]
+N_CORES = CONFIG["cores"]
+USE_PARALLEL = CONFIG.get("use_parallel", False)
+
+# ---------- اعتبارسنجی ----------
+VALIDATE_AFTER_LOAD = CONFIG["validation"]["validate_after_load"]
+VALIDATE_BEFORE_WRITE = CONFIG["validation"]["validate_before_write"]
+VALIDATE_EVERY_N_BLOCKS = CONFIG["validation"]["validate_every_n_blocks"]
+
+# ---------- لاگ ----------
+LOG_LEVEL = CONFIG["logging"]["level"]
+LOG_FILE = os.path.join(OUTPUT_DIR, CONFIG["logging"]["log_file"])
+LOG_TIMESTAMPS = CONFIG["logging"]["log_timestamps"]
+
+# ---------- Benchmark ----------
+BENCHMARK_ENABLED = CONFIG["benchmark"]["enabled"]
+BENCHMARK_RUN_FIRST = CONFIG["benchmark"]["run_on_first_block"]
+BENCHMARK_TEST_SIZES = CONFIG["benchmark"]["test_block_sizes"]
+
+# ---------- NumPy ----------
+FLOAT_DTYPE = np.float32
+INT_DTYPE = np.int32
+
+# ---------- ثابت‌های جدید (اعداد جادویی حذف شدند) ----------
+WINDOW_SIZE = 2 * WINDOW_DAYS + 1          # 5
+MAX_VALUES_PER_FIT = N_YEARS * WINDOW_SIZE  # 155
+MIN_VALID_VALUES = 5
+VALID_BEST_DIST = {-1, 0, 1, 2, 3}
+BIMODAL_N_COMPONENTS = 2  # تعداد مؤلفه‌ها در Bimodal
+
+# N_OUTPUTS از zarr_schema می‌آید (در آنجا تعریف می‌شود)
+
+def ensure_directories():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+    return OUTPUT_DIR
+
+def validate_config():
+    errors = []
+    if YEAR_START >= YEAR_END:
+        errors.append("YEAR_START باید کمتر از YEAR_END باشد")
+    if N_DAYS not in [365, 366]:
+        errors.append("N_DAYS باید 365 یا 366 باشد")
+    if VAR_INDEX_FOR_FIT not in range(N_VARS):
+        errors.append(f"VAR_INDEX_FOR_FIT باید بین 0 و {N_VARS-1} باشد")
+    if BLOCK_SIZE < 1:
+        errors.append("BLOCK_SIZE باید مثبت باشد")
+    if errors:
+        raise ValueError("خطا در تنظیمات:\n" + "\n".join(errors))
+    return True
+
+if __name__ == "__main__":
+    validate_config()
+    print(f"✅ تنظیمات بارگذاری شد. {N_YEARS} سال، {N_DAYS} روز، {N_VARS} متغیر")

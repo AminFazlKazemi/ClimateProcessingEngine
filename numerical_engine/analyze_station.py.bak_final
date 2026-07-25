@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+numerical_engine/analyze_station.py
+================================================================================
+تحلیل یک ایستگاه برای چند متغیر (tmin, tmean, tmax)
+================================================================================
+"""
+
+import numpy as np
+from numerical_engine.window_engine import extract_window_values_fast
+from numerical_engine.distributions import fit_distribution
+from constants import N_DAYS, VAR_INDEX_FOR_FIT, FIT_VARS
+
+# لیست نام‌های پایه متغیرهای خروجی برای هر متغیر ورودی
+VAR_BASE_NAMES = [
+    'best_dist', 'mean', 'std', 'skewness', 'median', 'count',
+    'normal_p1', 'normal_p2', 'normal_loglik', 'normal_aicc', 'normal_bic',
+    'skew_p1', 'skew_p2', 'skew_p3', 'skew_loglik', 'skew_aicc', 'skew_bic',
+    'bimodal_p1', 'bimodal_p2', 'bimodal_p3', 'bimodal_p4', 'bimodal_p5',
+    'bimodal_loglik', 'bimodal_aicc', 'bimodal_bic',
+    'pearson_p1', 'pearson_p2', 'pearson_p3',
+    'pearson_loglik', 'pearson_aicc', 'pearson_bic'
+]
+
+def analyze_station(station_data, window_table, var_indices=None):
+    """
+    تحلیل یک ایستگاه برای چند متغیر مشخص
+    station_data: (N_YEARS, N_DAYS, N_VARS) - همه متغیرها
+    var_indices: لیست اندیس‌های متغیرهای مورد نظر برای برازش
+    """
+    if var_indices is None:
+        var_indices = [VAR_INDEX_FOR_FIT]  # fallback
+    n_vars = len(var_indices)
+    n_outputs_per_var = 30  # تعداد متغیرهای خروجی برای هر متغیر
+
+    # مقداردهی اولیه دیکشنری نتیجه
+    result = {}
+    for var_idx, var_name in enumerate(FIT_VARS):
+        prefix = var_name + "_"
+        for base_name in VAR_BASE_NAMES:
+            name = prefix + base_name
+            if base_name == "best_dist":
+                result[name] = np.full(N_DAYS, -1, dtype=np.int32)
+            elif base_name == "count":
+                result[name] = np.zeros(N_DAYS, dtype=np.int32)
+            else:
+                result[name] = np.full(N_DAYS, np.nan, dtype=np.float32)
+
+    # پردازش هر متغیر
+    for var_idx, var_pos in enumerate(var_indices):
+        prefix = FIT_VARS[var_idx] + "_"
+        windows = extract_window_values_fast(station_data, window_table, var_pos)
+
+        for doy_idx, values in enumerate(windows):
+            if values is None:
+                continue
+            res = fit_distribution(values)
+            if res is None or np.isnan(res[0]):
+                continue
+
+            best_code = int(res[0])
+            result[prefix + "best_dist"][doy_idx] = best_code
+            # normal
+            result[prefix + "normal_p1"][doy_idx] = res[6]
+            result[prefix + "normal_p2"][doy_idx] = res[7]
+            result[prefix + "normal_loglik"][doy_idx] = res[8]
+            result[prefix + "normal_aicc"][doy_idx] = res[9]
+            result[prefix + "normal_bic"][doy_idx] = res[10]
+            # skew
+            result[prefix + "skew_p1"][doy_idx] = res[11]
+            result[prefix + "skew_p2"][doy_idx] = res[12]
+            result[prefix + "skew_p3"][doy_idx] = res[13]
+            result[prefix + "skew_loglik"][doy_idx] = res[14]
+            result[prefix + "skew_aicc"][doy_idx] = res[15]
+            result[prefix + "skew_bic"][doy_idx] = res[16]
+            # bimodal
+            result[prefix + "bimodal_p1"][doy_idx] = res[17]
+            result[prefix + "bimodal_p2"][doy_idx] = res[18]
+            result[prefix + "bimodal_p3"][doy_idx] = res[19]
+            result[prefix + "bimodal_p4"][doy_idx] = res[20]
+            result[prefix + "bimodal_p5"][doy_idx] = res[21]
+            result[prefix + "bimodal_loglik"][doy_idx] = res[22]
+            result[prefix + "bimodal_aicc"][doy_idx] = res[23]
+            result[prefix + "bimodal_bic"][doy_idx] = res[24]
+            # pearson
+            result[prefix + "pearson_p1"][doy_idx] = res[25]
+            result[prefix + "pearson_p2"][doy_idx] = res[26]
+            result[prefix + "pearson_p3"][doy_idx] = res[27]
+            result[prefix + "pearson_loglik"][doy_idx] = res[28]
+            result[prefix + "pearson_aicc"][doy_idx] = res[29]
+            result[prefix + "pearson_bic"][doy_idx] = res[30]
+            # statistics
+            result[prefix + "mean"][doy_idx] = res[1]
+            result[prefix + "std"][doy_idx] = res[2]
+            result[prefix + "skewness"][doy_idx] = res[3]
+            result[prefix + "median"][doy_idx] = res[4]
+            result[prefix + "count"][doy_idx] = int(res[5])
+
+    return result

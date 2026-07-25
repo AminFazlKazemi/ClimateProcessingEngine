@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+zarr_schema.py
+================================================================================
+تعریف شِمای خروجی Zarr.
+تنها منبع حقیقت (Single Source of Truth) برای تعریف متغیرها.
+================================================================================
+ورژن: 2.0 - نهایی
+"""
+
+import os
+import numpy as np
+import zarr
+import zarr.codecs
+from constants import N_DAYS, N_YEARS, FLOAT_DTYPE, INT_DTYPE
+
+# ============================================================================
+# تعریف متغیرها
+# ============================================================================
+VAR_DEFS = [
+    ("best_dist", "i4", -1, "0=Normal, 1=Skew, 2=GEV, 3=Pearson, -1=failed"),
+    ("mean", "f4", np.nan, "میانگین"),
+    ("std", "f4", np.nan, "انحراف معیار"),
+    ("skewness", "f4", np.nan, "چولگی"),
+    ("median", "f4", np.nan, "میانه"),
+    ("count", "i4", 0, "تعداد داده‌های معتبر استفاده‌شده"),
+    ("normal_p1", "f4", np.nan, "mean"),
+    ("normal_p2", "f4", np.nan, "std"),
+    ("normal_loglik", "f4", np.nan, "log-likelihood"),
+    ("normal_aicc", "f4", np.nan, "AICc"),
+    ("normal_bic", "f4", np.nan, "BIC"),
+    ("skew_p1", "f4", np.nan, "alpha (shape)"),
+    ("skew_p2", "f4", np.nan, "loc"),
+    ("skew_p3", "f4", np.nan, "scale"),
+    ("skew_loglik", "f4", np.nan, "log-likelihood"),
+    ("skew_aicc", "f4", np.nan, "AICc"),
+    ("skew_bic", "f4", np.nan, "BIC"),
+    ("gev_p1", "f4", np.nan, "shape (kisi)"),
+    ("gev_p2", "f4", np.nan, "loc"),
+    ("gev_p3", "f4", np.nan, "scale"),
+    ("gev_loglik", "f4", np.nan, "log-likelihood"),
+    ("gev_aicc", "f4", np.nan, "AICc"),
+    ("gev_bic", "f4", np.nan, "BIC"),
+    ("pearson_p1", "f4", np.nan, "shape"),
+    ("pearson_p2", "f4", np.nan, "scale"),
+    ("pearson_p3", "f4", np.nan, "loc"),
+    ("pearson_loglik", "f4", np.nan, "log-likelihood"),
+    ("pearson_aicc", "f4", np.nan, "AICc"),
+    ("pearson_bic", "f4", np.nan, "BIC"),
+]
+
+N_OUTPUTS = len(VAR_DEFS)
+VAR_NAMES = [v[0] for v in VAR_DEFS]
+VAR_DTYPES = {v[0]: v[1] for v in VAR_DEFS}
+VAR_FILLS = {v[0]: v[2] for v in VAR_DEFS}
+VAR_DESCS = {v[0]: v[3] for v in VAR_DEFS}
+
+# ============================================================================
+# توابع کمکی
+# ============================================================================
+
+def get_dtype(dtype_str):
+    if dtype_str == "i4":
+        return INT_DTYPE
+    elif dtype_str == "f4":
+        return FLOAT_DTYPE
+    else:
+        raise ValueError(f"dtype ناشناخته: {dtype_str}")
+
+def create_empty_block_result(block_size):
+    """ایجاد block_result خالی برای یک بلوک"""
+    result = {}
+    for name, dtype_str, fill, _ in VAR_DEFS:
+        dtype = get_dtype(dtype_str)
+        result[name] = np.full((N_DAYS, block_size), fill, dtype=dtype)
+    return result
+
+def create_zarr_store(output_path, n_stations, chunk_size=(366, 100)):
+    """ایجاد Zarr Store با همه متغیرها"""
+    import shutil
+    if os.path.exists(output_path):
+        shutil.rmtree(output_path)
+    
+    root = zarr.open(output_path, mode="w")
+    blosc = zarr.codecs.Blosc(cname="zstd", clevel=3)
+    
+    for name, dtype_str, fill, desc in VAR_DEFS:
+        dtype = get_dtype(dtype_str)
+        root.create_array(
+            name,
+            shape=(N_DAYS, n_stations),
+            dtype=dtype,
+            chunks=chunk_size,
+            fill_value=fill,
+            compressors=[blosc],
+            dimension_names=("day_of_year", "point"),
+        )
+    return root
+
+def add_coords_and_metadata(ds, station_ids, lons, lats, elevs):
+    """افزودن مختصات و متادیتا به دیتاست"""
+    ds = ds.assign_coords({
+        "day_of_year": np.arange(1, N_DAYS + 1),
+        "point": np.arange(len(station_ids)),
+        "stationid": ("point", station_ids),
+        "lon": ("point", lons),
+        "lat": ("point", lats),
+        "elev": ("point", elevs),
+    })
+    ds.attrs["description"] = "Climatology 366 days - Station-wise architecture"
+    ds.attrs["var_defs"] = str(VAR_DEFS)
+    ds.attrs["n_outputs"] = N_OUTPUTS
+    return ds
+
+if __name__ == "__main__":
+    print(f"✅ {N_OUTPUTS} متغیر تعریف شد.")
+    print("✅ Zarr Schema آماده است.")

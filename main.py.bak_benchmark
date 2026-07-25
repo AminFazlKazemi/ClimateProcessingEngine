@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+main.py - نقطه ورود اصلی
+================================================================================
+نسخه ۲.۱ - با ذخیره‌سازی نتایج Benchmark
+================================================================================
+"""
+
+import os
+import sys
+import time
+import json
+import numpy as np
+import xarray as xr
+import zarr
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+from constants import (
+    FIT_VARS,
+    YEAR_START, YEAR_END, N_YEARS, N_DAYS,
+    ZARR_BASE, OUTPUT_DIR, OUTPUT_ZARR, CHECKPOINT_FILE,
+    BLOCK_SIZE, VAR_INDEX_FOR_FIT, USE_PARALLEL,
+    BENCHMARK_ENABLED, BENCHMARK_RUN_FIRST,
+    MAX_VALUES_PER_FIT, MIN_VALID_VALUES,
+)
+from zarr_schema import N_OUTPUTS
+from calendar_tables import build_calendar_tables
+from runtime_tables import build_runtime_tables
+from zarr_schema import create_zarr_store, add_coords_and_metadata
+from orchestrator.process_block import process_block
+from monitoring.checkpoint import load_checkpoint, save_checkpoint, delete_checkpoint
+from monitoring.benchmark import run_benchmark, print_benchmark_report
+from monitoring.logger import logger
+
+# ============================================================================
+# مسیر فایل ذخیره‌سازی Benchmark
+# ============================================================================
+BENCHMARK_RESULTS_FILE = os.path.join(OUTPUT_DIR, "benchmark_results.json")
+
+def load_benchmark_results():
+    """بارگذاری نتایج Benchmark از فایل"""
+    if os.path.exists(BENCHMARK_RESULTS_FILE):
+        try:
+            with open(BENCHMARK_RESULTS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return None
+    return None
+
+def save_benchmark_results(results):
+    """ذخیره نتایج Benchmark در فایل"""
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with open(BENCHMARK_RESULTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+    logger.info(f"   ✅ Benchmark results saved to: {BENCHMARK_RESULTS_FILE}")
+
+# ============================================================================
+# توابع کمکی
+# ============================================================================
+
+def get_station_info(zarr_base):
+    import glob
+    zarr_files = glob.glob(os.path.join(zarr_base, "*.zarr"))
+    if not zarr_files:
+        raise FileNotFoundError(f"No Zarr files found in {zarr_base}")
+    ds = xr.open_zarr(zarr_files[0], consolidated=False)
+    n_stations = ds.sizes["point"]
+    station_ids = ds["stationid"].values
+    lons = ds["lon"].values
+    lats = ds["lat"].values
+    elevs = ds["elev"].values
+    ds.close()
+    return n_stations, station_ids, lons, lats, elevs
+
+# ============================================================================
+# تابع اصلی
+# ============================================================================
+
+def main():
+    start_time = time.time()
+    logger.info("=" * 80)
+
+    # محاسبه اندیس متغیرهای مورد نظر برای برازش
+    try:
+        var_indices = [VARS.index(v) for v in FIT_VARS]
+    except ValueError as e:
+        logger.error(f"متغیر مورد نظر در VARS یافت نشد: {e}")
+        sys.exit(1)
+    logger.info(f"   برازش برای متغیرها: {FIT_VARS} (indices: {var_indices})")
+
+
+    # محاسبه اندیس متغیرهای مورد نظر برای برازش
+    try:
+        var_indices = [VARS.index(v) for v in FIT_VARS]
+    except ValueError as e:
+        logger.error(f"متغیر مورد نظر در VARS یافت نشد: {e}")
+        sys.exit(1)
+    logger.info(f"   برازش برای متغیرها: {FIT_VARS} (indices: {var_indices})")
+
+    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v2.1 - با ذخیره Benchmark")
+    logger.info(f"   Years: {YEAR_START}–{YEAR_END} ({N_YEARS} years)")
+    logger.info(f"   Days: {N_DAYS}")
+    logger.info(f"   Output: {OUTPUT_ZARR}")
+    logger.info(f"   N_OUTPUTS: {N_OUTPUTS}, MAX_VALUES: {MAX_VALUES_PER_FIT}")
+    logger.info(f"   Parallel: {USE_PARALLEL} (disabled in v1)")
+    logger.info("=" * 80)
+
+    # Station info
+    logger.info("Reading station information...")
+    n_stations, station_ids, lons, lats, elevs = get_station_info(ZARR_BASE)
+    logger.info(f"   ✅ {n_stations:,} stations found")
+
+    # Tables
+    logger.info("Building calendar tables...")
+    calendar_tables = build_calendar_tables()
+    doy_table = calendar_tables["doy_table"]
+    year_list = calendar_tables["year_list"]
+    logger.info(f"   ✅ doy_table shape: {doy_table.shape}")
+
+    logger.info("Building runtime tables...")
+    runtime_tables = build_runtime_tables(ZARR_BASE)
+    file_map = runtime_tables["file_map"]
+    window_table = runtime_tables["window_table"]
+    logger.info(f"   ✅ {len(file_map)} files in file_map")
+    logger.info(f"   ✅ {len(window_table)} windows in window_table")
+
+    # ========================================================================
+    # Benchmark با قابلیت ذخیره‌سازی
+    # ========================================================================
+
+    # بررسی وجود نتایج ذخیره‌شده
+    cached_benchmark = load_benchmark_results()
+
+    if cached_benchmark and BENCHMARK_ENABLED:
+        logger.info("📊 Using cached benchmark results...")
+        recommended_size = cached_benchmark.get("recommended", BLOCK_SIZE)
+        logger.info(f"   ✅ Using recommended block size: {recommended_size} (from cache)")
+        actual_block_size = recommended_size
+        # چاپ خلاصه
+        print("\n" + "=" * 70)
+        print("📊 CACHED BENCHMARK REPORT")
+        print("=" * 70)
+        for size, stats in cached_benchmark.get("results", {}).items():
+            print(f"   Size {size:4d}: Load {stats['load']:6.1f}s | Analyze {stats['analyze']:6.1f}s | Write {stats['write']:5.1f}s | {stats['stations_per_sec']:5.1f} st/s | RAM {stats['ram_peak_gb']:.2f}GB")
+        print("-" * 70)
+        print(f"✅ Recommended: {recommended_size}")
+        print("=" * 70)
+
+    elif BENCHMARK_ENABLED and BENCHMARK_RUN_FIRST:
+        logger.info("Running benchmark...")
+        from io_pipeline.read_month_files import read_month_files
+        from io_pipeline.assemble_block import assemble_block
+        from numerical_engine.merge_results import create_and_merge_results
+
+        def load_func(start, size):
+            data_dict = read_month_files(start, size, file_map, year_list)
+            return assemble_block(data_dict, doy_table, size, year_list)
+
+        def analyze_func(data):
+            return create_and_merge_results(data, window_table, VAR_INDEX_FOR_FIT)
+
+        def write_func(result):
+            pass
+
+        benchmark_report = run_benchmark(load_func, analyze_func, write_func)
+        print_benchmark_report(benchmark_report)
+        recommended_size = benchmark_report["recommended"]
+        logger.info(f"   ✅ Using recommended block size: {recommended_size}")
+
+        # ذخیره نتایج
+        save_benchmark_results(benchmark_report)
+        actual_block_size = recommended_size
+    else:
+        actual_block_size = BLOCK_SIZE
+
+    # Zarr Store
+    logger.info("Creating Zarr store...")
+    root = create_zarr_store(OUTPUT_ZARR, n_stations)
+    logger.info(f"   ✅ Zarr created: {OUTPUT_ZARR}")
+
+    # Checkpoint
+    checkpoint = load_checkpoint()
+    start_block = 0
+    start_station = 0
+    if checkpoint:
+        start_block = checkpoint.get("block", 0)
+        start_station = checkpoint.get("station", 0)
+        logger.info(f"   ⏩ Resuming from block {start_block}, station {start_station}")
+
+    # Main loop (single process)
+    logger.info("Starting processing...")
+    if start_station > 0:
+        start_block = start_station // actual_block_size
+    total_blocks = (n_stations + actual_block_size - 1) // actual_block_size
+    logger.info(f"   Total blocks: {total_blocks}")
+    logger.info(f"   Starting from block {start_block}")
+
+    for block_idx in range(start_block, total_blocks):
+        block_start = block_idx * actual_block_size
+        block_end = min(block_start + actual_block_size, n_stations)
+        last_station = None
+        if block_idx == start_block and start_station > 0:
+            last_station = start_station
+        try:
+            result = process_block(
+                block_start=block_start,
+                block_end=block_end,
+                block_idx=block_idx,
+                file_map=file_map,
+                doy_table=doy_table,
+                window_table=window_table,
+                year_list=year_list,
+                root=root,
+                var_idx=VAR_INDEX_FOR_FIT,
+                last_checkpoint_station=last_station,
+            )
+            save_checkpoint(block_idx, block_end - 1)
+        except Exception as e:
+            logger.error(f"Block {block_idx} failed: {e}")
+            save_checkpoint(block_idx, block_start)
+            raise
+
+    # Finalize
+    logger.info("Finalizing Zarr...")
+    root.store.close()
+    ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
+    ds = add_coords_and_metadata(ds, station_ids, lons, lats, elevs)
+    ds.attrs["source"] = f"Years {YEAR_START}-{YEAR_END}, Window ±2 days"
+    ds.attrs["architecture"] = "Station-wise, Block-oriented"
+    ds.attrs["version"] = "2.1"
+    ds.attrs["n_outputs"] = N_OUTPUTS
+    ds.attrs["min_valid_values"] = MIN_VALID_VALUES
+    ds.to_zarr(OUTPUT_ZARR, mode="a", consolidated=False)
+    ds.close()
+    try:
+        zarr.consolidate_metadata(OUTPUT_ZARR)
+    except:
+        pass
+    delete_checkpoint()
+
+    total_time = time.time() - start_time
+    logger.info("=" * 80)
+    logger.info("✅ PROCESSING COMPLETED SUCCESSFULLY")
+    logger.info(f"   Total time: {total_time / 60:.1f} minutes")
+    logger.info(f"   Output: {OUTPUT_ZARR}")
+    logger.info("=" * 80)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        logger.warning("Interrupted by user. Checkpoint saved.")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        raise
