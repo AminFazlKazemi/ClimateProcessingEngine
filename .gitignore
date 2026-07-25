@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.bak*
+*.tmp
+*.log
+*.zarr
+*.zip
+*.pdf
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+checkpoint.csv
+climatology.log
+backup/
