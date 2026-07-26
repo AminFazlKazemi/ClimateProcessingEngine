@@ -103,4 +103,36 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
     logger.info(f"      Load: {times['load']:.1f}s | Analyze: {times['analyze']:.1f}s | Write: {times['write']:.1f}s")
     logger.info(f"      Stations/sec: {stations_per_sec:.1f}")
 
+
+    # ====================================================================
+    # ذخیره داده‌های پنجره‌ای در Zarr میانی (فقط یک بار)
+    # ====================================================================
+    if not os.environ.get("SKIP_WINDOW_CACHE", "0") == "1":
+        try:
+            from numerical_engine.window_engine import extract_window_values_fast
+            cache_path = os.path.join(os.path.dirname(root.store.path), "window_cache.zarr")
+            import zarr
+            cache_root = zarr.open(cache_path, mode="a")
+            # تعیین تعداد کل ایستگاه‌ها (از root بگیریم)
+            n_stations_total = root["best_dist"].shape[1]
+            if "window_data" not in cache_root:
+                cache_root.create_array(
+                    "window_data",
+                    shape=(n_stations_total, N_DAYS, MAX_VALUES_PER_FIT),
+                    chunks=(100, 366, 155),
+                    dtype=np.float32,
+                    fill_value=np.nan,
+                )
+            for local_idx in range(block_size):
+                station_data = block_data[local_idx]
+                windows = extract_window_values_fast(station_data, window_table, var_idx)
+                global_idx = block_start + local_idx
+                for doy_idx, vals in enumerate(windows):
+                    if vals is not None:
+                        vals_trim = vals[:MAX_VALUES_PER_FIT]
+                        cache_root["window_data"][global_idx, doy_idx, :len(vals_trim)] = vals_trim
+            logger.info("   💾 Window data cached.")
+        except Exception as e:
+            logger.warning(f"   ⚠️ Window caching failed: {e}")
+
     return {"block_idx": block_idx, "times": times, "total_time": total_time, "stations_per_sec": stations_per_sec}

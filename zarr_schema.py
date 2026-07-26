@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-zarr_schema.py
-================================================================================
-تعریف شِمای خروجی Zarr.
-تنها منبع حقیقت (Single Source of Truth) برای تعریف متغیرها.
-================================================================================
-ورژن: 2.0 - نهایی
+zarr_schema.py - شِمای پویا با پشتیبانی از توزیع‌های متعدد
 """
 
 import os
@@ -16,39 +11,52 @@ import zarr.codecs
 from constants import N_DAYS, N_YEARS, FLOAT_DTYPE, INT_DTYPE
 
 # ============================================================================
-# تعریف متغیرها
+# تعریف توزیع‌ها
 # ============================================================================
+DISTRIBUTIONS = [
+    {
+        "name": "normal",
+        "params": [("p1", "f4", "mean"), ("p2", "f4", "std")],
+        "code": 0,
+        "param_count": 2,
+    },
+    {
+        "name": "skew",
+        "params": [("p1", "f4", "alpha"), ("p2", "f4", "loc"), ("p3", "f4", "scale")],
+        "code": 1,
+        "param_count": 3,
+    },
+    {
+        "name": "bimodal",
+        "params": [("p1", "f4", "w1"), ("p2", "f4", "mu1"), ("p3", "f4", "sigma1"),
+                   ("p4", "f4", "mu2"), ("p5", "f4", "sigma2")],
+        "code": 2,
+        "param_count": 5,
+    },
+    {
+        "name": "pearson",
+        "params": [("p1", "f4", "shape"), ("p2", "f4", "scale"), ("p3", "f4", "loc")],
+        "code": 3,
+        "param_count": 3,
+    },
+]
+
+# ساخت خودکار متغیرها
 VAR_DEFS = [
-    ("best_dist", "i4", -1, "0=Normal, 1=Skew, 2=GEV, 3=Pearson, -1=failed"),
+    ("best_dist", "i4", -1, "کد بهترین توزیع"),
     ("mean", "f4", np.nan, "میانگین"),
     ("std", "f4", np.nan, "انحراف معیار"),
     ("skewness", "f4", np.nan, "چولگی"),
     ("median", "f4", np.nan, "میانه"),
-    ("count", "i4", 0, "تعداد داده‌های معتبر استفاده‌شده"),
-    ("normal_p1", "f4", np.nan, "mean"),
-    ("normal_p2", "f4", np.nan, "std"),
-    ("normal_loglik", "f4", np.nan, "log-likelihood"),
-    ("normal_aicc", "f4", np.nan, "AICc"),
-    ("normal_bic", "f4", np.nan, "BIC"),
-    ("skew_p1", "f4", np.nan, "alpha (shape)"),
-    ("skew_p2", "f4", np.nan, "loc"),
-    ("skew_p3", "f4", np.nan, "scale"),
-    ("skew_loglik", "f4", np.nan, "log-likelihood"),
-    ("skew_aicc", "f4", np.nan, "AICc"),
-    ("skew_bic", "f4", np.nan, "BIC"),
-    ("gev_p1", "f4", np.nan, "shape (kisi)"),
-    ("gev_p2", "f4", np.nan, "loc"),
-    ("gev_p3", "f4", np.nan, "scale"),
-    ("gev_loglik", "f4", np.nan, "log-likelihood"),
-    ("gev_aicc", "f4", np.nan, "AICc"),
-    ("gev_bic", "f4", np.nan, "BIC"),
-    ("pearson_p1", "f4", np.nan, "shape"),
-    ("pearson_p2", "f4", np.nan, "scale"),
-    ("pearson_p3", "f4", np.nan, "loc"),
-    ("pearson_loglik", "f4", np.nan, "log-likelihood"),
-    ("pearson_aicc", "f4", np.nan, "AICc"),
-    ("pearson_bic", "f4", np.nan, "BIC"),
+    ("count", "i4", 0, "تعداد داده‌های معتبر"),
 ]
+
+for dist in DISTRIBUTIONS:
+    name = dist["name"]
+    for pname, dtype, desc in dist["params"]:
+        VAR_DEFS.append((f"{name}_{pname}", dtype, np.nan, desc))
+    for stat in ["loglik", "aicc", "bic"]:
+        VAR_DEFS.append((f"{name}_{stat}", "f4", np.nan, f"{stat.upper()}"))
 
 N_OUTPUTS = len(VAR_DEFS)
 VAR_NAMES = [v[0] for v in VAR_DEFS]
@@ -56,20 +64,10 @@ VAR_DTYPES = {v[0]: v[1] for v in VAR_DEFS}
 VAR_FILLS = {v[0]: v[2] for v in VAR_DEFS}
 VAR_DESCS = {v[0]: v[3] for v in VAR_DEFS}
 
-# ============================================================================
-# توابع کمکی
-# ============================================================================
-
 def get_dtype(dtype_str):
-    if dtype_str == "i4":
-        return INT_DTYPE
-    elif dtype_str == "f4":
-        return FLOAT_DTYPE
-    else:
-        raise ValueError(f"dtype ناشناخته: {dtype_str}")
+    return INT_DTYPE if dtype_str == "i4" else FLOAT_DTYPE
 
 def create_empty_block_result(block_size):
-    """ایجاد block_result خالی برای یک بلوک"""
     result = {}
     for name, dtype_str, fill, _ in VAR_DEFS:
         dtype = get_dtype(dtype_str)
@@ -77,14 +75,10 @@ def create_empty_block_result(block_size):
     return result
 
 def create_zarr_store(output_path, n_stations, chunk_size=(366, 100)):
-    """ایجاد Zarr Store با همه متغیرها"""
-    import shutil
     if os.path.exists(output_path):
         shutil.rmtree(output_path)
-    
     root = zarr.open(output_path, mode="w")
     blosc = zarr.codecs.Blosc(cname="zstd", clevel=3)
-    
     for name, dtype_str, fill, desc in VAR_DEFS:
         dtype = get_dtype(dtype_str)
         root.create_array(
@@ -99,7 +93,6 @@ def create_zarr_store(output_path, n_stations, chunk_size=(366, 100)):
     return root
 
 def add_coords_and_metadata(ds, station_ids, lons, lats, elevs):
-    """افزودن مختصات و متادیتا به دیتاست"""
     ds = ds.assign_coords({
         "day_of_year": np.arange(1, N_DAYS + 1),
         "point": np.arange(len(station_ids)),
@@ -108,11 +101,10 @@ def add_coords_and_metadata(ds, station_ids, lons, lats, elevs):
         "lat": ("point", lats),
         "elev": ("point", elevs),
     })
-    ds.attrs["description"] = "Climatology 366 days - Station-wise architecture"
-    ds.attrs["var_defs"] = str(VAR_DEFS)
+    ds.attrs["description"] = "Climatology with dynamic distributions"
+    ds.attrs["distributions"] = str([d["name"] for d in DISTRIBUTIONS])
     ds.attrs["n_outputs"] = N_OUTPUTS
     return ds
 
 if __name__ == "__main__":
-    print(f"✅ {N_OUTPUTS} متغیر تعریف شد.")
-    print("✅ Zarr Schema آماده است.")
+    print(f"✅ {N_OUTPUTS} متغیر برای {len(DISTRIBUTIONS)} توزیع")

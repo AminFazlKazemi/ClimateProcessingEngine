@@ -16,7 +16,7 @@ logging:
   log_file: climatology.log
   log_timestamps: true
 paths:
-  calendar_file: K:/Temp/needed/calendar.txt
+  calendar_file: K:/gozareshha/dr vazife/140504 - qc temp/climatology/climatology_engine/calendar.txt
   checkpoint_file: checkpoint.csv
   output_dir: I:/climatology_366_rolling
   output_zarr_name: climatology_stationwise_final.zarr
