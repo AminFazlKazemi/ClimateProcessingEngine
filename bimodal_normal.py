@@ -367,7 +367,7 @@ class BimodalNormal:
             return cls(w1=1.0, mu1=mu, mu2=mu+1e-6, sigma1=sigma, sigma2=1.0, covariance_type=covariance_type)
         
         # حالت دو‌قله‌ای
-        gmm = GaussianMixture(
+        gmm = GaussianMixture(n_jobs=-1, 
             n_components=2,
             random_state=random_state,
             max_iter=max_iter,
@@ -501,7 +501,7 @@ class BimodalNormal:
         
         results = []
         for k in range(1, max_components + 1):
-            gmm = GaussianMixture(n_components=k, random_state=random_state)
+            gmm = GaussianMixture(n_jobs=-1, n_components=k, random_state=random_state)
             gmm.fit(data)
             results.append({
                 'n_components': k,

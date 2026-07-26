@@ -111,7 +111,7 @@ def fit_bimodal_normal(data):
     """برازش Bimodal با استفاده از bimodal_normal.py"""
     try:
         from bimodal_normal import BimodalNormal
-        model = BimodalNormal.fit(data, n_components=2, random_state=42, silent=True)
+        model = BimodalNormal.fit(data, n_components=2, random_state=42, silent=True, n_jobs=-1)
         w1 = model.w1
         mu1 = model.mu1
         sigma1 = model.sigma1
