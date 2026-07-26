@@ -33,7 +33,7 @@
 % تنظیمات فونت (LuaLaTeX) – با مسیر مستقیم فونت ایموجی
 % ============================================================
 \setmainfont{Latin Modern Roman}
-\setmonofont{Latin Modern Mono}
+\setmonofont{Consolas}
 
 % تعریف فونت ایموجی با مسیر مستقیم
 \newfontfamily{\emojifont}[
@@ -77,15 +77,15 @@
     showtabs=false,
     tabsize=4,
     literate=
-        {─}{-}1
-        {└}{-}1
+        {-}{-}1
+        {+--}{-}1
         {┌}{-}1
-        {├}{-}1
+        {+--}{-}1
         {┐}{-}1
         {┘}{-}1
         {┴}{-}1
         {┬}{-}1
-        {│}{|}1
+        {|}{|}1
         {×}{x}1
         {±}{+/-}1
         {√}{sqrt}1
@@ -113,6 +113,7 @@
 % شروع سند
 % ============================================================
 \begin{document}
+\sloppy
 
 \maketitle
 \tableofcontents
@@ -379,16 +380,16 @@ The window size is calculated as: \texttt{WINDOW\_SIZE = 2 * window\_days + 1}
 The engine expects input Zarr files organized by year and month:
 \begin{lstlisting}[caption=Input Zarr Directory Structure]
 zarr_base/
-├── 1369_01.zarr/
-│   ├── tmin (2D: day, point)
-│   ├── tmax (2D: day, point)
-│   ├── tmean (2D: day, point)
-│   ├── stationid (1D: point)
-│   ├── lat (1D: point)
-│   ├── lon (1D: point)
-│   └── elev (1D: point)
-├── 1369_02.zarr/
-└── ...
++---- 1369_01.zarr/
+|   +---- tmin (2D: day, point)
+|   +---- tmax (2D: day, point)
+|   +---- tmean (2D: day, point)
+|   +---- stationid (1D: point)
+|   +---- lat (1D: point)
+|   +---- lon (1D: point)
+|   +---- elev (1D: point)
++---- 1369_02.zarr/
++---- ...
 \end{lstlisting}
 
 \subsection{Calendar File Format}
@@ -423,7 +424,7 @@ WINDOW_SIZE = 5              # 2*window_days + 1
 VARS = ['tmin', 'tmean', 'tmax']
 N_VARS = 3
 FIT_VARS = ['tmin', 'tmean', 'tmax']
-N_OUTPUTS = 87               # 29 outputs per variable × 3 variables
+N_OUTPUTS = 90               # 30 outputs per variable × 3 variables
 
 # Paths
 ZARR_BASE = "..."
@@ -486,7 +487,7 @@ Each output variable is defined as a tuple: \texttt{(name, dtype, fill\_value, d
         \bottomrule
     \end{tabular}
 \end{table}
-\textbf{Note:} The actual implementation uses 29 outputs per variable (excluding \texttt{pearson\_bic}), resulting in 87 total variables.
+\textbf{Note:} The actual implementation uses 30 outputs per variable (excluding \texttt{pearson\_bic}), resulting in 87 total variables.
 
 \subsection{Key Functions}
 \begin{lstlisting}[caption=Zarr Schema Functions]
@@ -906,6 +907,33 @@ logger = setup_logger()
 % فصل ۵: قرارداد داده
 % ============================================================
 \chapter{Data Contract}
+\section{Dynamic Distribution Architecture}
+Starting from version 2.1, the engine supports a \textbf{dynamic distribution architecture} that allows adding new distributions without reprocessing the raw data.
+
+\subsection{Key Concepts}
+\begin{itemize}
+    \item \textbf{Window Cache}: During the initial processing, the engine stores window values (5-day windows for each station and day) in a separate Zarr store (\texttt{window\_cache.zarr}).
+    \item \textbf{Modular Distributions}: Each distribution is defined as a dictionary in \texttt{zarr\_schema.py} with its parameters, code, and fitting function.
+    \item \textbf{Add Distribution Script}: The \texttt{add\_distribution.py} script reads the window cache, fits a new distribution, and updates the output Zarr with new variables and \texttt{best\_dist}.
+\end{itemize}
+
+\subsection{Adding a New Distribution}
+To add a new distribution (e.g., Logistic):
+\begin{enumerate}
+    \item Add the distribution to \texttt{DISTRIBUTIONS} in \texttt{zarr\_schema.py}
+    \item Implement the fitting function in \texttt{distributions.py} and add it to \texttt{FIT\_FUNCS}
+    \item Run \texttt{python add\_distribution.py --dist logistic}
+\end{enumerate}
+This process does \textbf{not require reading the raw input files again}.
+
+\subsection{Benefits}
+\begin{itemize}
+    \item No need to reprocess all data for each new distribution
+    \item Saves significant time and computational resources
+    \item Enables experimentation with different distribution families
+    \item Maintains backward compatibility with existing outputs
+\end{itemize}
+
 
 \section{Load Phase Contract}
 \subsection{Input}
@@ -1145,44 +1173,44 @@ Missing values are stored as \texttt{NaN} and are handled appropriately.
 The output Zarr store contains:
 \begin{lstlisting}[caption=Output Zarr Structure]
 /
-├── tmin_best_dist        (day_of_year, point)
-├── tmin_mean             (day_of_year, point)
-├── tmin_std              (day_of_year, point)
-├── tmin_skewness         (day_of_year, point)
-├── tmin_median           (day_of_year, point)
-├── tmin_count            (day_of_year, point)
-├── tmin_normal_p1        (day_of_year, point)
-├── tmin_normal_p2        (day_of_year, point)
-├── tmin_normal_loglik    (day_of_year, point)
-├── tmin_normal_aicc      (day_of_year, point)
-├── tmin_normal_bic       (day_of_year, point)
-├── tmin_skew_p1          (day_of_year, point)
-├── tmin_skew_p2          (day_of_year, point)
-├── tmin_skew_p3          (day_of_year, point)
-├── tmin_skew_loglik      (day_of_year, point)
-├── tmin_skew_aicc        (day_of_year, point)
-├── tmin_skew_bic         (day_of_year, point)
-├── tmin_bimodal_p1       (day_of_year, point)
-├── tmin_bimodal_p2       (day_of_year, point)
-├── tmin_bimodal_p3       (day_of_year, point)
-├── tmin_bimodal_p4       (day_of_year, point)
-├── tmin_bimodal_p5       (day_of_year, point)
-├── tmin_bimodal_loglik   (day_of_year, point)
-├── tmin_bimodal_aicc     (day_of_year, point)
-├── tmin_bimodal_bic      (day_of_year, point)
-├── tmin_pearson_p1       (day_of_year, point)
-├── tmin_pearson_p2       (day_of_year, point)
-├── tmin_pearson_p3       (day_of_year, point)
-├── tmin_pearson_loglik   (day_of_year, point)
-├── tmin_pearson_aicc     (day_of_year, point)
-├── ... (same for tmean and tmax)
-├── day_of_year           (day_of_year,)
-├── point                 (point,)
-├── stationid             (point,)
-├── lat                   (point,)
-├── lon                   (point,)
-├── elev                  (point,)
-└── ...
++---- tmin_best_dist        (day_of_year, point)
++---- tmin_mean             (day_of_year, point)
++---- tmin_std              (day_of_year, point)
++---- tmin_skewness         (day_of_year, point)
++---- tmin_median           (day_of_year, point)
++---- tmin_count            (day_of_year, point)
++---- tmin_normal_p1        (day_of_year, point)
++---- tmin_normal_p2        (day_of_year, point)
++---- tmin_normal_loglik    (day_of_year, point)
++---- tmin_normal_aicc      (day_of_year, point)
++---- tmin_normal_bic       (day_of_year, point)
++---- tmin_skew_p1          (day_of_year, point)
++---- tmin_skew_p2          (day_of_year, point)
++---- tmin_skew_p3          (day_of_year, point)
++---- tmin_skew_loglik      (day_of_year, point)
++---- tmin_skew_aicc        (day_of_year, point)
++---- tmin_skew_bic         (day_of_year, point)
++---- tmin_bimodal_p1       (day_of_year, point)
++---- tmin_bimodal_p2       (day_of_year, point)
++---- tmin_bimodal_p3       (day_of_year, point)
++---- tmin_bimodal_p4       (day_of_year, point)
++---- tmin_bimodal_p5       (day_of_year, point)
++---- tmin_bimodal_loglik   (day_of_year, point)
++---- tmin_bimodal_aicc     (day_of_year, point)
++---- tmin_bimodal_bic      (day_of_year, point)
++---- tmin_pearson_p1       (day_of_year, point)
++---- tmin_pearson_p2       (day_of_year, point)
++---- tmin_pearson_p3       (day_of_year, point)
++---- tmin_pearson_loglik   (day_of_year, point)
++---- tmin_pearson_aicc     (day_of_year, point)
++---- ... (same for tmean and tmax)
++---- day_of_year           (day_of_year,)
++---- point                 (point,)
++---- stationid             (point,)
++---- lat                   (point,)
++---- lon                   (point,)
++---- elev                  (point,)
++---- ...
 \end{lstlisting}
 
 \section{Metadata}
@@ -1398,12 +1426,12 @@ For questions, issues, or contributions:
     \midrule
     \multicolumn{3}{c}{\textbf{tmean Variables (same structure)}} \\
     \midrule
-    \multicolumn{3}{c}{\textit{... (29 variables with tmean\_ prefix)}} \\
+    \multicolumn{3}{c}{\textit{... (30 variables with tmean\_ prefix)}} \\
     
     \midrule
     \multicolumn{3}{c}{\textbf{tmax Variables (same structure)}} \\
     \midrule
-    \multicolumn{3}{c}{\textit{... (29 variables with tmax\_ prefix)}} \\
+    \multicolumn{3}{c}{\textit{... (30 variables with tmax\_ prefix)}} \\
     
 \end{longtable}
 
