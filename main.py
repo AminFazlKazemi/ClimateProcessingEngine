@@ -2,239 +2,247 @@
 # -*- coding: utf-8 -*-
 """
 main.py - نقطه ورود اصلی
-================================================================================
-نسخه ۲.۱ - با ذخیره‌سازی نتایج Benchmark
-================================================================================
+نسخه نهایی - بهینه‌شده با کش کردن دیتاست‌ها و پردازش موازی
 """
 
 import os
 import sys
 import time
 import json
+import glob
+import yaml
+import gc
 import numpy as np
 import xarray as xr
-import zarr
 
+# اضافه کردن مسیر فعلی به sys.path
 sys.path.insert(0, os.path.dirname(__file__))
 
+# ============================================================
+# Import ماژول‌های داخلی
+# ============================================================
 from constants import (
     YEAR_START, YEAR_END, N_YEARS, N_DAYS,
-    ZARR_BASE, OUTPUT_DIR, OUTPUT_ZARR, CHECKPOINT_FILE,
-    BLOCK_SIZE, VAR_INDEX_FOR_FIT, USE_PARALLEL,
-    BENCHMARK_ENABLED, BENCHMARK_RUN_FIRST,
-    MAX_VALUES_PER_FIT, MIN_VALID_VALUES,
+    VARS, N_VARS, VAR_INDEX_FOR_FIT,
+    OUTPUT_DIR, OUTPUT_ZARR, CHECKPOINT_FILE, ZARR_BASE,
+    BLOCK_SIZE, USE_PARALLEL, CORES,
+    VALIDATE_AFTER_LOAD, VALIDATE_BEFORE_WRITE, VALIDATE_EVERY_N_BLOCKS,
+    LOG_LEVEL, LOG_FILE,
+    FLOAT_DTYPE, INT_DTYPE
 )
-from zarr_schema import N_OUTPUTS
-from calendar_tables import build_calendar_tables
+from calendar_tables import build_doy_table_from_config
 from runtime_tables import build_runtime_tables
 from zarr_schema import create_zarr_store, add_coords_and_metadata
 from orchestrator.process_block import process_block
 from monitoring.checkpoint import load_checkpoint, save_checkpoint, delete_checkpoint
-from monitoring.benchmark import run_benchmark, print_benchmark_report
 from monitoring.logger import logger
 
-# ============================================================================
-# مسیر فایل ذخیره‌سازی Benchmark
-# ============================================================================
-BENCHMARK_RESULTS_FILE = os.path.join(OUTPUT_DIR, "benchmark_results.json")
+# ============================================================
+# تنظیمات محیطی برای پردازش موازی
+# ============================================================
+if USE_PARALLEL:
+    os.environ["PARALLEL_WORKERS"] = str(CORES)
+    logger.info(f"   🚀 Parallel processing enabled with {CORES} workers")
+else:
+    os.environ["PARALLEL_WORKERS"] = "1"
+    logger.info("   🐢 Parallel processing disabled")
 
-def load_benchmark_results():
-    """بارگذاری نتایج Benchmark از فایل"""
-    if os.path.exists(BENCHMARK_RESULTS_FILE):
-        try:
-            with open(BENCHMARK_RESULTS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return None
-    return None
+# ============================================================
+# تنظیمات Dask (اختیاری - برای سرعت بیشتر)
+# ============================================================
+dask_client = None
+try:
+    from dask.distributed import Client
+    dask_client = Client(processes=False, threads_per_worker=CORES)
+    logger.info(f"   🚀 Dask Client started: {dask_client}")
+except ImportError:
+    logger.info("   ⚠️ Dask not installed. Using native processing.")
+except Exception as e:
+    logger.warning(f"   ⚠️ Dask Client failed to start: {e}")
 
-def save_benchmark_results(results):
-    """ذخیره نتایج Benchmark در فایل"""
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    with open(BENCHMARK_RESULTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
-    logger.info(f"   ✅ Benchmark results saved to: {BENCHMARK_RESULTS_FILE}")
-
-# ============================================================================
+# ============================================================
 # توابع کمکی
-# ============================================================================
-
+# ============================================================
 def get_station_info(zarr_base):
-    import glob
+    """دریافت اطلاعات ایستگاه‌ها از فایل‌های Zarr"""
     zarr_files = glob.glob(os.path.join(zarr_base, "*.zarr"))
     if not zarr_files:
         raise FileNotFoundError(f"No Zarr files found in {zarr_base}")
-    ds = xr.open_zarr(zarr_files[0], consolidated=False)
+    
+    ds = xr.open_zarr(zarr_files[0])
     n_stations = ds.sizes["point"]
-    station_ids = ds["stationid"].values
-    lons = ds["lon"].values
-    lats = ds["lat"].values
-    elevs = ds["elev"].values
+    station_ids = ds["stationid"].values if "stationid" in ds else np.arange(n_stations)
+    lons = ds["lon"].values if "lon" in ds else np.full(n_stations, np.nan)
+    lats = ds["lat"].values if "lat" in ds else np.full(n_stations, np.nan)
+    elevs = ds["elev"].values if "elev" in ds else np.full(n_stations, np.nan)
     ds.close()
     return n_stations, station_ids, lons, lats, elevs
 
-# ============================================================================
+# ============================================================
 # تابع اصلی
-# ============================================================================
-
+# ============================================================
 def main():
-    start_time = time.time()
+    """اجرای کل فرایند پردازش"""
+    
     logger.info("=" * 80)
-    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v2.1 - با ذخیره Benchmark")
+    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v2.1 - FINAL")
     logger.info(f"   Years: {YEAR_START}–{YEAR_END} ({N_YEARS} years)")
     logger.info(f"   Days: {N_DAYS}")
+    logger.info(f"   Variables: {VARS}")
     logger.info(f"   Output: {OUTPUT_ZARR}")
-    logger.info(f"   N_OUTPUTS: {N_OUTPUTS}, MAX_VALUES: {MAX_VALUES_PER_FIT}")
-    logger.info(f"   Parallel: {USE_PARALLEL} (disabled in v1)")
+    logger.info(f"   Block Size: {BLOCK_SIZE}")
+    logger.info(f"   Parallel: {USE_PARALLEL} (cores={CORES})")
+    logger.info(f"   Validation: {VALIDATE_AFTER_LOAD}/{VALIDATE_BEFORE_WRITE}")
     logger.info("=" * 80)
-
-    # Station info
-    logger.info("Reading station information...")
-    n_stations, station_ids, lons, lats, elevs = get_station_info(ZARR_BASE)
-    logger.info(f"   ✅ {n_stations:,} stations found")
-
-    # Tables
-    logger.info("Building calendar tables...")
-    calendar_tables = build_calendar_tables()
-    doy_table = calendar_tables["doy_table"]
-    year_list = calendar_tables["year_list"]
-    logger.info(f"   ✅ doy_table shape: {doy_table.shape}")
-
-    logger.info("Building runtime tables...")
-    runtime_tables = build_runtime_tables(ZARR_BASE)
-    file_map = runtime_tables["file_map"]
-    window_table = runtime_tables["window_table"]
-    logger.info(f"   ✅ {len(file_map)} files in file_map")
-    logger.info(f"   ✅ {len(window_table)} windows in window_table")
-
-    # ========================================================================
-    # Benchmark با قابلیت ذخیره‌سازی
-    # ========================================================================
-
-    # بررسی وجود نتایج ذخیره‌شده
-    cached_benchmark = load_benchmark_results()
-
-    if cached_benchmark and BENCHMARK_ENABLED:
-        logger.info("📊 Using cached benchmark results...")
-        recommended_size = cached_benchmark.get("recommended", BLOCK_SIZE)
-        logger.info(f"   ✅ Using recommended block size: {recommended_size} (from cache)")
-        actual_block_size = recommended_size
-        # چاپ خلاصه
-        print("\n" + "=" * 70)
-        print("📊 CACHED BENCHMARK REPORT")
-        print("=" * 70)
-        for size, stats in cached_benchmark.get("results", {}).items():
-            print(f"   Size {size:4d}: Load {stats['load']:6.1f}s | Analyze {stats['analyze']:6.1f}s | Write {stats['write']:5.1f}s | {stats['stations_per_sec']:5.1f} st/s | RAM {stats['ram_peak_gb']:.2f}GB")
-        print("-" * 70)
-        print(f"✅ Recommended: {recommended_size}")
-        print("=" * 70)
-
-    elif BENCHMARK_ENABLED and BENCHMARK_RUN_FIRST:
-        logger.info("Running benchmark...")
-        from io_pipeline.read_month_files import read_month_files
-        from io_pipeline.assemble_block import assemble_block
-        from numerical_engine.merge_results import create_and_merge_results
-
-        def load_func(start, size):
-            data_dict = read_month_files(start, size, file_map, year_list)
-            return assemble_block(data_dict, doy_table, size, year_list)
-
-        def analyze_func(data):
-            return create_and_merge_results(data, window_table, VAR_INDEX_FOR_FIT)
-
-        def write_func(result):
-            pass
-
-        benchmark_report = run_benchmark(load_func, analyze_func, write_func)
-        print_benchmark_report(benchmark_report)
-        recommended_size = benchmark_report["recommended"]
-        logger.info(f"   ✅ Using recommended block size: {recommended_size}")
-
-        # ذخیره نتایج
-        save_benchmark_results(benchmark_report)
-        actual_block_size = recommended_size
-    else:
+    
+    try:
+        # ============================================================
+        # ۱. دریافت اطلاعات ایستگاه‌ها
+        # ============================================================
+        logger.info("Reading station information...")
+        n_stations, station_ids, lons, lats, elevs = get_station_info(ZARR_BASE)
+        logger.info(f"   ✅ {n_stations:,} stations found")
+        
+        # ============================================================
+        # ۲. ساخت جداول تقویم
+        # ============================================================
+        logger.info("Building calendar tables...")
+        doy_table, _ = build_doy_table_from_config()
+        logger.info(f"   ✅ doy_table shape: {doy_table.shape}")
+        
+        # ============================================================
+        # ۳. ساخت جداول زمان اجرا
+        # ============================================================
+        logger.info("Building runtime tables...")
+        tables = build_runtime_tables(ZARR_BASE)
+        file_map = tables["file_map"]
+        window_table = tables["window_table"]
+        year_list = tables["year_list"]
+        logger.info(f"   ✅ {len(file_map)} files in file_map")
+        logger.info(f"   ✅ {len(window_table)} windows in window_table")
+        
+        # ============================================================
+        # ۴. تنظیم block_size (بدون Benchmark)
+        # ============================================================
         actual_block_size = BLOCK_SIZE
-
-    # Zarr Store
-    logger.info("Creating Zarr store...")
-    root = create_zarr_store(OUTPUT_ZARR, n_stations)
-    logger.info(f"   ✅ Zarr created: {OUTPUT_ZARR}")
-
-    # Checkpoint
-    checkpoint = load_checkpoint()
-    start_block = 0
-    start_station = 0
-    if checkpoint:
-        start_block = checkpoint.get("block", 0)
-        start_station = checkpoint.get("station", 0)
-        logger.info(f"   ⏩ Resuming from block {start_block}, station {start_station}")
-
-    # Main loop (single process)
-    logger.info("Starting processing...")
-    if start_station > 0:
-        start_block = start_station // actual_block_size
-    total_blocks = (n_stations + actual_block_size - 1) // actual_block_size
-    logger.info(f"   Total blocks: {total_blocks}")
-    logger.info(f"   Starting from block {start_block}")
-
-    for block_idx in range(start_block, total_blocks):
-        block_start = block_idx * actual_block_size
-        block_end = min(block_start + actual_block_size, n_stations)
-        last_station = None
-        if block_idx == start_block and start_station > 0:
-            last_station = start_station
+        logger.info(f"ℹ️ Using block size: {actual_block_size} (from config.yaml)")
+        
+        # ============================================================
+        # ۵. ایجاد Zarr Store
+        # ============================================================
+        logger.info("Creating Zarr store...")
+        root = create_zarr_store(OUTPUT_ZARR, n_stations)
+        logger.info(f"   ✅ Zarr created: {OUTPUT_ZARR}")
+        
+        # ============================================================
+        # ۶. بارگذاری Checkpoint
+        # ============================================================
+        checkpoint = load_checkpoint()
+        start_block = 0
+        start_station = 0
+        
+        if checkpoint:
+            start_block = checkpoint.get("block", 0)
+            start_station = checkpoint.get("station", 0)
+            logger.info(f"   ⏩ Resuming from block {start_block}, station {start_station}")
+        else:
+            logger.info("   🆕 Starting from beginning")
+        
+        # ============================================================
+        # ۷. حلقه اصلی پردازش
+        # ============================================================
+        total_blocks = (n_stations + actual_block_size - 1) // actual_block_size
+        logger.info("Starting processing...")
+        logger.info(f"   Total blocks: {total_blocks}")
+        logger.info(f"   Starting from block {start_block}")
+        logger.info(f"   Block size: {actual_block_size}")
+        
+        total_start_time = time.time()
+        
+        for block_idx in range(start_block, total_blocks):
+            block_start = block_idx * actual_block_size
+            block_end = min(block_start + actual_block_size, n_stations)
+            
+            # تنظیم نقطه شروع برای اولین بلوک
+            last_station = None
+            if block_idx == start_block and start_station > 0:
+                last_station = start_station
+            
+            try:
+                # پردازش بلوک
+                result = process_block(
+                    block_start=block_start,
+                    block_end=block_end,
+                    block_idx=block_idx,
+                    file_map=file_map,
+                    doy_table=doy_table,
+                    window_table=window_table,
+                    year_list=year_list,
+                    root=root,
+                    var_idx=VAR_INDEX_FOR_FIT,
+                    last_checkpoint_station=last_station,
+                )
+                # ذخیره Checkpoint پس از موفقیت
+                save_checkpoint(block_idx, block_end - 1)
+                
+                # آزادسازی حافظه بعد از هر بلوک
+                gc.collect()
+                
+            except KeyboardInterrupt:
+                logger.warning(f"Interrupted at block {block_idx}. Checkpoint saved.")
+                save_checkpoint(block_idx, block_start)
+                raise
+            except Exception as e:
+                logger.error(f"Block {block_idx} failed: {e}")
+                save_checkpoint(block_idx, block_start)
+                raise
+        
+        # ============================================================
+        # ۸. نهایی‌سازی
+        # ============================================================
+        logger.info("Finalizing Zarr...")
+        ds = xr.open_zarr(OUTPUT_ZARR)
+        ds = add_coords_and_metadata(ds, station_ids, lons, lats, elevs)
+        ds.attrs["source"] = f"Years {YEAR_START}-{YEAR_END}, Window ±{WINDOW_DAYS} days"
+        ds.attrs["variables"] = VARS
+        ds.attrs["fit_variable_index"] = VAR_INDEX_FOR_FIT
+        ds.attrs["block_size"] = actual_block_size
+        ds.to_zarr(OUTPUT_ZARR, mode="w", consolidated=True)
+        
+        # پاک کردن کش دیتاست‌ها
         try:
-            result = process_block(
-                block_start=block_start,
-                block_end=block_end,
-                block_idx=block_idx,
-                file_map=file_map,
-                doy_table=doy_table,
-                window_table=window_table,
-                year_list=year_list,
-                root=root,
-                var_idx=VAR_INDEX_FOR_FIT,
-                last_checkpoint_station=last_station,
-            )
-            save_checkpoint(block_idx, block_end - 1)
-        except Exception as e:
-            logger.error(f"Block {block_idx} failed: {e}")
-            save_checkpoint(block_idx, block_start)
-            raise
-
-    # Finalize
-    logger.info("Finalizing Zarr...")
-    root.store.close()
-    ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
-    ds = add_coords_and_metadata(ds, station_ids, lons, lats, elevs)
-    ds.attrs["source"] = f"Years {YEAR_START}-{YEAR_END}, Window ±2 days"
-    ds.attrs["architecture"] = "Station-wise, Block-oriented"
-    ds.attrs["version"] = "2.1"
-    ds.attrs["n_outputs"] = N_OUTPUTS
-    ds.attrs["min_valid_values"] = MIN_VALID_VALUES
-    ds.to_zarr(OUTPUT_ZARR, mode="a", consolidated=False)
-    ds.close()
-    try:
-        zarr.consolidate_metadata(OUTPUT_ZARR)
-    except:
-        pass
-    delete_checkpoint()
-
-    total_time = time.time() - start_time
-    logger.info("=" * 80)
-    logger.info("✅ PROCESSING COMPLETED SUCCESSFULLY")
-    logger.info(f"   Total time: {total_time / 60:.1f} minutes")
-    logger.info(f"   Output: {OUTPUT_ZARR}")
-    logger.info("=" * 80)
-
-
-if __name__ == "__main__":
-    try:
-        main()
+            from io_pipeline.read_month_files import clear_ds_cache
+            clear_ds_cache()
+        except:
+            pass
+        
+        # حذف Checkpoint
+        delete_checkpoint()
+        
+        total_time = time.time() - total_start_time
+        logger.info("=" * 80)
+        logger.info("✅ PROCESSING COMPLETED SUCCESSFULLY")
+        logger.info(f"   Total time: {total_time / 60:.1f} minutes ({total_time:.1f} seconds)")
+        logger.info(f"   Output: {OUTPUT_ZARR}")
+        logger.info("=" * 80)
+        
     except KeyboardInterrupt:
         logger.warning("Interrupted by user. Checkpoint saved.")
-        sys.exit(1)
+        sys.exit(0)
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
-        raise
+        logger.error(f"Fatal error: {e}", exc_info=True)
+        sys.exit(1)
+    finally:
+        # بستن Dask Client در صورت وجود
+        if dask_client:
+            try:
+                dask_client.close()
+                logger.info("   Dask Client closed.")
+            except:
+                pass
+
+# ============================================================
+# اجرای اصلی
+# ============================================================
+if __name__ == "__main__":
+    main()

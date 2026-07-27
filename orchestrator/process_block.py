@@ -7,9 +7,10 @@ Orchestrator اصلی.
 فقط هماهنگ‌کننده است. محاسبه‌ای انجام نمی‌دهد.
 ================================================================================
 """
-
+import os
 import time
 import gc
+import numpy as np
 from io_pipeline.read_month_files import read_month_files
 from io_pipeline.assemble_block import assemble_block
 from io_pipeline.validate_block import validate_block, print_validation_report
@@ -18,7 +19,15 @@ from result_pipeline.validate_result import validate_result, print_validation_re
 from result_pipeline.write_block import write_block_safe
 from monitoring.checkpoint import save_checkpoint
 from monitoring.logger import logger
-from constants import VALIDATE_AFTER_LOAD, VALIDATE_BEFORE_WRITE, VALIDATE_EVERY_N_BLOCKS
+from constants import (
+    VALIDATE_AFTER_LOAD,
+    VALIDATE_BEFORE_WRITE,
+    VALIDATE_EVERY_N_BLOCKS,
+    N_DAYS,
+    MAX_VALUES_PER_FIT,
+    FLOAT_DTYPE,
+    INT_DTYPE
+)
 
 class FitError(Exception):
     pass
@@ -47,7 +56,10 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
         save_checkpoint(block_idx, block_start)
         raise IOError(f"Load failed: {e}")
 
-    if VALIDATE_AFTER_LOAD or block_idx % VALIDATE_EVERY_N_BLOCKS == 0:
+    # ============================================================
+    # اعتبارسنجی بعد از بارگذاری (در صورت فعال بودن و VALIDATE_EVERY_N_BLOCKS > 0)
+    # ============================================================
+    if VALIDATE_AFTER_LOAD or (VALIDATE_EVERY_N_BLOCKS > 0 and block_idx % VALIDATE_EVERY_N_BLOCKS == 0):
         t0 = time.time()
         logger.info("   🔍 Validating block...")
         try:
@@ -69,7 +81,10 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
         save_checkpoint(block_idx, block_start)
         raise FitError(str(e))
 
-    if VALIDATE_BEFORE_WRITE or block_idx % VALIDATE_EVERY_N_BLOCKS == 0:
+    # ============================================================
+    # اعتبارسنجی قبل از نوشتن (در صورت فعال بودن و VALIDATE_EVERY_N_BLOCKS > 0)
+    # ============================================================
+    if VALIDATE_BEFORE_WRITE or (VALIDATE_EVERY_N_BLOCKS > 0 and block_idx % VALIDATE_EVERY_N_BLOCKS == 0):
         t0 = time.time()
         logger.info("   🔍 Validating results...")
         try:
@@ -103,17 +118,15 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
     logger.info(f"      Load: {times['load']:.1f}s | Analyze: {times['analyze']:.1f}s | Write: {times['write']:.1f}s")
     logger.info(f"      Stations/sec: {stations_per_sec:.1f}")
 
-
     # ====================================================================
-    # ذخیره داده‌های پنجره‌ای در Zarr میانی (فقط یک بار)
+    # ذخیره داده‌های پنجره‌ای در Zarr میانی (اختیاری) - در صورت نیاز
     # ====================================================================
     if not os.environ.get("SKIP_WINDOW_CACHE", "0") == "1":
         try:
             from numerical_engine.window_engine import extract_window_values_fast
-            cache_path = os.path.join(os.path.dirname(root.store.path), "window_cache.zarr")
             import zarr
+            cache_path = os.path.join(os.path.dirname(root.store.path), "window_cache.zarr")
             cache_root = zarr.open(cache_path, mode="a")
-            # تعیین تعداد کل ایستگاه‌ها (از root بگیریم)
             n_stations_total = root["best_dist"].shape[1]
             if "window_data" not in cache_root:
                 cache_root.create_array(

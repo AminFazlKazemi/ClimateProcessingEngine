@@ -1,36 +1,62 @@
-benchmark:
-  enabled: true
-  run_on_first_block: true
-  test_block_sizes:
-  - 500
-  - 1000
-  - 1500
-  - 2000
-  - 3000
-block_size: 1000
-cores: 6
-days: 366
-fit_variable_index: 1
-logging:
-  level: INFO
-  log_file: climatology.log
-  log_timestamps: true
-paths:
-  calendar_file: K:/gozareshha/dr vazife/140504 - qc temp/climatology/climatology_engine/calendar.txt
-  checkpoint_file: checkpoint.csv
-  output_dir: I:/climatology_366_rolling
-  output_zarr_name: climatology_stationwise_final.zarr
-  zarr_base: K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly
-use_parallel: false
-validation:
-  validate_after_load: true
-  validate_before_write: true
-  validate_every_n_blocks: 5
-variables:
-- tmin
-- tmean
-- tmax
-window_days: 2
+# ============================================================
+# تنظیمات نهایی climatology_engine - بهینه‌شده
+# ============================================================
+
+# پارامترهای سال و روز
 years:
-  end: 1399
   start: 1369
+  end: 1399
+days: 366
+
+# متغیرها (ترتیب مهم است)
+variables:
+  - tmin
+  - tmean
+  - tmax
+
+# پنجره (به روز)
+window_days: 2
+
+# متغیر مورد نظر برای برازش (0=tmin, 1=tmean, 2=tmax)
+fit_variable_index: 1
+
+# ============================================================
+# مسیرها
+# ============================================================
+paths:
+  zarr_base: "K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly"
+  output_dir: "I:/climatology_366_rolling"
+  output_zarr_name: "climatology_stationwise_final.zarr"
+  checkpoint_file: "checkpoint.csv"
+  calendar_file: "K:/gozareshha/dr vazife/140504 - qc temp/climatology/climatology_engine/calendar.txt"
+
+# ============================================================
+# پردازش
+# ============================================================
+block_size: 5000          # ⬅️ افزایش یافته (5000 ایستگاه در هر بلوک)
+use_parallel: True        # ⬅️ فعال شده
+cores: 6                  # تعداد هسته‌های CPU (مطابق سیستم شما)
+
+# ============================================================
+# اعتبارسنجی (غیرفعال برای سرعت)
+# ============================================================
+validation:
+  validate_after_load: False     # ⬅️ غیرفعال
+  validate_before_write: False   # ⬅️ غیرفعال
+  validate_every_n_blocks: 0     # ⬅️ غیرفعال
+
+# ============================================================
+# Benchmark
+# ============================================================
+benchmark:
+  enabled: True
+  run_on_first_block: True
+  test_block_sizes: [500, 1000, 1500, 2000, 3000]  # برای پیدا کردن بهترین اندازه
+
+# ============================================================
+# لاگ
+# ============================================================
+logging:
+  level: "INFO"
+  log_file: "climatology.log"
+  log_timestamps: True

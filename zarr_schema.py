@@ -1,110 +1,170 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-zarr_schema.py - شِمای پویا با پشتیبانی از توزیع‌های متعدد
+zarr_schema.py
+============================================
+ساختار Zarr برای خروجی نهایی
+شامل: ایجاد store، اضافه کردن مختصات و متادیتا
 """
 
 import os
+import shutil
 import numpy as np
+import xarray as xr
 import zarr
-import zarr.codecs
-from constants import N_DAYS, N_YEARS, FLOAT_DTYPE, INT_DTYPE
+from constants import (
+    N_DAYS, N_YEARS, N_VARS, FLOAT_DTYPE, INT_DTYPE,
+    DISTRIBUTIONS, MAX_VALUES_PER_FIT
+)
 
-# ============================================================================
-# تعریف توزیع‌ها
-# ============================================================================
-DISTRIBUTIONS = [
-    {
-        "name": "normal",
-        "params": [("p1", "f4", "mean"), ("p2", "f4", "std")],
-        "code": 0,
-        "param_count": 2,
-    },
-    {
-        "name": "skew",
-        "params": [("p1", "f4", "alpha"), ("p2", "f4", "loc"), ("p3", "f4", "scale")],
-        "code": 1,
-        "param_count": 3,
-    },
-    {
-        "name": "bimodal",
-        "params": [("p1", "f4", "w1"), ("p2", "f4", "mu1"), ("p3", "f4", "sigma1"),
-                   ("p4", "f4", "mu2"), ("p5", "f4", "sigma2")],
-        "code": 2,
-        "param_count": 5,
-    },
-    {
-        "name": "pearson",
-        "params": [("p1", "f4", "shape"), ("p2", "f4", "scale"), ("p3", "f4", "loc")],
-        "code": 3,
-        "param_count": 3,
-    },
-]
-
-# ساخت خودکار متغیرها
-VAR_DEFS = [
-    ("best_dist", "i4", -1, "کد بهترین توزیع"),
-    ("mean", "f4", np.nan, "میانگین"),
-    ("std", "f4", np.nan, "انحراف معیار"),
-    ("skewness", "f4", np.nan, "چولگی"),
-    ("median", "f4", np.nan, "میانه"),
-    ("count", "i4", 0, "تعداد داده‌های معتبر"),
-]
+# ============================================================
+# تعریف متغیرهای خروجی
+# ============================================================
+VAR_DEFS = []
 
 for dist in DISTRIBUTIONS:
-    name = dist["name"]
+    dist_name = dist["name"]
+    # پارامترهای توزیع
     for pname, dtype, desc in dist["params"]:
-        VAR_DEFS.append((f"{name}_{pname}", dtype, np.nan, desc))
+        var_name = f"{dist_name}_{pname}"
+        VAR_DEFS.append((var_name, dtype, -1, desc))
+    # آماره‌های توزیع
     for stat in ["loglik", "aicc", "bic"]:
-        VAR_DEFS.append((f"{name}_{stat}", "f4", np.nan, f"{stat.upper()}"))
+        var_name = f"{dist_name}_{stat}"
+        VAR_DEFS.append((var_name, "float32", np.nan, f"{stat} for {dist_name}"))
 
-N_OUTPUTS = len(VAR_DEFS)
+# متغیر best_dist (شاخص بهترین توزیع)
+VAR_DEFS.append(("best_dist", "int32", -1, "Best distribution index"))
+
+# متغیر count (تعداد مقادیر معتبر)
+VAR_DEFS.append(("count", "int32", 0, "Number of valid values"))
+
+# متغیر std (انحراف معیار)
+VAR_DEFS.append(("std", "float32", np.nan, "Standard deviation"))
+
+# نام متغیرها و نوع داده‌ها
 VAR_NAMES = [v[0] for v in VAR_DEFS]
 VAR_DTYPES = {v[0]: v[1] for v in VAR_DEFS}
 VAR_FILLS = {v[0]: v[2] for v in VAR_DEFS}
 VAR_DESCS = {v[0]: v[3] for v in VAR_DEFS}
 
-def get_dtype(dtype_str):
-    return INT_DTYPE if dtype_str == "i4" else FLOAT_DTYPE
+# تعداد کل متغیرهای خروجی
+N_OUTPUTS = len(VAR_DEFS)
 
+# ============================================================
+# ایجاد آرایه خالی برای یک بلوک
+# ============================================================
 def create_empty_block_result(block_size):
-    result = {}
-    for name, dtype_str, fill, _ in VAR_DEFS:
-        dtype = get_dtype(dtype_str)
-        result[name] = np.full((N_DAYS, block_size), fill, dtype=dtype)
-    return result
+    """
+    ایجاد یک دیکشنری خالی برای ذخیره نتایج یک بلوک
+    
+    Args:
+        block_size: تعداد ایستگاه‌ها در بلوک
+    
+    Returns:
+        dict: دیکشنری با کلیدهای VAR_NAMES و آرایه‌های خالی با شکل (N_DAYS, block_size)
+    """
+    block_result = {}
+    for name in VAR_NAMES:
+        dtype = VAR_DTYPES[name]
+        fill = VAR_FILLS[name]
+        if dtype == "int32":
+            arr = np.full((N_DAYS, block_size), fill, dtype=INT_DTYPE)
+        else:
+            arr = np.full((N_DAYS, block_size), fill, dtype=FLOAT_DTYPE)
+        block_result[name] = arr
+    return block_result
 
+# ============================================================
+# ایجاد Zarr Store
+# ============================================================
 def create_zarr_store(output_path, n_stations, chunk_size=(366, 100)):
+    """
+    ایجاد یک Zarr Store با ساختار مناسب
+    
+    Args:
+        output_path: مسیر ذخیره Zarr
+        n_stations: تعداد ایستگاه‌ها
+        chunk_size: اندازه تکه‌ها (day_of_year, point)
+    
+    Returns:
+        zarr.Group: گروه Zarr
+    """
+    # حذف پوشه قبلی در صورت وجود
     if os.path.exists(output_path):
         shutil.rmtree(output_path)
-    root = zarr.open(output_path, mode="w")
-    blosc = zarr.codecs.Blosc(cname="zstd", clevel=3)
+    
+    # ایجاد گروه Zarr
+    root = zarr.group(output_path, overwrite=True)
+    
+    # ایجاد هر متغیر به‌صورت آرایه بدون فشرده‌سازی (برای سازگاری با Zarr v3)
     for name, dtype_str, fill, desc in VAR_DEFS:
-        dtype = get_dtype(dtype_str)
+        # تبدیل نوع داده به numpy dtype
+        if dtype_str == "int32":
+            dtype = INT_DTYPE
+        else:
+            dtype = FLOAT_DTYPE
+        
+        # ایجاد آرایه بدون compressor (سازگار با Zarr v3)
         root.create_array(
             name,
             shape=(N_DAYS, n_stations),
-            dtype=dtype,
             chunks=chunk_size,
+            dtype=dtype,
             fill_value=fill,
-            compressors=[blosc],
+            compressor=None,  # ⬅️ فشرده‌سازی غیرفعال برای سازگاری
             dimension_names=("day_of_year", "point"),
         )
+    
+    # اضافه کردن متادیتا
+    root.attrs["description"] = "Climatology processing results"
+    root.attrs["n_days"] = N_DAYS
+    root.attrs["n_stations"] = n_stations
+    root.attrs["variables"] = VAR_NAMES
+    root.attrs["variable_descriptions"] = VAR_DESCS
+    
     return root
 
+# ============================================================
+# اضافه کردن مختصات و متادیتا
+# ============================================================
 def add_coords_and_metadata(ds, station_ids, lons, lats, elevs):
-    ds = ds.assign_coords({
-        "day_of_year": np.arange(1, N_DAYS + 1),
-        "point": np.arange(len(station_ids)),
-        "stationid": ("point", station_ids),
-        "lon": ("point", lons),
-        "lat": ("point", lats),
-        "elev": ("point", elevs),
-    })
-    ds.attrs["description"] = "Climatology with dynamic distributions"
+    """
+    اضافه کردن مختصات و متادیتا به دیتاست
+    
+    Args:
+        ds: xarray.Dataset
+        station_ids: شناسه‌های ایستگاه‌ها
+        lons: طول‌های جغرافیایی
+        lats: عرض‌های جغرافیایی
+        elevs: ارتفاع‌ها
+    
+    Returns:
+        xarray.Dataset: دیتاست با مختصات و متادیتا
+    """
+    n_stations = len(station_ids)
+    
+    # اضافه کردن مختصات
+    ds = ds.assign_coords(
+        point=np.arange(n_stations),
+    )
+    
+    # اضافه کردن متغیرهای مختصات
+    ds["stationid"] = ("point", station_ids)
+    ds["lon"] = ("point", lons)
+    ds["lat"] = ("point", lats)
+    ds["elev"] = ("point", elevs)
+    
+    # اضافه کردن متادیتا
     ds.attrs["distributions"] = str([d["name"] for d in DISTRIBUTIONS])
+    ds.attrs["variables"] = VAR_NAMES
     ds.attrs["n_outputs"] = N_OUTPUTS
+    
     return ds
 
+# ============================================================
+# اجرای آزمایشی
+# ============================================================
 if __name__ == "__main__":
     print(f"✅ {N_OUTPUTS} متغیر برای {len(DISTRIBUTIONS)} توزیع")
+    print(f"   متغیرها: {VAR_NAMES[:5]}...")

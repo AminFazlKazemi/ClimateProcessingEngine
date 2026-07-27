@@ -53,7 +53,7 @@ def create_and_merge_results(block_data, window_table, var_idx):
             if station_result is not None:
                 merge_station_result(block_result, station_result, local_idx)
             completed += 1
-            if completed % 50 == 0:
+            if completed % 250 == 0:
                 print(f"   ⏳ پردازش {completed}/{block_size} ایستگاه...")
 
     return block_result
