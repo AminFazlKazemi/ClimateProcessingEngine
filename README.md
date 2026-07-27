@@ -103,9 +103,11 @@ The framework is built on four core principles:
 
 | Principle | --- |
 | --- | --- |
+| --- | --- |
 | Description | --- |
  ---
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | --- | --- |
@@ -113,9 +115,11 @@ The framework is built on four core principles:
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | All statistical distributions and quality controls are implemented as plugins, enabling easy extension without modifying core code. | --- |
  **Reproducible scientific workflows**
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | Every run records configuration, dependencies, and input hashes to ensure results can be exactly reproduced. | --- |
@@ -123,10 +127,12 @@ The framework is built on four core principles:
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | I/O, numerical computation, orchestration, and monitoring are clearly separated into independent modules. | --- |
  **Configuration over hard-coding**
 
 | --- | --- | All runtime parameters are defined in a single `config.yaml` file, making experimentation and deployment straightforward. |
+| --- | --- | --- |
 | --- | --- | --- |
 | --- | ## 🎯 Design Goals | --- |
  
@@ -135,9 +141,11 @@ The project is designed with the following primary goals:
 
 | Goal | --- |
 | --- | --- |
+| --- | --- |
 | Description | --- |
  ---
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | --- | --- |
@@ -145,9 +153,11 @@ The project is designed with the following primary goals:
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | All statistical methods are validated against reference implementations and literature. | --- |
  **Reproducibility**
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | Every run captures configuration, dependencies, and input metadata for exact replication. | --- |
@@ -155,9 +165,11 @@ The project is designed with the following primary goals:
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | Plugin architecture allows adding new distributions, quality controls, and data adapters without modifying core code. | --- |
  **High performance**
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | Block-based processing, vectorized operations, and optional parallel execution handle large datasets efficiently. | --- |
@@ -165,10 +177,12 @@ The project is designed with the following primary goals:
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | Clear separation of concerns (I/O, computation, orchestration, monitoring) simplifies testing and maintenance. | --- |
  **Production-ready workflows**
 
 | --- | --- | Designed for batch processing of real-world climate data with checkpoint recovery and comprehensive logging. |
+| --- | --- | --- |
 | --- | --- | --- |
 | --- | ## ❌ Non-Goals | --- |
  
@@ -186,30 +200,44 @@ These boundaries ensure the project remains focused, maintainable, and effective
 ## 🔄 Typical Workflow
 
 A typical user workflow with the engine follows these steps:
+```text
 ┌─────────────────────────────────────────────────────────┐
+```
 │ 1. Prepare Input Data │
+```text
 │ └── Organize Zarr/NetCDF files with monthly data │
 ├─────────────────────────────────────────────────────────┤
+```
 │ 2. Configure the Engine │
+```text
 │ └── Edit config.yaml (paths, years, variables) │
 ├─────────────────────────────────────────────────────────┤
+```
 │ 3. Run the Processing Pipeline │
+```text
 │ └── python main.py │
 │ ├── IO Pipeline loads data in blocks │
 │ ├── Numerical Engine fits distributions │
 │ ├── Quality Control flags results │
 │ └── Result Pipeline writes to Zarr/NetCDF │
 ├─────────────────────────────────────────────────────────┤
+```
 │ 4. Inspect Quality Control Flags │
+```text
 │ └── Check flags to identify problematic fits │
 ├─────────────────────────────────────────────────────────┤
+```
 │ 5. Generate Climatology Outputs │
+```text
 │ └── Extract best distribution parameters │
 │ └── Export to NetCDF, CSV, or visualize │
 ├─────────────────────────────────────────────────────────┤
+```
 │ 6. Iterate or Automate │
+```text
 │ └── Modify config, run again, or integrate into CI │
 └─────────────────────────────────────────────────────────┘
+```
 ```text
 
 This workflow is designed to be intuitive for both first-time users and experienced researchers.
@@ -222,9 +250,11 @@ The engine makes several deliberate trade-offs to achieve its goals:
 
 | Trade-off | --- | Decision |
 | --- | --- | --- |
+| --- | --- | --- |
 | --- | Rationale | --- |
  ---
 
+| --- | --- | --- |
 | --- | --- | --- |
 | --- | --- | --- |
 | --- | --- | --- |
@@ -232,25 +262,30 @@ The engine makes several deliberate trade-offs to achieve its goals:
 
 | --- | --- | Prioritizes scientific accuracy over raw speed |
 | --- | --- | --- |
+| --- | --- | --- |
 | --- | Climate research requires reliable statistical estimates; moderate performance is acceptable. | --- |
  **Memory vs. I/O**
 
 | --- | --- | Uses block processing with moderate memory footprint |
+| --- | --- | --- |
 | --- | --- | --- |
 | --- | Ensures datasets larger than RAM can be processed; I/O overhead is managed with caching. | --- |
  **Extensibility vs. Simplicity**
 
 | --- | --- | Adopts plugin architecture |
 | --- | --- | --- |
+| --- | --- | --- |
 | --- | Adds complexity but enables easy extension without changing core code. | --- |
  **Python vs. Compiled Languages**
 
 | --- | --- | Written in Python with Numba acceleration |
 | --- | --- | --- |
+| --- | --- | --- |
 | --- | Balances development velocity with performance for numerical workloads. | --- |
  **Zarr vs. NetCDF**
 
 | --- | --- | Zarr as primary storage; NetCDF export supported | --- |
+| --- | --- | --- | --- |
 | --- | --- | --- | --- |
 | Zarr provides better scalability and cloud compatibility; NetCDF ensures interoperability. | --- | These trade-offs are carefully chosen based on the needs of climate science workflows. | --- |
  
@@ -261,9 +296,11 @@ The engine is designed for extensibility through well-defined interfaces:
 
 | Extension Point | --- | Location |
 | --- | --- | --- |
+| --- | --- | --- |
 | --- | Description | --- |
  ---
 
+| --- | --- | --- |
 | --- | --- | --- |
 | --- | --- | --- |
 | --- | --- | --- |
@@ -271,25 +308,30 @@ The engine is designed for extensibility through well-defined interfaces:
 
 | --- | --- | `plugins/distributions/` |
 | --- | --- | --- |
+| --- | --- | --- |
 | --- | Add new probability distributions by subclassing `DistributionPlugin`. | --- |
  **Quality Control Plugins**
 
 | --- | --- | `plugins/qc/` |
+| --- | --- | --- |
 | --- | --- | --- |
 | --- | Add custom quality control rules (planned). | --- |
  **Statistical Metrics**
 
 | --- | --- | `plugins/statistics/` |
 | --- | --- | --- |
+| --- | --- | --- |
 | --- | Add new statistical metrics (planned). | --- |
  **Data Adapters**
 
 | --- | --- | `core/interfaces/` |
 | --- | --- | --- |
+| --- | --- | --- |
 | --- | Add support for new input formats by implementing `DataAdapter`. | --- |
  **Output Writers**
 
 | --- | --- | `result_pipeline/` | --- |
+| --- | --- | --- | --- |
 | --- | --- | --- | --- |
 | Add new output formats by extending the result pipeline. | --- | Each extension point includes a clear interface and example implementation to simplify development. | --- |
  
@@ -297,16 +339,24 @@ The engine is designed for extensibility through well-defined interfaces:
 ## 📋 Configuration Layers
 
 Configuration is managed through multiple layers with well-defined precedence:
+```text
 ┌─────────────────────────────────────────────────────────┐
+```
 │ 1. Defaults (hard-coded in constants.py) │
+```text
 │ └── Built-in fallback values │
 ├─────────────────────────────────────────────────────────┤
+```
 │ 2. config.yaml (primary configuration file) │
+```text
 │ └── User-defined settings for paths, parameters │
 ├─────────────────────────────────────────────────────────┤
+```
 │ 3. Command-line arguments (future) │
+```text
 │ └── Override specific settings at runtime │
 └─────────────────────────────────────────────────────────┘
+```
 
 This layered approach ensures consistency while allowing flexibility for different use cases.
 
@@ -316,9 +366,11 @@ The engine includes robust recovery mechanisms:
 
 | Feature | --- |
 | --- | --- |
+| --- | --- |
 | Description | --- |
  ---
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | --- | --- |
@@ -326,9 +378,11 @@ The engine includes robust recovery mechanisms:
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | Saves progress after each block (every 100 stations). | --- |
  **Resume**
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | Automatically resumes from the last successful checkpoint on restart. | --- |
@@ -336,10 +390,12 @@ The engine includes robust recovery mechanisms:
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | Validates data integrity and detects corrupted stores. | --- |
  **Graceful Shutdown**
 
 | --- | --- | Handles interruptions (KeyboardInterrupt, power loss) without data loss. |
+| --- | --- | --- |
 | --- | --- | --- |
 | --- | To resume after interruption, simply run `python main.py` again – the engine will continue from where it stopped. | --- |
  
@@ -357,7 +413,9 @@ save_checkpoint("nature_output", block=86, station=86999)
 # Load checkpoint
 
 cp = load_checkpoint("nature_output")
+```python
 print(f"Last block: {cp.get('block')}")
+```
 
 ⚡ Performance Philosophy
 The engine achieves performance through several strategic choices:
@@ -509,39 +567,67 @@ The engine follows a pipeline-based architecture:
 Input Data (Zarr/NetCDF)
 │
 ▼
+```text
 ┌─────────────────┐
+```
 │ IO Pipeline │ → Reads data in blocks, handles missing values
+```text
 └─────────────────┘
+```
 │
 ▼
+```text
 ┌─────────────────┐
+```
 │ Validation │ → Checks data integrity against schema
+```text
 └─────────────────┘
+```
 │
 ▼
+```text
 ┌─────────────────┐
+```
 │ Orchestrator │ → Coordinates block processing, manages checkpoints
+```text
 └─────────────────┘
+```
 │
 ▼
+```text
 ┌─────────────────┐
+```
 │ Plugins │ → Load distribution plugins (Normal, Skew-Normal, etc.)
+```text
 └─────────────────┘
+```
 │
 ▼
+```text
 ┌─────────────────┐
+```
 │ Numerical Engine│ → Fits distributions, computes statistics
+```text
 └─────────────────┘
+```
 │
 ▼
+```text
 ┌─────────────────┐
+```
 │ Result Pipeline │ → Writes results to Zarr/NetCDF with metadata
+```text
 └─────────────────┘
+```
 │
 ▼
+```text
 ┌─────────────────┐
+```
 │ Monitoring │ → Logging, benchmarking, checkpointing
+```text
 └─────────────────┘
+```
 ```text
 
 ```
@@ -550,9 +636,11 @@ Input Data (Zarr/NetCDF)
 
 | Module | --- |
 | --- | --- |
+| --- | --- |
 | Responsibility | --- |
  ---
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | --- | --- |
@@ -560,9 +648,11 @@ Input Data (Zarr/NetCDF)
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | Base classes, interfaces, and shared utilities. | --- |
  `io_pipeline/`
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | Data ingestion from various sources (Zarr, CSV, NetCDF). | --- |
@@ -570,9 +660,11 @@ Input Data (Zarr/NetCDF)
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | Core statistical computations (distribution fitting, window extraction). | --- |
  `plugins/distributions/`
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | Individual distribution implementations (each as a plugin). | --- |
@@ -580,9 +672,11 @@ Input Data (Zarr/NetCDF)
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | Workflow orchestration, block management, and checkpointing. | --- |
  `result_pipeline/`
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | Output generation, validation, and storage. | --- |
@@ -590,50 +684,60 @@ Input Data (Zarr/NetCDF)
 
 | --- | --- | Logging, benchmarking, and performance monitoring. | --- | ## 📂 Supported Data Formats | --- | Format |
 | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- |
 | --- | Read | --- | Write | --- | Notes | --- |
  ---
 
 | --- | --- | --- | --- |
 | --- | --- | --- | --- |
 | --- | --- | --- | --- |
+| --- | --- | --- | --- |
  **Zarr**
 
-| --- |
-| --- |
+| --- |  |
+| --- | --- |
+| --- |  |
 | --- | ✅ |
  ✅
 
+| --- | --- |
 | --- | --- |
 | --- | --- |
 | Primary storage format; chunked, compressed, cloud-optimized. | --- |
  **NetCDF**
 
-| --- |
-| --- |
+| --- |  |
+| --- | --- |
+| --- |  |
 | --- | ✅ |
  ✅
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | Classic climate data format; CF-compliant output. | --- |
  **CSV**
 
-| --- |
-| --- |
+| --- |  |
+| --- | --- |
+| --- |  |
 | --- | ✅ |
  ❌
 
 | --- | --- |
 | --- | --- |
+| --- | --- |
 | Only for small test datasets; not recommended for production. | --- |
  **Parquet**
 
-| --- |
-| --- |
+| --- |  |
+| --- | --- |
+| --- |  |
 | --- | ❌ |
  ❌
 
 | --- | --- | Not currently supported (planned for future). | --- | ## 🔄 Execution Modes | --- |
+| --- | --- | --- | --- | --- | --- |
 | --- | --- | --- | --- | --- | --- |
 | Mode | --- | Description | --- | Use Case | --- |
  ---
@@ -641,19 +745,23 @@ Input Data (Zarr/NetCDF)
 | --- | --- | --- |
 | --- | --- | --- |
 | --- | --- | --- |
+| --- | --- | --- |
  **CLI**
 
 | --- | --- | Run via `python main.py` with `config.yaml` |
+| --- | --- | --- |
 | --- | --- | --- |
 | --- | Production workflows, batch processing | --- |
  **Python API**
 
 | --- | --- | Import modules and call functions programmatically |
 | --- | --- | --- |
+| --- | --- | --- |
 | --- | Integration into existing codebases, custom scripts | --- |
  **Jupyter Notebook**
 
 | --- | --- | Interactive analysis using notebooks in `notebooks/` | --- |
+| --- | --- | --- | --- |
 | --- | --- | --- | --- |
 | Exploratory data analysis, prototyping, teaching | --- | ## 🔌 Plugin Development Guide | --- |
  
@@ -876,17 +984,23 @@ venv`/Scripts``/activate `/
 
 # Install the package
 
+```bash
 pip install -e . Dependencies Core dependencies are automatically
+```
 installed: Optional development dependencies: bash pip install -e
 .$dev$ /
 # Includes: pytest, sphinx, black, flake8, mypy Installing
 
 with Conda (alternative) bash conda create -n climatology python=3.11
+```bash
 conda activate climatology conda install numpy scipy xarray zarr numba
+```
 pandas matplotlib seaborn pyyaml pip install -e .
 
 🚀 Quick Start 1. Using the sample dataset python import numpy as np
+```python
 import pandas as pd import matplotlib.pyplot as plt
+```
 
 # Load sample station data
 
@@ -902,11 +1016,15 @@ print(f"Data shape: {station_data.shape}") /
 
 # Plot temperature for the first 365 days
 
+```python
 plt.figure(figsize=(12, 6)) plt.plot(station_data$:365, 1$,
+```
 label='tmean', linewidth=2) plt.plot(station_data$:365, 0$,
 label='tmin', alpha=0.7) plt.plot(station_data$:365, 2$, label='tmax',
 alpha=0.7) plt.xlabel('Day of Year') plt.ylabel('Temperature (°C)')
+```python
 plt.title('Station 001 - Daily Temperature') plt.legend() plt.grid(True,
+```
 alpha=0.3) plt.tight_layout() plt.savefig('station_001_temperature.png',
 dpi=300) plt.show() 2. Fit a Normal distribution python from
 plugins.distributions.normal import NormalDistribution
@@ -938,7 +1056,9 @@ plugins = load_plugins() print(f"Loaded {len(plugins)} distributions:
 results = {} for code, dist in plugins.items(): try: res =
 dist.fit(tmean_data) results$dist.name$ = res print(f"{dist.name}:
 AICc = {res.get('aicc', np.nan):.3f}") except Exception as e:
+```python
 print(f"{dist.name}: Failed - {str(e)}")
+```
 
 # Find the best distribution (minimum AICc)
 
@@ -953,104 +1073,166 @@ results to a Zarr store 5. Interactive tutorial bash jupyter notebook
 notebooks/01_Quick_Start.ipynb
 
 ```text
+```text
 ClimateProcessingEngine/ ├── core/ /
+```
 # Core
 
+```text
 framework (abstract layers) │ ├── engine/ /
 # Engine components │ │ ├──
+```
 
 distribution_plugin.py /
+```text
 # Base class for all distributions │ │ └──
+```
 
 plugin_loader.py /
+```text
 # Auto-discover and load plugins │ ├── interfaces/ /#
+```
 
+```text
 Data interface adapters │ │ └── data_adapter.py /
+```
 # Station & gridded
 
+```text
 data adapters │ ├── storage/ /
 # Storage backends │ │ └── zarr_schema.py
+```
 
 ```
 
+```text
 # Zarr output schema definition │ ├── quality/ /# Quality control
+```
 
+```text
 system │ │ └── quality_flag.py /
+```
 # Quality flag definitions and evaluator
 
+```text
 │ └── uncertainty/ /
 # Uncertainty quantification │ └── bootstrap.py /#
+```
 
+```text
 Bootstrap confidence intervals │ ├── plugins/ /
+```
 # Plugin architecture │
 
+```text
 ├── distributions/ /
 # Distribution plugins │ │ ├── normal.py /# Normal
+```
 
+```text
 distribution │ │ ├── skewnormal.py /
 # Skew-Normal distribution │ │ ├──
+```
 
 gev.py /
+```text
 # Generalized Extreme Value │ │ ├── bimodal.py /# Bimodal
+```
 
+```text
 mixture distribution │ │ └── pearson.py /
 # Pearson Type III │ ├── qc/ /#
+```
 
+```text
 Quality control plugins (future) │ │ └── (empty) │ └── statistics/ /#
 Statistical metric plugins (future) │ └── (empty) │ ├── notebooks/ /#
 Jupyter Notebook tutorials │ └── 01_Quick_Start.ipynb │ ├── tests/ /#
 Test suite │ ├── test_distributions.py /
 # Distribution unit tests │ ├──
+```
 
 test_adapters.py /
+```text
 # Data adapter tests │ ├── test_quality.py /# Quality
+```
 
+```text
 flag tests │ └── expected_results/ /
 # Golden results for CI │ └──
+```
 
+```text
 station_001_expected.csv │ ├── benchmark/ /
+```
 # Performance benchmarks │
 
+```text
 └── benchmark.py /
 # Benchmark runner │ ├── docs/ /# Sphinx documentation
+```
 
+```text
 │ └── source/ │ ├── conf.py /
 # Sphinx configuration │ ├── index.rst /#
+```
 
+```text
 Documentation home page │ ├── installation.rst │ ├── usage.rst │ ├──
 api.rst │ └── contributing.rst │ ├── sample_data/ /
+```
 # Sample data (10
 
+```text
 synthetic stations) │ ├── station_001.csv │ ├── station_002.csv │ ├──
 ... │ └── station_010.csv │ ├── .github/ /
 # GitHub-specific files │ └──
+```
 
+```text
 workflows/ │ └── ci.yml /
 # GitHub Actions CI/CD │ ├── config.yaml /#
+```
 
+```text
 Main configuration file ├── main.py /
 # Entry point ├── pyproject.toml /#
+```
 
+```text
 Package metadata and build configuration ├── setup.cfg /
+```
 # Additional
 
+```text
 configuration ├── LICENSE /
 # MIT License ├── CITATION.cff /# Citation
+```
 
+```text
 information ├── .pre-commit-config.yaml /
 # Pre-commit hooks ├──
+```
 
 .gitignore /
+```text
 # Git ignore patterns ├── .readthedocs.yaml /# ReadTheDocs
+```
 
+```text
 configuration ├── MANIFEST.in /
 # Package manifest ├── README.md /# This
+```
 
+```text
 file ├── CONTRIBUTING.md /
 # Contributing guidelines ├──
+```
 
 CODE_OF_CONDUCT.md /
+```text
 # Code of conduct └── SECURITY.md /# Security policy
+```
 
 ⚙️ Configuration The main configuration file is config.yaml. This file
 controls all aspects of the engine. Complete Configuration Example yaml
@@ -1268,7 +1450,9 @@ dpi: 300 /
 
 📊 Output Schema The engine produces a Zarr store with the following
 variables: Complete List of Output Variables Reading the Output python
+```python
 import xarray as xr
+```
 
 # Open the Zarr output
 
@@ -1277,7 +1461,9 @@ consolidated=False)
 
 # List all variables
 
+```python
 print(list(ds.data_vars))
+```
 
 # Access the best distribution
 
@@ -1708,17 +1894,23 @@ Sample size: 1000 stations Mode: Normal Workers: 6
 
 📖 Documentation 20.1. Sphinx Documentation Build the full
 documentation: bash cd docs make html open /_build/html/index.html
+```text
 Documentation structure: text docs/ ├── source/ │ ├── index.rst /
+```
 # Home
 
+```text
 page │ ├── installation.rst /
 # Installation guide │ ├── usage/ │ │ ├──
+```
 
+```text
 quickstart.rst │ │ ├── configuration.rst │ │ ├── running.rst │ │ └──
 output.rst │ ├── api/ │ │ ├── core.rst │ │ ├── plugins.rst │ │ └──
 utilities.rst │ ├── theory/ │ │ ├── distributions.rst │ │ ├──
 selection.rst │ │ └── uncertainty.rst │ ├── contributing.rst │ └──
 changelog.rst └── build/ /
+```
 # Generated documentation 20.2. Jupyter
 
 Notebooks Interactive tutorials:
@@ -1766,7 +1958,9 @@ venv`/Scripts``/activate `on Windows
 
 # Install development dependencies
 
+```bash
 pip install -e .$dev$
+```
 
 # Install pre-commit hooks
 
