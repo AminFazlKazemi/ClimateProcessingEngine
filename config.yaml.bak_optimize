@@ -1,0 +1,36 @@
+benchmark:
+  enabled: true
+  run_on_first_block: true
+  test_block_sizes:
+  - 500
+  - 1000
+  - 1500
+  - 2000
+  - 3000
+block_size: 1000
+cores: 6
+days: 366
+fit_variable_index: 1
+logging:
+  level: INFO
+  log_file: climatology.log
+  log_timestamps: true
+paths:
+  calendar_file: K:/gozareshha/dr vazife/140504 - qc temp/climatology/climatology_engine/calendar.txt
+  checkpoint_file: checkpoint.csv
+  output_dir: I:/climatology_366_rolling
+  output_zarr_name: climatology_stationwise_final.zarr
+  zarr_base: K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly
+use_parallel: false
+validation:
+  validate_after_load: true
+  validate_before_write: true
+  validate_every_n_blocks: 5
+variables:
+- tmin
+- tmean
+- tmax
+window_days: 2
+years:
+  end: 1399
+  start: 1369

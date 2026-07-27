@@ -1,24 +1,57 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyc
-*.bak*
-*.tmp
-*.log
-*.zarr
-*.zip
-*.pdf
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+*/.ipynb_checkpoints/
+
+# Zarr
+*.zarr/
+nature_output/
+cache/
+logs/
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
+*.swo
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Project specific
-checkpoint.csv
-climatology.log
-backup/
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation
+docs/_build/
+
+# Backup
+backup_*/
