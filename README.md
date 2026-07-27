@@ -1,17 +1,30 @@
 
+
+$$
 <div style="font-family: 'Segoe UI', Tahoma, sans-serif; line-height:1.7;">
+$$
 
-<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height:1.7; max-width:900px; margin:auto;">
+$$
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height:1.7; max-width:900px;
+margin:auto;">
+$$
 
+$$
 <div style="font-family: 'Segoe UI', Tahoma, sans-serif; line-height:1.8;">
+$$
 
-# Climatology Engine
+## Climatology Engine
 
 **A comprehensive, plugin-based framework for climatological
 distribution fitting, extreme value analysis, and large-scale climate
 data processing.**
 
-[<p align="center"><img src="https://github.com/AminFazlKazemi/ClimateProcessingEngine/actions/workflows/ci.yml/badge.svg" alt="CI" style="max-width:90%;"></p>](https://github.com/AminFazlKazemi/ClimateProcessingEngine/actions/workflows/ci.yml)
+$$
+[<p align="center"><img
+src="https://github.com/AminFazlKazemi/ClimateProcessingEngine/actions/workflows/ci.yml/badge.svg" alt="CI"
+style="max-width:90%;"></p>](https://github.com/AminFazlKazemi/ClimateProcessingEngine/actions/workflows/ci.yml)
+$$
+
 [![Python
 3.8+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License:
@@ -19,9 +32,12 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 [![Code style:
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Documentation
-Status](https://readthedocs.org/projects/climatology-engine/badge/?version=latest)](https://climatology-engine.readthedocs.io/)
 
-## 📋 Table of Contents
+$$
+(https://readthedocs.org/projects/climatology-engine/badge/?version=latest)](https://climatology-engine.readthedocs.io/)
+$$
+
+### 📋 Table of Contents
 
 1. [Overview](#-overview)
 2. [Key Features](#-key-features)
@@ -33,59 +49,99 @@ Status](https://readthedocs.org/projects/climatology-engine/badge/?version=lates
 8. [Output Schema](#-output-schema)
 9. [Statistical Distribution
  Fitting](#-statistical-distribution-fitting)
- - 9.1. Normal Distribution
- - 9.2. Skew-Normal Distribution
- - 9.3. GEV Distribution
- - 9.4. Bimodal Normal Distribution
- - 9.5. Pearson Type III Distribution
+ 
+- 9.1. Normal Distribution
+ 
+- 9.2. Skew-Normal Distribution
+ 
+- 9.3. GEV Distribution
+ 
+- 9.4. Bimodal Normal Distribution
+ 
+- 9.5. Pearson Type III Distribution
 10. [Model Selection Criteria](#-model-selection-criteria)
- - 10.1. Akaike Information Criterion (AIC)
- - 10.2. Corrected AIC (AICc)
- - 10.3. Bayesian Information Criterion (BIC)
- - 10.4. Likelihood Ratio Test
+ 
+- 10.1. Akaike Information Criterion (AIC)
+ 
+- 10.2. Corrected AIC (AICc)
+ 
+- 10.3. Bayesian Information Criterion (BIC)
+ 
+- 10.4. Likelihood Ratio Test
 11. [Quality Control System](#-quality-control-system)
- - 11.1. Quality Flags
- - 11.2. Automatic Flagging
- - 11.3. Threshold Configuration
+ 
+- 11.1. Quality Flags
+ 
+- 11.2. Automatic Flagging
+ 
+- 11.3. Threshold Configuration
 12. [Uncertainty Quantification](#-uncertainty-quantification)
- - 12.1. Bootstrap Method
- - 12.2. Confidence Intervals
- - 12.3. Parameter Uncertainty
+ 
+- 12.1. Bootstrap Method
+ 
+- 12.2. Confidence Intervals
+ 
+- 12.3. Parameter Uncertainty
 13. [Plugin Architecture](#-plugin-architecture)
- - 13.1. Adding New Distributions
- - 13.2. Plugin Structure
- - 13.3. Loading Plugins
+ 
+- 13.1. Adding New Distributions
+ 
+- 13.2. Plugin Structure
+ 
+- 13.3. Loading Plugins
 14. [Data Adapters](#-data-adapters)
- - 14.1. Station Data Adapter
- - 14.2. Gridded Data Adapter
- - 14.3. Auto-Detection
+ 
+- 14.1. Station Data Adapter
+ 
+- 14.2. Gridded Data Adapter
+ 
+- 14.3. Auto-Detection
 15. [Processing Modes](#-processing-modes)
- - 15.1. Normal Mode
- - 15.2. Extreme Value Mode
+ 
+- 15.1. Normal Mode
+ 
+- 15.2. Extreme Value Mode
 16. [Performance Optimization](#-performance-optimization)
- - 16.1. Block-Based Processing
- - 16.2. Parallel Processing
- - 16.3. Memory Management
- - 16.4. Caching System
- - 16.5. Compression
+ 
+- 16.1. Block-Based Processing
+ 
+- 16.2. Parallel Processing
+ 
+- 16.3. Memory Management
+ 
+- 16.4. Caching System
+ 
+- 16.5. Compression
 17. [Checkpoint & Recovery](#-checkpoint--recovery)
 18. [Testing](#-testing)
- - 18.1. Unit Tests
- - 18.2. Integration Tests
- - 18.3. Coverage Reports
+ 
+- 18.1. Unit Tests
+ 
+- 18.2. Integration Tests
+ 
+- 18.3. Coverage Reports
 19. [Benchmarking](#-benchmarking)
- - 19.1. Performance Metrics
- - 19.2. Benchmark Results
+ 
+- 19.1. Performance Metrics
+ 
+- 19.2. Benchmark Results
 20. [Documentation](#-documentation)
- - 20.1. Sphinx Documentation
- - 20.2. Jupyter Notebooks
+ 
+- 20.1. Sphinx Documentation
+ 
+- 20.2. Jupyter Notebooks
 21. [Troubleshooting](#-troubleshooting)
- - 21.1. Common Errors
- - 21.2. Solutions
+ 
+- 21.1. Common Errors
+ 
+- 21.2. Solutions
 22. [Contributing](#-contributing)
- - 22.1. Development Setup
- - 22.2. Code Style
- - 22.3. Pull Request Process
+ 
+- 22.1. Development Setup
+ 
+- 22.2. Code Style
+ 
+- 22.3. Pull Request Process
 23. [License](#-license)
 24. [Citation](#-citation)
 25. [Contact](#-contact)
@@ -95,109 +151,223 @@ Status](https://readthedocs.org/projects/climatology-engine/badge/?version=lates
 29. [Roadmap](#-roadmap)
 30. [Final Note](#-final-note)
 
-## 🌟 Overview
+### 🌟 Overview
 
-## 🧠 Design Philosophy
+### 🧠 Design Philosophy
 
 The framework is built on four core principles:
 
-| Principle | --- |
-| --- | --- |
-| --- | --- |
-| Description | --- |
+| Principle | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Description | --
+- |
  ---
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| --- | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
  **Plugin-first architecture**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| All statistical distributions and quality controls are implemented as plugins, enabling easy extension without modifying core code. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| All statistical distributions and quality controls are implemented as plugins, enabling easy extension without
+modifying core code. | --
+- |
  **Reproducible scientific workflows**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Every run records configuration, dependencies, and input hashes to ensure results can be exactly reproduced. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Every run records configuration, dependencies, and input hashes to ensure results can be exactly reproduced. | --
+- |
  **Separation of concerns**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| I/O, numerical computation, orchestration, and monitoring are clearly separated into independent modules. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| I/O, numerical computation, orchestration, and monitoring are clearly separated into independent modules. | --
+- |
  **Configuration over hard-coding**
 
-| --- | --- | All runtime parameters are defined in a single `config.yaml` file, making experimentation and deployment straightforward. |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | ## 🎯 Design Goals | --- |
+| --
+- | --
+- | All runtime parameters are defined in a single `config.yaml` file, making experimentation and deployment
+straightforward. |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | ## 🎯 Design Goals | --
+- |
  
 
 The project is designed with the following primary goals:
 
-| Goal | --- |
-| --- | --- |
-| --- | --- |
-| Description | --- |
+| Goal | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Description | --
+- |
  ---
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| --- | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
  **Scientific correctness**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| All statistical methods are validated against reference implementations and literature. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| All statistical methods are validated against reference implementations and literature. | --
+- |
  **Reproducibility**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Every run captures configuration, dependencies, and input metadata for exact replication. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Every run captures configuration, dependencies, and input metadata for exact replication. | --
+- |
  **Extensibility**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Plugin architecture allows adding new distributions, quality controls, and data adapters without modifying core code. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Plugin architecture allows adding new distributions, quality controls, and data adapters without modifying core code.
+| --
+- |
  **High performance**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Block-based processing, vectorized operations, and optional parallel execution handle large datasets efficiently. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Block-based processing, vectorized operations, and optional parallel execution handle large datasets efficiently. |
+--
+- |
  **Modular architecture**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Clear separation of concerns (I/O, computation, orchestration, monitoring) simplifies testing and maintenance. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Clear separation of concerns (I/O, computation, orchestration, monitoring) simplifies testing and maintenance. | --
+- |
  **Production-ready workflows**
 
-| --- | --- | Designed for batch processing of real-world climate data with checkpoint recovery and comprehensive logging. |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | ## ❌ Non-Goals | --- |
+| --
+- | --
+- | Designed for batch processing of real-world climate data with checkpoint recovery and comprehensive
+logging. |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | ## ❌ Non-Goals | --
+- |
  
 
 This project explicitly does **not** aim to:
 
-- **Be a full GIS platform** – while it handles geospatial data, it does not provide map visualization, spatial analysis, or advanced geospatial operations.
-- **Provide weather forecasting** – it performs statistical fitting and climatology generation, not real-time or short-term weather prediction.
-- **Be a machine learning framework** – it does not include deep learning models, neural networks, or general-purpose ML pipelines.
-- **Serve as a visualization library** – while it includes basic plotting utilities, it is not a replacement for tools like Matplotlib, Cartopy, or Seaborn.
-- **Replace specialized extreme value packages** – for advanced non-stationary extreme value analysis, refer to dedicated tools like `extRemes` or `climextRemes`.
+- **Be a full GIS platform** – while it handles geospatial data, it does not provide map visualization, spatial
+analysis, or advanced geospatial operations.
+- **Provide weather forecasting** – it performs statistical fitting and climatology generation, not real-time or
+short-term weather prediction.
+- **Be a machine learning framework** – it does not include deep learning models, neural networks, or general-purpose ML
+pipelines.
+- **Serve as a visualization library** – while it includes basic plotting utilities, it is not a replacement for tools
+like Matplotlib, Cartopy, or Seaborn.
+- **Replace specialized extreme value packages** – for advanced non-stationary extreme value analysis, refer to
+dedicated tools like `extRemes` or `climextRemes`.
 
 These boundaries ensure the project remains focused, maintainable, and effective for its core mission.
 
-## 🔄 Typical Workflow
+### 🔄 Typical Workflow
 
 A typical user workflow with the engine follows these steps:
 ```text
@@ -244,99 +414,252 @@ This workflow is designed to be intuitive for both first-time users and experien
 
 ```
 
-## ⚖️ Design Trade-offs
+### ⚖️ Design Trade-offs
 
 The engine makes several deliberate trade-offs to achieve its goals:
 
-| Trade-off | --- | Decision |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Rationale | --- |
+| Trade-off | --
+- | Decision |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Rationale | --
+- |
  ---
 
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | --- | --- |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
  **Accuracy vs. Speed**
 
-| --- | --- | Prioritizes scientific accuracy over raw speed |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Climate research requires reliable statistical estimates; moderate performance is acceptable. | --- |
+| --
+- | --
+- | Prioritizes scientific accuracy over raw speed |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Climate research requires reliable statistical estimates; moderate performance is acceptable. | --
+- |
  **Memory vs. I/O**
 
-| --- | --- | Uses block processing with moderate memory footprint |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Ensures datasets larger than RAM can be processed; I/O overhead is managed with caching. | --- |
+| --
+- | --
+- | Uses block processing with moderate memory footprint |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Ensures datasets larger than RAM can be processed; I/O overhead is managed with caching. | --
+- |
  **Extensibility vs. Simplicity**
 
-| --- | --- | Adopts plugin architecture |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Adds complexity but enables easy extension without changing core code. | --- |
+| --
+- | --
+- | Adopts plugin architecture |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Adds complexity but enables easy extension without changing core code. | --
+- |
  **Python vs. Compiled Languages**
 
-| --- | --- | Written in Python with Numba acceleration |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Balances development velocity with performance for numerical workloads. | --- |
+| --
+- | --
+- | Written in Python with Numba acceleration |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Balances development velocity with performance for numerical workloads. | --
+- |
  **Zarr vs. NetCDF**
 
-| --- | --- | Zarr as primary storage; NetCDF export supported | --- |
-| --- | --- | --- | --- |
-| --- | --- | --- | --- |
-| Zarr provides better scalability and cloud compatibility; NetCDF ensures interoperability. | --- | These trade-offs are carefully chosen based on the needs of climate science workflows. | --- |
+| --
+- | --
+- | Zarr as primary storage; NetCDF export supported | --
+- |
+| --
+- | --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- | --
+- |
+| Zarr provides better scalability and cloud compatibility; NetCDF ensures interoperability. | --
+- | These trade-offs
+are carefully chosen based on the needs of climate science workflows. | --
+- |
  
 
-## 🔌 Extension Points
+### 🔌 Extension Points
 
 The engine is designed for extensibility through well-defined interfaces:
 
-| Extension Point | --- | Location |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Description | --- |
+| Extension Point | --
+- | Location |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Description | --
+- |
  ---
 
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | --- | --- |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
  **Distribution Plugins**
 
-| --- | --- | `plugins/distributions/` |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Add new probability distributions by subclassing `DistributionPlugin`. | --- |
+| --
+- | --
+- | `plugins/distributions/` |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Add new probability distributions by subclassing `DistributionPlugin`. | --
+- |
  **Quality Control Plugins**
 
-| --- | --- | `plugins/qc/` |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Add custom quality control rules (planned). | --- |
+| --
+- | --
+- | `plugins/qc/` |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Add custom quality control rules (planned). | --
+- |
  **Statistical Metrics**
 
-| --- | --- | `plugins/statistics/` |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Add new statistical metrics (planned). | --- |
+| --
+- | --
+- | `plugins/statistics/` |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Add new statistical metrics (planned). | --
+- |
  **Data Adapters**
 
-| --- | --- | `core/interfaces/` |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Add support for new input formats by implementing `DataAdapter`. | --- |
+| --
+- | --
+- | `core/interfaces/` |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Add support for new input formats by implementing `DataAdapter`. | --
+- |
  **Output Writers**
 
-| --- | --- | `result_pipeline/` | --- |
-| --- | --- | --- | --- |
-| --- | --- | --- | --- |
-| Add new output formats by extending the result pipeline. | --- | Each extension point includes a clear interface and example implementation to simplify development. | --- |
+$$
+| --
+- | --
+- | `result_pipeline/` | --
+- |
+$$
+
+| --
+- | --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- | --
+- |
+| Add new output formats by extending the result pipeline. | --
+- | Each extension point includes a clear interface and
+example implementation to simplify development. | --
+- |
  
 
-## 📋 Configuration Layers
+### 📋 Configuration Layers
 
 Configuration is managed through multiple layers with well-defined precedence:
 ```text
@@ -360,59 +683,113 @@ Configuration is managed through multiple layers with well-defined precedence:
 
 This layered approach ensures consistency while allowing flexibility for different use cases.
 
-## 💾 Failure Recovery
+### 💾 Failure Recovery
 
 The engine includes robust recovery mechanisms:
 
-| Feature | --- |
-| --- | --- |
-| --- | --- |
-| Description | --- |
+| Feature | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Description | --
+- |
  ---
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| --- | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
  **Checkpointing**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Saves progress after each block (every 100 stations). | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Saves progress after each block (every 100 stations). | --
+- |
  **Resume**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Automatically resumes from the last successful checkpoint on restart. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Automatically resumes from the last successful checkpoint on restart. | --
+- |
  **Corruption Detection**
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Validates data integrity and detects corrupted stores. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Validates data integrity and detects corrupted stores. | --
+- |
  **Graceful Shutdown**
 
-| --- | --- | Handles interruptions (KeyboardInterrupt, power loss) without data loss. |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | To resume after interruption, simply run `python main.py` again – the engine will continue from where it stopped. | --- |
+| --
+- | --
+- | Handles interruptions (KeyboardInterrupt, power loss) without data loss. |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | To resume after interruption, simply run `python main.py` again – the engine will continue from where it
+stopped. | --
+- |
  
 
 **Manual checkpoint management:**
 ```python
+
+$$
 from monitoring.checkpoint import save_checkpoint, load_checkpoint
+$$
 
 ```
 
-# Save checkpoint
+## Save checkpoint
 
+$$
 save_checkpoint("nature_output", block=86, station=86999)
+$$
 
-# Load checkpoint
+## Load checkpoint
 
+$$
 cp = load_checkpoint("nature_output")
+$$
+
 ```python
 print(f"Last block: {cp.get('block')}")
 ```
@@ -420,11 +797,16 @@ print(f"Last block: {cp.get('block')}")
 ⚡ Performance Philosophy
 The engine achieves performance through several strategic choices:
 Strategy	Implementation	Impact
-Block Processing	Processes data in chunks (block_size stations)	Controls memory usage; scales to any dataset size.
+
+$$
+Block Processing Processes data in chunks (block_size stations) Controls memory usage; scales to any dataset size.
+$$
+
 Vectorized Operations	Uses NumPy and Numba for array operations	10–100x speedup over pure Python loops.
 JIT Compilation	Numba @njit decorators on critical functions	Near-C performance for distribution fitting.
 Lazy Loading	Loads only the required data for each block	Minimizes I/O overhead and memory pressure.
-Configurable Parallelism	Optional multiprocessing, Dask, or Ray backends	Exploits multi-core systems for large workloads.
+Configurable Parallelism	Optional multiprocessing, Dask, or Ray backends	Exploits multi-core systems for large
+workloads.
 Zarr Compression	Blosc/Zstd compression with tunable levels	Reduces storage footprint and I/O time.
 Performance is balanced with scientific accuracy and memory constraints.
 
@@ -432,7 +814,11 @@ Performance is balanced with scientific accuracy and memory constraints.
 Component	Supported Versions	Notes
 Operating Systems	Windows 10/11, Linux (Ubuntu 20.04+), macOS 11+	Tested on all major platforms.
 Python	3.12, 3.13	Uses modern type hints and features.
-CPU	x86_64, ARM64 (Apple Silicon)	Native support for M1/M2/M3.
+
+$$
+CPU x86_64, ARM64 (Apple Silicon) Native support for M1/M2/M3.
+$$
+
 RAM	16 GB minimum, 32+ GB recommended	Larger datasets require more memory.
 Storage	SSD recommended for large datasets	I/O performance is critical for big data.
 Dependencies	See requirements.txt	All dependencies are pinned for reproducibility.
@@ -441,8 +827,10 @@ Note: Python 3.11 and earlier are not supported due to use of modern language fe
 🔬 Scientific Assumptions
 The engine relies on the following scientific assumptions:
 Assumption	Description	Justification
-Stationarity	Climate data within each day/window is treated as stationary for fitting.	Standard practice in climatological distribution fitting.
-Independence	Observations within a window are assumed independent.	While not strictly true, window-based estimation is widely accepted.
+Stationarity	Climate data within each day/window is treated as stationary for fitting.	Standard practice in
+climatological distribution fitting.
+Independence	Observations within a window are assumed independent.	While not strictly true, window-based estimation is
+widely accepted.
 Missing Data	Missing values (NaN) are ignored in fitting.	Assumes missingness is random and does not bias estimates.
 Calendar	Uses Persian calendar (Solar Hijri) with 365/366 days.	Supports region-specific climatology.
 Temperature Units	All temperatures are in degrees Celsius (°C).	Standard for most climate applications.
@@ -473,7 +861,11 @@ The engine validates data and results at multiple stages:
 Stage	Validation Checks	Action on Failure
 Input Loading	Schema compliance, missing data ratio, infinite values	Warning or error (configurable).
 Assembled Block	Shape, dtype, contiguous memory, NaN ratio	Stop processing (strict mode).
-Distribution Fitting	Convergence, parameter bounds, log-likelihood	Flag fit as failed (best_dist = -1).
+
+$$
+Distribution Fitting Convergence, parameter bounds, log-likelihood Flag fit as failed (best_dist = -1).
+$$
+
 Results	Shape, dtype, valid distribution codes, finite values	Stop processing if critical.
 Output Write	Zarr store integrity, disk space	Retry or abort.
 Validation is controlled by the validation section in config.yaml.
@@ -481,27 +873,52 @@ Validation is controlled by the validation section in config.yaml.
 📁 Directory Responsibilities
 Each directory in the project serves a specific purpose:
 Directory	Responsibility	Key Files
-core/	Base classes, interfaces, and shared utilities.	engine/distribution_plugin.py, interfaces/data_adapter.py
-plugins/distributions/	Implementation of probability distributions.	normal.py, skewnormal.py, gev.py, bimodal.py, pearson.py
-io_pipeline/	Data ingestion from Zarr, NetCDF, CSV.	read_month_files.py, assemble_block.py
-numerical_engine/	Statistical computations (fitting, window extraction).	distributions.py, window_engine.py, analyze_station.py
-orchestrator/	Workflow orchestration, block management, checkpointing.	process_block.py, main.py
-result_pipeline/	Output generation, validation, and storage.	write_block.py, validate_result.py
+
+$$
+core/ Base classes, interfaces, and shared utilities. engine/distribution_plugin.py, interfaces/data_adapter.py
+$$
+
+plugins/distributions/	Implementation of probability distributions.	normal.py, skewnormal.py, gev.py, bimodal.py,
+pearson.py
+
+$$
+io_pipeline/ Data ingestion from Zarr, NetCDF, CSV. read_month_files.py, assemble_block.py numerical_engine/ Statistical
+computations (fitting, window extraction). distributions.py, window_engine.py, analyze_station.py orchestrator/ Workflow
+orchestration, block management, checkpointing. process_block.py, main.py result_pipeline/ Output generation,
+validation, and storage. write_block.py, validate_result.py
+$$
+
 monitoring/	Logging, benchmarking, performance monitoring.	logger.py, benchmark.py, checkpoint.py
-tests/	Unit and integration tests.	test_distributions.py, test_adapters.py
+
+$$
+tests/ Unit and integration tests. test_distributions.py, test_adapters.py
+$$
+
 docs/	Sphinx documentation source.	source/ with .rst files.
-notebooks/	Jupyter notebook tutorials.	01_Quick_Start.ipynb
+
+$$
+notebooks/ Jupyter notebook tutorials. 01_Quick_Start.ipynb
+$$
+
 benchmark/	Performance benchmarking tools.	benchmark.py
-sample_data/	Sample dataset for testing.	station_001.csv ... station_010.csv
+
+$$
+sample_data/ Sample dataset for testing. station_001.csv ... station_010.csv
+$$
+
 .github/	GitHub Actions CI/CD workflows.	workflows/ci.yml
 
 👤 User Personas
 The project is designed for three primary user personas:
 Persona	Description	Typical Workflow
-Climate Researcher	Academic or research scientist analyzing climate trends and extremes.	Processes large datasets, fits distributions, interprets results, publishes findings.
-Operational Meteorologist	Works in weather services or environmental agencies.	Runs production workflows, monitors quality, delivers climatological summaries.
-Scientific Software Developer	Builds tools, integrates with other systems, or extends the framework.	Develops plugins, adapters, or custom workflows; contributes to the project.
-Each persona interacts with the engine at different levels of abstraction, from high-level configuration to low-level plugin development.
+Climate Researcher	Academic or research scientist analyzing climate trends and extremes.	Processes large datasets, fits
+distributions, interprets results, publishes findings.
+Operational Meteorologist	Works in weather services or environmental agencies.	Runs production workflows, monitors
+quality, delivers climatological summaries.
+Scientific Software Developer	Builds tools, integrates with other systems, or extends the framework.	Develops plugins,
+adapters, or custom workflows; contributes to the project.
+Each persona interacts with the engine at different levels of abstraction, from high-level configuration to low-level
+plugin development.
 
 📐 Project Scope
 The engine is intentionally scoped to address specific challenges in climate data processing:
@@ -530,7 +947,8 @@ Pandas	Data handling	Used for sample data and intermediate processing.
 Matplotlib, Seaborn	Visualization	For diagnostics and exploratory analysis.
 PyYAML	Configuration	Human-readable configuration files.
 pytest	Testing	Comprehensive test suite.
-Dependencies are kept minimal and are regularly updated to latest stable versions. All dependencies are pinned in requirements.txt for reproducibility.
+Dependencies are kept minimal and are regularly updated to latest stable versions. All dependencies are pinned in
+requirements.txt for reproducibility.
 
 🔧 Maintenance Policy
 The project follows these maintenance guidelines:
@@ -547,21 +965,28 @@ See CONTRIBUTING.md for detailed contribution guidelines.
 Document	Purpose	Audience
 README.md	Project overview, quick start, and key features.	All users.
 CONTRIBUTING.md	Guidelines for contributors and developers.	Developers.
-CODE_OF_CONDUCT.md	Community standards and expected behavior.	All users.
+
+$$
+CODE_OF_CONDUCT.md Community standards and expected behavior. All users.
+$$
+
 CITATION.cff	Citation metadata for academic use.	Researchers.
 docs/	Full Sphinx-generated documentation (API reference, theory).	All users.
 notebooks/	Jupyter notebook tutorials and interactive examples.	Learners, researchers.
 SECURITY.md	Security policy and vulnerability reporting.	Developers, security.
-Start with this README for an overview, then explore notebooks/ for hands-on tutorials, and docs/ for detailed reference.
+Start with this README for an overview, then explore notebooks/ for hands-on tutorials, and docs/ for detailed
+reference.
 
-## ❌ What This Project Is Not
+### ❌ What This Project Is Not
 
-- **Not a full GIS platform** – while it handles geospatial data, it does not provide map visualization or spatial analysis beyond basic operations.
+- **Not a full GIS platform** – while it handles geospatial data, it does not provide map visualization or spatial
+analysis beyond basic operations.
 - **Not a forecasting system** – it performs statistical fitting and climatology generation, not weather prediction.
 - **Not a real-time processing engine** – designed for batch processing of historical climate data, not streaming.
-- **Not a replacement for specialized tools** – for tasks like extreme value analysis with non-stationary models, refer to dedicated packages (e.g., `extRemes`, `climextRemes`).
+- **Not a replacement for specialized tools** – for tasks like extreme value analysis with non-stationary models, refer
+to dedicated packages (e.g., `extRemes`, `climextRemes`).
 
-## 🏗️ Architecture & Data Flow
+### 🏗️ Architecture & Data Flow
 
 The engine follows a pipeline-based architecture:
 Input Data (Zarr/NetCDF)
@@ -634,136 +1059,335 @@ Input Data (Zarr/NetCDF)
 
 ### Module Responsibilities
 
-| Module | --- |
-| --- | --- |
-| --- | --- |
-| Responsibility | --- |
+| Module | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Responsibility | --
+- |
  ---
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| --- | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
  `core/`
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Base classes, interfaces, and shared utilities. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Base classes, interfaces, and shared utilities. | --
+- |
  `io_pipeline/`
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Data ingestion from various sources (Zarr, CSV, NetCDF). | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Data ingestion from various sources (Zarr, CSV, NetCDF). | --
+- |
  `numerical_engine/`
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Core statistical computations (distribution fitting, window extraction). | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Core statistical computations (distribution fitting, window extraction). | --
+- |
  `plugins/distributions/`
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Individual distribution implementations (each as a plugin). | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Individual distribution implementations (each as a plugin). | --
+- |
  `orchestrator/`
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Workflow orchestration, block management, and checkpointing. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Workflow orchestration, block management, and checkpointing. | --
+- |
  `result_pipeline/`
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Output generation, validation, and storage. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Output generation, validation, and storage. | --
+- |
  `monitoring/`
 
-| --- | --- | Logging, benchmarking, and performance monitoring. | --- | ## 📂 Supported Data Formats | --- | Format |
-| --- | --- | --- | --- | --- | --- | --- |
-| --- | --- | --- | --- | --- | --- | --- |
-| --- | Read | --- | Write | --- | Notes | --- |
+| --
+- | --
+- | Logging, benchmarking, and performance monitoring. | --
+- | ## 📂 Supported Data Formats | --
+- | Format |
+| --
+- | --
+- | --
+- | --
+- | --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- | --
+- | --
+- | --
+- | --
+- |
+| --
+- | Read | --
+- | Write | --
+- | Notes | --
+- |
  ---
 
-| --- | --- | --- | --- |
-| --- | --- | --- | --- |
-| --- | --- | --- | --- |
-| --- | --- | --- | --- |
+| --
+- | --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- | --
+- |
  **Zarr**
 
-| --- |  |
-| --- | --- |
-| --- |  |
-| --- | ✅ |
+| --
+- |  |
+| --
+- | --
+- |
+| --
+- |  |
+| --
+- | ✅ |
  ✅
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Primary storage format; chunked, compressed, cloud-optimized. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Primary storage format; chunked, compressed, cloud-optimized. | --
+- |
  **NetCDF**
 
-| --- |  |
-| --- | --- |
-| --- |  |
-| --- | ✅ |
+| --
+- |  |
+| --
+- | --
+- |
+| --
+- |  |
+| --
+- | ✅ |
  ✅
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Classic climate data format; CF-compliant output. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Classic climate data format; CF-compliant output. | --
+- |
  **CSV**
 
-| --- |  |
-| --- | --- |
-| --- |  |
-| --- | ✅ |
+| --
+- |  |
+| --
+- | --
+- |
+| --
+- |  |
+| --
+- | ✅ |
  ❌
 
-| --- | --- |
-| --- | --- |
-| --- | --- |
-| Only for small test datasets; not recommended for production. | --- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| --
+- | --
+- |
+| Only for small test datasets; not recommended for production. | --
+- |
  **Parquet**
 
-| --- |  |
-| --- | --- |
-| --- |  |
-| --- | ❌ |
+| --
+- |  |
+| --
+- | --
+- |
+| --
+- |  |
+| --
+- | ❌ |
  ❌
 
-| --- | --- | Not currently supported (planned for future). | --- | ## 🔄 Execution Modes | --- |
-| --- | --- | --- | --- | --- | --- |
-| --- | --- | --- | --- | --- | --- |
-| Mode | --- | Description | --- | Use Case | --- |
+| --
+- | --
+- | Not currently supported (planned for future). | --
+- | ## 🔄 Execution Modes | --
+- |
+| --
+- | --
+- | --
+- | --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- | --
+- | --
+- | --
+- |
+| Mode | --
+- | Description | --
+- | Use Case | --
+- |
  ---
 
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | --- | --- |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
  **CLI**
 
-| --- | --- | Run via `python main.py` with `config.yaml` |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Production workflows, batch processing | --- |
+| --
+- | --
+- | Run via `python main.py` with `config.yaml` |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Production workflows, batch processing | --
+- |
  **Python API**
 
-| --- | --- | Import modules and call functions programmatically |
-| --- | --- | --- |
-| --- | --- | --- |
-| --- | Integration into existing codebases, custom scripts | --- |
+| --
+- | --
+- | Import modules and call functions programmatically |
+| --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- |
+| --
+- | Integration into existing codebases, custom scripts | --
+- |
  **Jupyter Notebook**
 
-| --- | --- | Interactive analysis using notebooks in `notebooks/` | --- |
-| --- | --- | --- | --- |
-| --- | --- | --- | --- |
-| Exploratory data analysis, prototyping, teaching | --- | ## 🔌 Plugin Development Guide | --- |
+| --
+- | --
+- | Interactive analysis using notebooks in `notebooks/` | --
+- |
+| --
+- | --
+- | --
+- | --
+- |
+| --
+- | --
+- | --
+- | --
+- |
+| Exploratory data analysis, prototyping, teaching | --
+- | ## 🔌 Plugin Development Guide | --
+- |
  
 
 To add a new distribution plugin:
@@ -776,20 +1400,27 @@ To add a new distribution plugin:
 Example skeleton:
 
 ```python
+
+$$
 from core.engine.distribution_plugin import DistributionPlugin
+$$
 
 class LogisticDistribution(DistributionPlugin):
  name = "Logistic"
  code = 5
- params = ["location", "scale"]
+
+$$
+params = ["location", "scale"]
+$$
+
  n_params = 2
 
  def fit(self, data):
  
-# Fit the logistic distribution to data
+## Fit the logistic distribution to data
 
  
-# Return dict with parameters, loglik, aicc, bic
+## Return dict with parameters, loglik, aicc, bic
 
  return {
  "location": loc,
@@ -806,32 +1437,55 @@ Run the test suite with:
 pytest tests/ -v
 Coverage reports:
 bash
+
+$$
 pytest tests/ --cov=. --cov-report=html
+$$
+
 The CI pipeline (GitHub Actions) runs tests on every push.
 
 📧 Citation
-If you use this software in your research, please cite it using the information provided in the CITATION.cff file. You can also generate a citation using the "Cite this repository" button on GitHub.
+If you use this software in your research, please cite it using the information provided in the CITATION.cff file. You
+can also generate a citation using the "Cite this repository" button on GitHub.
 BibTeX example:
 bibtex
+
+$$
 @software{FazlKazemi_ClimateProcessingEngine_2025,
+$$
+
  author = {Fazl Kazemi, Amin},
- title = {ClimateProcessingEngine},
+
+$$
+title = {ClimateProcessingEngine},
+$$
+
  year = {2025},
  publisher = {GitHub},
- url = {https://github.com/AminFazlKazemi/ClimateProcessingEngine}
+
+$$
+url = {https://github.com/AminFazlKazemi/ClimateProcessingEngine}
+$$
+
 }
 
 ⚠️ Limitations
-- 	Memory usage: Block size must be tuned for available RAM; processing very large grids may require high-memory instances.
+- 	Memory usage: Block size must be tuned for available RAM; processing very large grids may require high-memory
+instances.
 - 	Python version: Only Python 3.12 and above are supported (due to use of modern type hints and features).
-- 	Input data requirements: Input data must follow the expected Zarr structure (see documentation); custom schemas are not supported.
+- 	Input data requirements: Input data must follow the expected Zarr structure (see documentation); custom schemas are
+not supported.
 - 	No GPU acceleration: All computations are CPU-based; GPU support is planned for future releases.
 
 📖 Documentation Map
 File	Purpose
 README.md	Overview and quick start
 CONTRIBUTING.md	Guidelines for contributors
-CODE_OF_CONDUCT.md	Community standards and behavior
+
+$$
+CODE_OF_CONDUCT.md Community standards and behavior
+$$
+
 CITATION.cff	Citation metadata
 docs/	Full Sphinx-generated documentation
 notebooks/	Jupyter notebook tutorials
@@ -848,11 +1502,14 @@ uncertainty quantification, quality control, and reproducibility.
 
 The engine is built on three core principles:
 
-1. **Reproducibility** -- Every result can be reproduced exactly with
+1. **Reproducibility** -
+- Every result can be reproduced exactly with
  the same inputs and configuration.
-2. **Scalability** -- Process millions of data points efficiently with
+2. **Scalability** -
+- Process millions of data points efficiently with
  minimal memory footprint.
-3. **Extensibility** -- Add new distributions, quality controls, or
+3. **Extensibility** -
+- Add new distributions, quality controls, or
  statistical methods without modifying core code.
 
 ### Scientific Background
@@ -869,13 +1526,15 @@ to temperature or precipitation time series. This allows researchers to:
 The **Climatology Engine** automates this workflow, providing a robust,
 validated, and efficient implementation of the state-of-the-art methods.
 
-## ✨ Key Features
+### ✨ Key Features
 
 ---
  Feature Description
- ----------------------------- -----------------------------------------
+ ----------------------------
+- -----------------------------------------
  **Plugin Architecture** Add new distributions without modifying
- core code -- just drop a `.py` file in
+ core code -
+- just drop a `.py` file in
  `plugins/distributions/`.
 
  **Multi-Variable Support** Process `tmin`, `tmean`, and `tmax`
@@ -899,7 +1558,8 @@ validated, and efficient implementation of the state-of-the-art methods.
  compression; NetCDF export also
  supported.
 
- **Checkpoint & Recovery** Resistant to power failures -- resumes
+ **Checkpoint & Recovery** Resistant to power failures -
+- resumes
  exactly where it stopped.
 
  **Sample Data Included** 10 synthetic stations for quick testing
@@ -924,11 +1584,12 @@ validated, and efficient implementation of the state-of-the-art methods.
  Checks** best distribution.
 ---
 
-## 🎯 Target Audience
+### 🎯 Target Audience
 
 ---
  Audience Application
- ------------------------------ ----------------------------------------
+ -----------------------------
+- ----------------------------------------
  **Climate Scientists** Research on climate variability, trends,
  and extremes
 
@@ -953,12 +1614,14 @@ validated, and efficient implementation of the state-of-the-art methods.
  modeling with climate data
 ---
 
-## 📦 Installation
+### 📦 Installation
 
 ### System Requirements
 
  Component Minimum Recommended
- ------------------------ --------------------------------- -------------
+ -----------------------
+- --------------------------------
+- -------------
  **Operating System** Windows 10, Linux, macOS 10.15+ Linux/macOS
  **Python Version** 3.8 3.11+
  **RAM** 16 GB 32 GB+
@@ -969,29 +1632,32 @@ validated, and efficient implementation of the state-of-the-art methods.
 ### From source (recommended)
 
 /`/`/`bash /
-# Clone the repository git clone
+## Clone the repository git clone
 
 https://github.com/AminFazlKazemi/ClimateProcessingEngine.git cd
 ClimateProcessingEngine
 
-# Create virtual environment (optional but recommended)
+## Create virtual environment (optional but recommended)
 
 python -m venv venv source venv/bin/activate /
-# Linux/macOS /# or
+## Linux/macOS /# or
 
 venv`/Scripts``/activate `/
-# Windows
+## Windows
 
-# Install the package
+## Install the package
 
 ```bash
 pip install -e . Dependencies Core dependencies are automatically
 ```
 installed: Optional development dependencies: bash pip install -e
 .$dev$ /
-# Includes: pytest, sphinx, black, flake8, mypy Installing
+## Includes: pytest, sphinx, black, flake8, mypy Installing
 
+$$
 with Conda (alternative) bash conda create -n climatology python=3.11
+$$
+
 ```bash
 conda activate climatology conda install numpy scipy xarray zarr numba
 ```
@@ -1002,68 +1668,104 @@ pandas matplotlib seaborn pyyaml pip install -e .
 import pandas as pd import matplotlib.pyplot as plt
 ```
 
-# Load sample station data
+## Load sample station data
 
-sample_dir = "sample_data" station_data =
-pd.read_csv(f"{sample_dir}/station_001.csv").values
+$$
+sample_dir = "sample_data" station_data = pd.read_csv(f"{sample_dir}/station_001.csv").values
+$$
 
-# Display data shape
+## Display data shape
 
+$$
 print(f"Data shape: {station_data.shape}") /
-# (10950, 3) = 30 years /*
+$$
+
+## (10950, 3) = 30 years /*
 
 365 days, 3 variables
 
-# Plot temperature for the first 365 days
+## Plot temperature for the first 365 days
 
 ```python
+
+$$
 plt.figure(figsize=(12, 6)) plt.plot(station_data$:365, 1$,
+$$
+
 ```
-label='tmean', linewidth=2) plt.plot(station_data$:365, 0$,
-label='tmin', alpha=0.7) plt.plot(station_data$:365, 2$, label='tmax',
-alpha=0.7) plt.xlabel('Day of Year') plt.ylabel('Temperature (°C)')
+
+$$
+label='tmean', linewidth=2) plt.plot(station_data$:365, 0$, label='tmin', alpha=0.7) plt.plot(station_data$:365, 2$,
+label='tmax', alpha=0.7) plt.xlabel('Day of Year') plt.ylabel('Temperature (°C)')
+$$
+
 ```python
-plt.title('Station 001 - Daily Temperature') plt.legend() plt.grid(True,
+plt.title('Station 001 
+- Daily Temperature') plt.legend() plt.grid(True,
 ```
-alpha=0.3) plt.tight_layout() plt.savefig('station_001_temperature.png',
-dpi=300) plt.show() 2. Fit a Normal distribution python from
+
+$$
+alpha=0.3) plt.tight_layout() plt.savefig('station_001_temperature.png', dpi=300) plt.show() 2. Fit a Normal
+distribution python from
+$$
+
 plugins.distributions.normal import NormalDistribution
 
-# Extract tmean data for the first 30 years
+## Extract tmean data for the first 30 years
 
+$$
 tmean_data = station_data$:365, 1$ /
-# First 365 days (one year)
+$$
 
-# Fit Normal distribution
+## First 365 days (one year)
 
+## Fit Normal distribution
+
+$$
 dist = NormalDistribution() result = dist.fit(tmean_data)
+$$
 
-print("Normal Distribution Fit Results:") print(f" Mean (μ):
-{result$'p1'$:.3f}") print(f" Std Dev (σ): {result$'p2'$:.3f}")
+$$
+print("Normal Distribution Fit Results:") print(f" Mean (μ): {result$'p1'$:.3f}") print(f" Std Dev (σ):
+{result$'p2'$:.3f}")
+$$
+
 print(f" Log-likelihood: {result$'loglik'$:.3f}") print(f" AICc:
 {result$'aicc'$:.3f}") print(f" BIC: {result$'bic'$:.3f}") 3. Fit
-all distributions python from core.engine.plugin_loader import
-load_plugins from core.engine.distribution_plugin import
+
+$$
+all distributions python from core.engine.plugin_loader import load_plugins from core.engine.distribution_plugin import
+$$
+
 DistributionPlugin
 
-# Load all plugin distributions
+## Load all plugin distributions
 
+$$
 plugins = load_plugins() print(f"Loaded {len(plugins)} distributions:
+$$
+
 {$p.name for p in plugins.values()$}")
 
-# Fit all distributions to the data
+## Fit all distributions to the data
 
-results = {} for code, dist in plugins.items(): try: res =
-dist.fit(tmean_data) results$dist.name$ = res print(f"{dist.name}:
-AICc = {res.get('aicc', np.nan):.3f}") except Exception as e:
+$$
+results = {} for code, dist in plugins.items(): try: res = dist.fit(tmean_data) results$dist.name$ = res
+print(f"{dist.name}: AICc = {res.get('aicc', np.nan):.3f}") except Exception as e:
+$$
+
 ```python
-print(f"{dist.name}: Failed - {str(e)}")
+print(f"{dist.name}: Failed 
+- {str(e)}")
 ```
 
-# Find the best distribution (minimum AICc)
+## Find the best distribution (minimum AICc)
 
-best_dist = min(results.items(), key=lambda x: x$1$.get('aicc',
-np.inf)) print(f"`/n`✅ Best distribution: {best_dist$0$} (AICc
+$$
+best_dist = min(results.items(), key=lambda x: x$1$.get('aicc', np.inf)) print(f"`/n`✅ Best distribution: {best_dist$0$}
+(AICc
+$$
+
 = {best_dist$1
 $$
 'aicc'$:.3f})") 4. Run the full pipeline bash python
@@ -1076,377 +1778,535 @@ notebooks/01_Quick_Start.ipynb
 ```text
 ClimateProcessingEngine/ ├── core/ /
 ```
-# Core
+## Core
 
 ```text
 framework (abstract layers) │ ├── engine/ /
-# Engine components │ │ ├──
+## Engine components │ │ ├──
 ```
 
 distribution_plugin.py /
 ```text
-# Base class for all distributions │ │ └──
+## Base class for all distributions │ │ └──
 ```
 
 plugin_loader.py /
 ```text
-# Auto-discover and load plugins │ ├── interfaces/ /#
+## Auto-discover and load plugins │ ├── interfaces/ /#
 ```
 
 ```text
+
+$$
 Data interface adapters │ │ └── data_adapter.py /
+$$
+
 ```
-# Station & gridded
+## Station & gridded
 
 ```text
 data adapters │ ├── storage/ /
-# Storage backends │ │ └── zarr_schema.py
+
+$$
+## Storage backends │ │ └── zarr_schema.py
+$$
+
 ```
 
 ```
 
 ```text
-# Zarr output schema definition │ ├── quality/ /# Quality control
+## Zarr output schema definition │ ├── quality/ /# Quality control
 ```
 
 ```text
+
+$$
 system │ │ └── quality_flag.py /
+$$
+
 ```
-# Quality flag definitions and evaluator
+## Quality flag definitions and evaluator
 
 ```text
 │ └── uncertainty/ /
-# Uncertainty quantification │ └── bootstrap.py /#
+## Uncertainty quantification │ └── bootstrap.py /#
 ```
 
 ```text
 Bootstrap confidence intervals │ ├── plugins/ /
 ```
-# Plugin architecture │
+## Plugin architecture │
 
 ```text
 ├── distributions/ /
-# Distribution plugins │ │ ├── normal.py /# Normal
+## Distribution plugins │ │ ├── normal.py /# Normal
 ```
 
 ```text
 distribution │ │ ├── skewnormal.py /
-# Skew-Normal distribution │ │ ├──
+## Skew-Normal distribution │ │ ├──
 ```
 
 gev.py /
 ```text
-# Generalized Extreme Value │ │ ├── bimodal.py /# Bimodal
+## Generalized Extreme Value │ │ ├── bimodal.py /# Bimodal
 ```
 
 ```text
 mixture distribution │ │ └── pearson.py /
-# Pearson Type III │ ├── qc/ /#
+## Pearson Type III │ ├── qc/ /#
 ```
 
 ```text
 Quality control plugins (future) │ │ └── (empty) │ └── statistics/ /#
 Statistical metric plugins (future) │ └── (empty) │ ├── notebooks/ /#
-Jupyter Notebook tutorials │ └── 01_Quick_Start.ipynb │ ├── tests/ /#
-Test suite │ ├── test_distributions.py /
-# Distribution unit tests │ ├──
+
+$$
+Jupyter Notebook tutorials │ └── 01_Quick_Start.ipynb │ ├── tests/ /# Test suite │ ├── test_distributions.py /
+$$
+
+## Distribution unit tests │ ├──
 ```
 
 test_adapters.py /
 ```text
-# Data adapter tests │ ├── test_quality.py /# Quality
+
+$$
+## Data adapter tests │ ├── test_quality.py /# Quality
+$$
+
 ```
 
 ```text
+
+$$
 flag tests │ └── expected_results/ /
-# Golden results for CI │ └──
+$$
+
+## Golden results for CI │ └──
 ```
 
 ```text
+
+$$
 station_001_expected.csv │ ├── benchmark/ /
+$$
+
 ```
-# Performance benchmarks │
+## Performance benchmarks │
 
 ```text
 └── benchmark.py /
-# Benchmark runner │ ├── docs/ /# Sphinx documentation
+## Benchmark runner │ ├── docs/ /# Sphinx documentation
 ```
 
 ```text
 │ └── source/ │ ├── conf.py /
-# Sphinx configuration │ ├── index.rst /#
+## Sphinx configuration │ ├── index.rst /#
 ```
 
 ```text
 Documentation home page │ ├── installation.rst │ ├── usage.rst │ ├──
+
+$$
 api.rst │ └── contributing.rst │ ├── sample_data/ /
+$$
+
 ```
-# Sample data (10
+## Sample data (10
 
 ```text
-synthetic stations) │ ├── station_001.csv │ ├── station_002.csv │ ├──
-... │ └── station_010.csv │ ├── .github/ /
-# GitHub-specific files │ └──
+
+$$
+synthetic stations) │ ├── station_001.csv │ ├── station_002.csv │ ├── ... │ └── station_010.csv │ ├── .github/ /
+$$
+
+## GitHub-specific files │ └──
 ```
 
 ```text
 workflows/ │ └── ci.yml /
-# GitHub Actions CI/CD │ ├── config.yaml /#
+## GitHub Actions CI/CD │ ├── config.yaml /#
 ```
 
 ```text
 Main configuration file ├── main.py /
-# Entry point ├── pyproject.toml /#
+## Entry point ├── pyproject.toml /#
 ```
 
 ```text
 Package metadata and build configuration ├── setup.cfg /
 ```
-# Additional
+## Additional
 
 ```text
 configuration ├── LICENSE /
-# MIT License ├── CITATION.cff /# Citation
+## MIT License ├── CITATION.cff /# Citation
 ```
 
 ```text
 information ├── .pre-commit-config.yaml /
-# Pre-commit hooks ├──
+## Pre-commit hooks ├──
 ```
 
 .gitignore /
 ```text
-# Git ignore patterns ├── .readthedocs.yaml /# ReadTheDocs
+## Git ignore patterns ├── .readthedocs.yaml /# ReadTheDocs
 ```
 
 ```text
 configuration ├── MANIFEST.in /
-# Package manifest ├── README.md /# This
+## Package manifest ├── README.md /# This
 ```
 
 ```text
 file ├── CONTRIBUTING.md /
-# Contributing guidelines ├──
+## Contributing guidelines ├──
 ```
 
 CODE_OF_CONDUCT.md /
 ```text
-# Code of conduct └── SECURITY.md /# Security policy
+## Code of conduct └── SECURITY.md /# Security policy
 ```
 
 ⚙️ Configuration The main configuration file is config.yaml. This file
 controls all aspects of the engine. Complete Configuration Example yaml
 
-# 
+## 
 
 ---
 
-# General Project Settings /#
+## General Project Settings /#
 
 ---
 project: name: "Climatology Engine" version: "4.0.0" description:
 "Climate data distribution fitting and analysis"
 
-# ---
+## ---
 
-# Data Paths
+## Data Paths
 
+$$
 paths: input_zarr_base: "M:/temp/zarr_input" /
-# Input Zarr files
+$$
 
+## Input Zarr files
+
+$$
 (monthly) output_dir: "./nature_output" /
-# Output directory
+$$
 
+## Output directory
+
+$$
 output_zarr_name: "climatology_stationwise_final.zarr" checkpoint_dir:
+$$
+
 "./nature_output" /
-# Checkpoint directory log_dir: "./logs" /# Log files
+
+$$
+## Checkpoint directory log_dir: "./logs" /# Log files
+$$
 
 cache_dir: "./cache" /
-# Disk cache for loaded data sample_data_dir:
+
+$$
+## Disk cache for loaded data sample_data_dir:
+$$
 
 "./sample_data" /
-# Sample dataset location
+## Sample dataset location
 
-# Time Range
+## Time Range
 
 time: start_year: 1370 /
-# 1991 (Persian calendar) end_year: 1399 /# 2020
 
+$$
+## 1991 (Persian calendar) end_year: 1399 /# 2020
+$$
+
+$$
 (Persian calendar) n_days: 366 /
-# Number of days (including leap years)
+$$
 
-# Processing Parameters
+## Number of days (including leap years)
+
+## Processing Parameters
 
 processing: block_size: 1000 /
-# Number of points per block
+## Number of points per block
 
 max_blocks_in_memory: 5 /
-# Maximum blocks loaded simultaneously
+## Maximum blocks loaded simultaneously
 
 chunk_size: $100, 100$ /
-# Zarr chunk size (day, point) compression:
+## Zarr chunk size (day, point) compression:
 
 "zstd" /
-# Compression algorithm (zstd, blosc, none) compression_level: 3
 
-# Compression level (1-9) n_points_max: 40000 /# Maximum number of
+$$
+## Compression algorithm (zstd, blosc, none) compression_level: 3
+$$
 
+$$
+## Compression level (1-9) n_points_max: 40000 /# Maximum number of
+$$
+
+$$
 points to process output_precision: "float32" /
-# Output precision
+$$
+
+## Output precision
 
 (float32, float64)
 
-# Window Extraction Parameters
+## Window Extraction Parameters
 
 window: days: 2 /
-# ±2 days (5-day window total) use_extreme_values:
+
+$$
+## ±2 days (5-day window total) use_extreme_values:
+$$
 
 false /
-# true = extreme mode (GEV active) min_valid_years: 10 /# Minimum
 
+$$
+## true = extreme mode (GEV active) min_valid_years: 10 /# Minimum
+$$
+
+$$
 years with valid data window_type: "centered" /
-# centered, forward,
+$$
+
+## centered, forward,
 
 backward
 
-# Active Distributions (per processing mode)
+## Active Distributions (per processing mode)
 
 distributions: normal_mode: /
-# Mode: normal (standard 5-day window) -
+## Mode: normal (standard 5-day window) -
 
-normal - skew - bimodal - pearson /
-# - gev /# GEV is disabled in normal
+normal 
+- skew 
+- bimodal 
+- pearson /
+## 
+- gev /# GEV is disabled in normal
 
 mode extreme_mode: /
-# Mode: extreme (max/min extraction) - normal -
+## Mode: extreme (max/min extraction) 
+- normal -
 
-skew - gev /
-# GEV is active in extreme mode - bimodal - pearson
+skew 
+- gev /
+## GEV is active in extreme mode 
+- bimodal 
+- pearson
 
-# Data Format and Spatial Extent
+## Data Format and Spatial Extent
 
 data_format: "auto" /
-# auto, station, gridded lat_min: 25.0 /# Minimum
 
+$$
+## auto, station, gridded lat_min: 25.0 /# Minimum
+$$
+
+$$
 latitude (gridded data) lat_max: 40.0 /
-# Maximum latitude (gridded data)
+$$
+
+## Maximum latitude (gridded data)
 
 lon_min: 44.0 /
-# Minimum longitude (gridded data) lon_max: 64.0 /#
 
+$$
+## Minimum longitude (gridded data) lon_max: 64.0 /#
+$$
+
+$$
 Maximum longitude (gridded data) point_sampling: "all" /
-# all, random,
+$$
 
+## all, random,
+
+$$
 regular n_sample_points: 40000 /
-# If sampling, number of points
+$$
 
-# Cache System
+## If sampling, number of points
+
+## Cache System
 
 cache: enabled: true /
-# Enable/disable disk cache max_size_gb: 10 /#
 
+$$
+## Enable/disable disk cache max_size_gb: 10 /#
+$$
+
+$$
 Maximum cache size in GB ttl_hours: 24 /
-# Time-to-live for cached data
+$$
+
+## Time-to-live for cached data
 
 cache_path: "./cache" /
-# Cache directory
+## Cache directory
 
-# Quality Control
+## Quality Control
 
 quality: min_sample_size: 3 /
-# Minimum observations for fitting
+## Minimum observations for fitting
 
 threshold_aicc: 1000 /
-# AICc threshold for quality flag threshold_skew:
+
+$$
+## AICc threshold for quality flag threshold_skew:
+$$
 
 5.0 /
-# Maximum absolute skewness allowed detect_outliers: true /# Enable
 
+$$
+## Maximum absolute skewness allowed detect_outliers: true /# Enable
+$$
+
+$$
 outlier detection outlier_sigma: 4.0 /
-# Sigma threshold for outliers
+$$
 
-# Bootstrap Uncertainty
+## Sigma threshold for outliers
+
+## Bootstrap Uncertainty
 
 bootstrap: enabled: true /
-# Enable Bootstrap uncertainty n_iterations:
+
+$$
+## Enable Bootstrap uncertainty n_iterations:
+$$
 
 100 /
-# Number of bootstrap iterations confidence_level: 0.95 /#
 
+$$
+## Number of bootstrap iterations confidence_level: 0.95 /#
+$$
+
+$$
 Confidence level (0.95 = 95% CI) random_seed: 42 /
-# Random seed for
+$$
+
+## Random seed for
 
 reproducibility
 
-# Parallel Processing
+## Parallel Processing
 
 parallel: enabled: true /
-# Enable parallel processing backend:
+## Enable parallel processing backend:
 
 "multiprocessing" /
-# multiprocessing, dask, ray, serial max_workers: 6
 
-# Number of parallel workers chunk_size: 100 /# Chunk size for Dask/Ray
+$$
+## multiprocessing, dask, ray, serial max_workers: 6
+$$
+
+$$
+## Number of parallel workers chunk_size: 100 /# Chunk size for Dask/Ray
+$$
 
 use_gpu: false /
-# GPU acceleration (future)
+## GPU acceleration (future)
 
-# Logging
+## Logging
 
 logging: level: "INFO" /
-# DEBUG, INFO, WARNING, ERROR, CRITICAL
+## DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 console_output: true /
-# Output to console file_output: true /# Output to
+
+$$
+## Output to console file_output: true /# Output to
+$$
 
 file file_rotation: "10 MB" /
-# Rotate logs after 10 MB log_format:
+
+$$
+## Rotate logs after 10 MB log_format:
+$$
 
 "detailed" /
-# simple, detailed, json log_dir: "./logs"
 
-# Model Selection
+$$
+## simple, detailed, json log_dir: "./logs"
+$$
+
+## Model Selection
 
 selection: criterion: "aicc" /
-# aic, aicc, bic, waic, loo min_delta: 2.0
 
-# Minimum AIC difference for significance report_all: false /# Report
+$$
+## aic, aicc, bic, waic, loo min_delta: 2.0
+$$
 
+$$
+## Minimum AIC difference for significance report_all: false /# Report
+$$
+
+$$
 all distributions or just best save_weights: true /
-# Save Akaike weights
+$$
 
-# Output Settings
+## Save Akaike weights
+
+## Output Settings
 
 output: format: "zarr" /
-# zarr, netcdf, parquet, csv overwrite: true /#
+## zarr, netcdf, parquet, csv overwrite: true /#
 
+$$
 Overwrite existing output include_metadata: true /
-# Include full
+$$
 
+## Include full
+
+$$
 metadata include_provenance: true /
-# Include provenance information
+$$
+
+## Include provenance information
 
 compress: true /
-# Compress output compression_algorithm: "zstd" /# zstd,
 
+$$
+## Compress output compression_algorithm: "zstd" /# zstd,
+$$
+
+$$
 blosc, lz4, none compression_level: 3
+$$
 
-# Visualization
+## Visualization
 
 visualization: enabled: true /
-# Generate visualizations output_dir:
+
+$$
+## Generate visualizations output_dir:
+$$
 
 "./visualizations" /
-# Output directory for plots format: $"png",
+## Output directory for plots format: $"png",
 
 "pdf"$ /
-# Output formats interactive: true /# Generate interactive
+## Output formats interactive: true /# Generate interactive
 
+$$
 plots map_projection: "PlateCarree" /
-# Map projection for spatial plots
+$$
+
+## Map projection for spatial plots
 
 dpi: 300 /
-# Image resolution
+## Image resolution
 
 📊 Output Schema The engine produces a Zarr store with the following
 variables: Complete List of Output Variables Reading the Output python
@@ -1454,70 +2314,105 @@ variables: Complete List of Output Variables Reading the Output python
 import xarray as xr
 ```
 
-# Open the Zarr output
+## Open the Zarr output
 
+$$
 ds = xr.open_zarr("climatology_stationwise_final.zarr",
+$$
+
 consolidated=False)
 
-# List all variables
+## List all variables
 
 ```python
 print(list(ds.data_vars))
 ```
 
-# Access the best distribution
+## Access the best distribution
 
+$$
 best_dist = ds$'best_dist'$.values /
-# Shape: (n_points, 366)
+$$
 
-# Access the mean temperature
+## Shape: (n_points, 366)
 
+## Access the mean temperature
+
+$$
 mean_temp = ds$'mean'$.values /
-# Shape: (n_points, 366)
+$$
 
-# Access station metadata
+## Shape: (n_points, 366)
 
-station_ids = ds$'stationid'$.values lats = ds$'lat'$.values lons =
-ds$'lon'$.values elevs = ds$'elev'$.values
+## Access station metadata
 
-# Close the dataset
+$$
+station_ids = ds$'stationid'$.values lats = ds$'lat'$.values lons = ds$'lon'$.values elevs = ds$'elev'$.values
+$$
+
+## Close the dataset
 
 ds.close()
 
 📐 Statistical Distribution Fitting 9.1. Normal Distribution The Normal
 (Gaussian) distribution is the most commonly used distribution in
 climatology. Its probability density function (PDF) is:
-f(x)=12πσ2exp⁡(−(x−μ)22σ2)f(x)=2πσ2​1​exp(−2σ2(x−μ)2​) Parameters: μμ: Mean
-(location parameter) σσ: Standard deviation (scale parameter, σ/>0σ/>0)
-Properties: Symmetric about the mean Support: (−∞,∞)(−∞,∞) Skewness = 0,
-Excess kurtosis = 0 Maximum entropy distribution for given mean and
+
+$$
+f(x)=12πσ2exp⁡(-(x-μ)22σ2)f(x)=2πσ2​1​exp(-2σ2(x-μ)2​) Parameters: μμ: Mean (location parameter) σσ: Standard deviation
+(scale parameter, σ/>0σ/>0) Properties: Symmetric about the mean Support: (-∞,∞)(-∞,∞) Skewness = 0, Excess kurtosis = 0
+Maximum entropy distribution for given mean and
+$$
+
 variance Application: Temperature data, precipitation anomalies,
 standardized indices. Estimation: Maximum Likelihood Estimation (MLE):
-μ^=xˉμ^​=xˉ (sample mean) σ^=1n∑i=1n(xi−xˉ)2σ^=n1​∑i=1n​(xi​−xˉ)2​ (sample
+
+$$
+μ^=xˉμ^​=xˉ (sample mean) σ^=1n∑i=1n(xi-xˉ)2σ^=n1​∑i=1n​(xi​-xˉ)2​ (sample
+$$
+
 standard deviation) Goodness of fit: The Normal distribution is
 recommended when the data are symmetric and the sample size is large.
 
 9.2. Skew-Normal Distribution The Skew-Normal distribution extends the
 Normal distribution to allow for asymmetry. Its PDF is:
-f(x)=2ωϕ(x−ξω)Φ(αx−ξω)f(x)=ω2​ϕ(ωx−ξ​)Φ(αωx−ξ​) where: ϕϕ is the standard
+
+$$
+f(x)=2ωϕ(x-ξω)Φ(αx-ξω)f(x)=ω2​ϕ(ωx-ξ​)Φ(αωx-ξ​) where: ϕϕ is the standard
+$$
+
 Normal PDF ΦΦ is the standard Normal CDF Parameters: ξξ: Location
+
+$$
 parameter (not the mean unless α=0α=0) ωω: Scale parameter (ω/>0ω/>0)
+$$
+
 αα: Shape parameter (controls skewness) Properties: Support:
-(−∞,∞)(−∞,∞) Skewness: varies with αα When α=0α=0, it reduces to
-Normal(ξ,ω2)(ξ,ω2) Mean: μ=ξ+ωδ2/πμ=ξ+ωδ2/π​ where δ=α/1+α2δ=α/1+α2​
-Variance: σ2=ω2(1−2δ2/π)σ2=ω2(1−2δ2/π) Application: Temperature data
+
+$$
+(-∞,∞)(-∞,∞) Skewness: varies with αα When α=0α=0, it reduces to Normal(ξ,ω2)(ξ,ω2) Mean: μ=ξ+ωδ2/πμ=ξ+ωδ2/π​ where
+δ=α/1+α2δ=α/1+α2​ Variance: σ2=ω2(1-2δ2/π)σ2=ω2(1-2δ2/π) Application: Temperature data
+$$
+
 with asymmetry, precipitation with skewness. Estimation: MLE with
 iterative optimization.
 
 9.3. GEV Distribution (Extreme Value Mode) The Generalized Extreme Value
 (GEV) distribution is the limit distribution of block maxima (or
 minima). It is only active in extreme value mode. The PDF is:
-f(x)=1σ$1+ξx−μσ$−1/ξ−1exp⁡(−$1+ξx−μσ$−1/ξ)f(x)=σ1​$1+ξσx−μ​$−1/ξ−1exp(−$1+ξσx−μ​$−1/ξ)
-Parameters: μμ: Location parameter σσ: Scale parameter (σ/>0σ/>0) ξξ:
-Shape parameter Three types: ξ=0ξ=0: Gumbel distribution (light tails)
+
+$$
+f(x)=1σ$1+ξx-μσ$-1/ξ-1exp⁡(-$1+ξx-μσ$-1/ξ)f(x)=σ1​$1+ξσx-μ​$-1/ξ-1exp(-$1+ξσx-μ​$-1/ξ) Parameters: μμ: Location
+parameter σσ: Scale parameter (σ/>0σ/>0) ξξ: Shape parameter Three types: ξ=0ξ=0: Gumbel distribution (light tails)
+$$
+
 ξ/>0ξ/>0: Fréchet distribution (heavy tails) ξ/<0ξ/<0: Weibull
 distribution (bounded upper tail) Properties: Support: ξ/>0ξ/>0:
-x∈$μ−σ/ξ,∞)x∈/[μ−σ/ξ,∞) ξ/<0ξ/<0: x∈(−∞,μ−σ/ξ$x∈(−∞,μ−σ/ξ/] ξ=0ξ=0:
+
+$$
+x∈$μ-σ/ξ,∞)x∈/[μ-σ/ξ,∞) ξ/<0ξ/<0: x∈(-∞,μ-σ/ξ$x∈(-∞,μ-σ/ξ/] ξ=0ξ=0:
+$$
+
 x∈(−∞,∞)x∈(−∞,∞) Models block maxima (e.g., annual maximum temperature)
 Application: Extreme temperature analysis, return period estimation
 (100-year events). Estimation: MLE with constraints on ξξ.
@@ -1526,15 +2421,25 @@ Application: Extreme temperature analysis, return period estimation
 mixture of two Normal distributions. It is suitable for data with two
 distinct peaks (e.g., seasonal temperature patterns, precipitation with
 two regimes). The PDF is:
-f(x)=w1N(x;μ1,σ12)+w2N(x;μ2,σ22)f(x)=w1​N(x;μ1​,σ12​)+w2​N(x;μ2​,σ22​)
-Parameters: w1,w2w1​,w2​: Mixture weights (w1+w2=1w1​+w2​=1, 0≤wi≤10≤wi​≤1)
-μ1,μ2μ1​,μ2​: Means of the two components σ1,σ2σ1​,σ2​: Standard deviations
+
+$$
+f(x)=w1N(x;μ1,σ12)+w2N(x;μ2,σ22)f(x)=w1​N(x;μ1​,σ12​)+w2​N(x;μ2​,σ22​) Parameters: w1,w2w1​,w2​: Mixture weights
+(w1+w2=1w1​+w2​=1, 0≤wi≤10≤wi​≤1) μ1,μ2μ1​,μ2​: Means of the two components σ1,σ2σ1​,σ2​: Standard deviations
+$$
+
 of the two components Properties: Support: (−∞,∞)(−∞,∞) Can model two
-distinct climate regimes Bimodality if ∣μ1−μ2∣∣μ1​−μ2​∣ is large relative
-to σ1,σ2σ1​,σ2​ Metrics: Ashman's D: Measures separation between modes
-D=∣μ2−μ1∣(σ12+σ22)/2D=(σ12​+σ22​)/2​∣μ2​−μ1​∣​ D/>2D/>2 indicates clear
+
+$$
+distinct climate regimes Bimodality if ∣μ1-μ2∣∣μ1​-μ2​∣ is large relative to σ1,σ2σ1​,σ2​ Metrics: Ashman's D: Measures
+separation between modes D=∣μ2-μ1∣(σ12+σ22)/2D=(σ12​+σ22​)/2​∣μ2​-μ1​∣​ D/>2D/>2 indicates clear
+$$
+
 bimodality. Overlap Coefficient (OVL):
-OVL=∫−∞∞min⁡{f1(x),f2(x)}dxOVL=∫−∞∞​min{f1​(x),f2​(x)}dx OVL ranges from 0
+
+$$
+OVL=∫-∞∞min⁡{f1(x),f2(x)}dxOVL=∫-∞∞​min{f1​(x),f2​(x)}dx OVL ranges from 0
+$$
+
 (no overlap) to 1 (complete overlap). Application: Temperature with warm
 and cold seasons, precipitation with wet and dry regimes. Estimation:
 Expectation-Maximization (EM) algorithm or MLE.
@@ -1542,11 +2447,19 @@ Expectation-Maximization (EM) algorithm or MLE.
 9.5. Pearson Type III Distribution The Pearson Type III distribution is
 a shifted Gamma distribution, widely used in hydrology and climatology
 for positively skewed data (e.g., precipitation, flood flows). The PDF
-is: f(x)=1Γ(α)βα(x−γ)α−1exp⁡(−x−γβ)f(x)=Γ(α)βα1​(x−γ)α−1exp(−βx−γ​)
+
+$$
+is: f(x)=1Γ(α)βα(x-γ)α-1exp⁡(-x-γβ)f(x)=Γ(α)βα1​(x-γ)α-1exp(-βx-γ​)
+$$
+
 Parameters: αα: Shape parameter (α/>0α/>0) ββ: Scale parameter
 (β/>0β/>0) γγ: Location parameter (lower bound) Properties: Support:
 x∈(γ,∞)x∈(γ,∞) Skewness: positive if α/>0α/>0 Gamma distribution is a
+
+$$
 special case (γ=0γ=0) Mean: μ=γ+αβμ=γ+αβ Variance: σ2=αβ2σ2=αβ2
+$$
+
 Application: Precipitation analysis, streamflow, flood frequency
 analysis. Estimation: Method of moments or MLE.
 
@@ -1554,27 +2467,43 @@ analysis. Estimation: Method of moments or MLE.
 using information criteria. All criteria aim to balance goodness-of-fit
 with model complexity. 10.1. Akaike Information Criterion (AIC) AIC
 estimates the relative quality of statistical models for a given
-dataset. AIC=2k−2ln⁡(L^)AIC=2k−2ln(L^) where: kk: Number of parameters
-L^L^: Maximized likelihood value Interpretation: Lower AIC indicates a
+
+$$
+dataset. AIC=2k-2ln⁡(L^)AIC=2k-2ln(L^) where: kk: Number of parameters L^L^: Maximized likelihood value Interpretation:
+Lower AIC indicates a
+$$
+
 better model AIC rewards goodness of fit (higher likelihood) and
 penalizes complexity (more parameters) Not an absolute test; only
 relative differences matter Thresholds: ΔAIC/>10ΔAIC/>10: Essentially no
 support for the worse model 4/<ΔAIC≤74/<ΔAIC≤7: Weak support
 2/<ΔAIC≤42/<ΔAIC≤4: Moderate support ΔAIC≤2ΔAIC≤2: Substantial support
 10.2. Corrected AIC (AICc) AICc is AIC with a correction for small
-sample sizes. AICc=AIC+2k(k+1)n−k−1AICc​=AIC+n−k−12k(k+1)​ where nn is the
+
+$$
+sample sizes. AICc=AIC+2k(k+1)n-k-1AICc​=AIC+n-k-12k(k+1)​ where nn is the
+$$
+
 sample size. When to use: Recommended when n/k/<40n/k/<40 As n→∞n→∞,
 AICc→AICAICc​→AIC More stringent penalization for complex models with
 small samples 10.3. Bayesian Information Criterion (BIC) BIC is derived
 from a Bayesian perspective and penalizes complexity more strongly than
-AIC. BIC=kln⁡(n)−2ln⁡(L^)BIC=kln(n)−2ln(L^) Characteristics: Penalizes
+
+$$
+AIC. BIC=kln⁡(n)-2ln⁡(L^)BIC=kln(n)-2ln(L^) Characteristics: Penalizes
+$$
+
 parameters more heavily (ln⁡(n)ln(n) vs 2) Asymptotically consistent
 (selects the true model if it is among candidates) Tends to favor
 simpler models compared to AIC 10.4. Likelihood Ratio Test For nested
 models, the Likelihood Ratio Test can determine if the more complex
 model significantly improves the fit.
-Λ=2(ln⁡(L^1)−ln⁡(L^0))Λ=2(ln(L^1​)−ln(L^0​)) where: L^1L^1​: Likelihood of
-the more complex model L^0L^0​: Likelihood of the simpler model
+
+$$
+Λ=2(ln⁡(L^1)-ln⁡(L^0))Λ=2(ln(L^1​)-ln(L^0​)) where: L^1L^1​: Likelihood of the more complex model L^0L^0​: Likelihood of
+the simpler model
+$$
+
 Interpretation: ΛΛ follows a χ2χ2 distribution with degrees of freedom
 equal to the difference in the number of parameters Significant ΛΛ
 indicates the complex model is better
@@ -1583,75 +2512,128 @@ indicates the complex model is better
 flags to each fit to indicate potential issues. 11.2. Automatic Flagging
 Quality flags are automatically assigned based on: Data validation:
 Missing values check Infinite value check Sample size check Fit
+
+$$
 validation: Convergence status Parameter bounds (e.g., σ/>0σ/>0,
+$$
+
 α/>0α/>0) Likelihood check (ln⁡L/>−∞lnL/>−∞) Statistical validation: AICc
 threshold Skewness threshold Variance check Diagnostic validation:
 Hessian matrix positive definite Gradient norm 11.3. Threshold
 Configuration All quality thresholds are configurable in config.yaml:
+
+$$
 yaml quality: min_sample_size: 3 /
-# Minimum observations for fitting
+$$
+
+## Minimum observations for fitting
 
 threshold_aicc: 1000 /
-# AICc threshold for quality flag threshold_skew:
+
+$$
+## AICc threshold for quality flag threshold_skew:
+$$
 
 5.0 /
-# Maximum absolute skewness allowed detect_outliers: true /# Enable
 
+$$
+## Maximum absolute skewness allowed detect_outliers: true /# Enable
+$$
+
+$$
 outlier detection outlier_sigma: 4.0 /
-# Sigma threshold for outliers
+$$
+
+## Sigma threshold for outliers
 
 max_iterations: 1000 /
-# Maximum optimization iterations tolerance: 1e-6
+## Maximum optimization iterations tolerance: 1e-6
 
-# Optimization tolerance check_hessian: true /# Check Hessian positive
+$$
+## Optimization tolerance check_hessian: true /# Check Hessian positive
+$$
 
 definiteness
 
 📈 Uncertainty Quantification 12.1. Bootstrap Method The engine uses the
 parametric bootstrap to estimate the uncertainty of fitted parameters.
 Method: Fit the distribution to the original data to obtain parameter
+
+$$
 estimates θ^θ^ Generate BB bootstrap samples from the fitted
+$$
+
 distribution Fit the distribution to each bootstrap sample to obtain
-θ^(b)θ^(b) for b=1,...,Bb=1,...,B Compute statistics from the bootstrap
-distribution of θ^θ^ Advantages: Does not rely on asymptotic assumptions
+
+$$
+θ^(b)θ^(b) for b=1,...,Bb=1,...,B Compute statistics from the bootstrap distribution of θ^θ^ Advantages: Does not rely
+on asymptotic assumptions
+$$
+
 Works well for small samples Provides confidence intervals for any
-statistic Bootstrap iterations: Recommended B=100B=100 for quick
-assessment, B=1000B=1000 for publication-quality results. 12.2.
+
+$$
+statistic Bootstrap iterations: Recommended B=100B=100 for quick assessment, B=1000B=1000 for publication-quality
+results. 12.2.
+$$
+
 Confidence Intervals The engine calculates percentile-based confidence
+
+$$
 intervals: CI95%(θ)=$θ(0.025),θ(0.975)$CI95%​(θ)=$θ(0.025)​,θ(0.975)​$
+$$
+
 where θ(p)θ(p)​ is the pp-th percentile of the bootstrap distribution.
 Other CI methods (available): Normal interval:
 θˉ±1.96⋅SE(θ)θˉ±1.96⋅SE(θ) BCa (Bias-Corrected and Accelerated): More
 robust for skewed distributions Studentized interval: Uses bootstrap
 estimate of standard error 12.3. Parameter Uncertainty For each fitted
 distribution, the engine outputs: python { 'mean': { 'value': 15.23,
-'lower_ci': 14.87, 'upper_ci': 15.59, 'std_err': 0.18 }, 'scale': {
-'value': 4.12, 'lower_ci': 3.89, 'upper_ci': 4.35, 'std_err': 0.12 },
-'shape': { 'value': 0.34, 'lower_ci': 0.28, 'upper_ci': 0.40, 'std_err':
+
+$$
+'lower_ci': 14.87, 'upper_ci': 15.59, 'std_err': 0.18 }, 'scale': { 'value': 4.12, 'lower_ci': 3.89, 'upper_ci': 4.35,
+'std_err': 0.12 }, 'shape': { 'value': 0.34, 'lower_ci': 0.28, 'upper_ci': 0.40, 'std_err':
+$$
+
 0.03 } }
 
 🔌 Plugin Architecture 13.1. Adding New Distributions To add a new
 distribution: Create a file in plugins/distributions/: python /#
-plugins/distributions/my_distribution.py Define a class inheriting from
-DistributionPlugin: python from core.engine.distribution_plugin import
+
+$$
+plugins/distributions/my_distribution.py Define a class inheriting from DistributionPlugin: python from
+core.engine.distribution_plugin import
+$$
+
 DistributionPlugin
 
+$$
 class MyDistribution(DistributionPlugin): name = "MyDistribution" /#
+$$
+
 Display name code = 5 /
-# Unique code (5+) params = $"p1", "p2", "p3"$
 
-# Parameter names n_params = 3 /# Number of parameters
+$$
+## Unique code (5+) params = $"p1", "p2", "p3"$
+$$
 
+$$
+## Parameter names n_params = 3 /# Number of parameters
+$$
+
+$$
 supports_negative = True supports_zero = True supports_positive = True
+$$
+
 extreme_only = False /
-# True if only for extreme mode
+## True if only for extreme mode
 
  def fit(self, data):
  
-# Your fitting algorithm here
+## Your fitting algorithm here
 
  
-# Must return a dict with parameter values and metrics
+## Must return a dict with parameter values and metrics
 
  return {
  "p1": value1,
@@ -1665,22 +2647,31 @@ extreme_only = False /
 The engine will automatically discover and load your plugin. 13.2.
 Plugin Structure Each distribution plugin must implement: python class
 DistributionPlugin: /
-# Required class attributes name = None /# Display
+
+$$
+## Required class attributes name = None /# Display
+$$
 
 name (string) code = None /
-# Unique integer code params =
+
+$$
+## Unique integer code params =
+$$
 
 $$
  /
-# List
+## List
 
+$$
 of parameter names (strings) n_params = 0 /
-# Number of parameters
+$$
+
+## Number of parameters
 
 (integer)
 
  
-# Optional class attributes
+## Optional class attributes
 
  supports_negative = False
  supports_zero = False
@@ -1690,7 +2681,7 @@ of parameter names (strings) n_params = 0 /
  require_initial_guess = False
 
  
-# Required method
+## Required method
 
  def fit(self, data):
  """Fit the distribution to data.
@@ -1704,9 +2695,12 @@ of parameter names (strings) n_params = 0 /
  raise NotImplementedError
 
  
-# Optional methods
+## Optional methods
 
- def initial_guess(self, data):
+$$
+def initial_guess(self, data):
+$$
+
  """Provide initial parameter guesses for optimization."""
  return [np.mean(data), np.std(data)]
 
@@ -1727,67 +2721,102 @@ of parameter names (strings) n_params = 0 /
  pass
 
 13.3. Loading Plugins The engine loads all plugin distributions
+
+$$
 automatically: python from core.engine.plugin_loader import load_plugins
+$$
 
 plugins = load_plugins() /
-# plugins is a dict: {code:
+## plugins is a dict: {code:
 
 DistributionPlugin} To load only specific distributions: python from
+
+$$
 core.engine.plugin_loader import load_plugins from
+$$
+
 plugins.distributions.normal import NormalDistribution from
 plugins.distributions.skewnormal import SkewNormalDistribution
 
+$$
 plugins = { 0: NormalDistribution(), 1: SkewNormalDistribution() }
+$$
 
 🔌 Data Adapters 14.1. Station Data Adapter Handles station-based data
 where each station has a unique identifier. python from
-core.interfaces.data_adapter import StationDataAdapter
 
-adapter = StationDataAdapter( zarr_base="M:/temp/zarr_input",
-year_list=$1370, 1371, ..., 1399$, cache_enabled=True,
+$$
+core.interfaces.data_adapter import StationDataAdapter
+$$
+
+$$
+adapter = StationDataAdapter( zarr_base="M:/temp/zarr_input", year_list=$1370, 1371, ..., 1399$, cache_enabled=True,
+$$
+
 max_points=40000 )
 
-# Get coordinates
+## Get coordinates
 
-coords = adapter.get_coords() station_ids = coords$'stationid'$ lats =
-coords$'lat'$ lons = coords$'lon'$ elevs = coords$'elev'$
+$$
+coords = adapter.get_coords() station_ids = coords$'stationid'$ lats = coords$'lat'$ lons = coords$'lon'$ elevs =
+coords$'elev'$
+$$
 
-# Load a block of data
+## Load a block of data
 
-data_block = adapter.load_block( block_start=0, block_size=1000,
-year_idx=0, month=1, var_idx=1 /
-# tmean ) 14.2. Gridded Data Adapter
+$$
+data_block = adapter.load_block( block_start=0, block_size=1000, year_idx=0, month=1, var_idx=1 /
+$$
+
+## tmean ) 14.2. Gridded Data Adapter
 
 Handles gridded data with dimensions (time, latitude, longitude). python
+
+$$
 from core.interfaces.data_adapter import GriddedDataAdapter
+$$
 
-adapter = GriddedDataAdapter( zarr_base="M:/temp/zarr_input",
-year_list=$1370, ..., 1399$, cache_enabled=True, max_points=40000,
-lat_min=25.0, lat_max=40.0, lon_min=44.0, lon_max=64.0 )
+$$
+adapter = GriddedDataAdapter( zarr_base="M:/temp/zarr_input", year_list=$1370, ..., 1399$, cache_enabled=True,
+max_points=40000, lat_min=25.0, lat_max=40.0, lon_min=44.0, lon_max=64.0 )
+$$
 
-# Data is automatically flattened to (time, point) format
+## Data is automatically flattened to (time, point) format
 
-data_block = adapter.load_block( block_start=0, block_size=1000,
-year_idx=0, month=1, var_idx=1 /
-# tmean ) 14.3. Auto-Detection The
+$$
+data_block = adapter.load_block( block_start=0, block_size=1000, year_idx=0, month=1, var_idx=1 /
+$$
+
+## tmean ) 14.3. Auto-Detection The
 
 engine can automatically detect the data format: python from
+
+$$
 core.interfaces.data_adapter import create_adapter
+$$
 
-adapter = create_adapter( zarr_base="M:/temp/zarr_input",
-year_list=year_list, data_format="auto", /
-# auto, station, gridded
+$$
+adapter = create_adapter( zarr_base="M:/temp/zarr_input", year_list=year_list, data_format="auto", /
+$$
 
+## auto, station, gridded
+
+$$
 cache_enabled=True, max_points=40000 )
+$$
 
-# The adapter detects station or gridded format from the Zarr files
+## The adapter detects station or gridded format from the Zarr files
 
-# and returns the appropriate adapter instance
+## and returns the appropriate adapter instance
 
 🔄 Processing Modes 15.1. Normal Mode Default mode for standard
 climatological analysis. Window extraction: For each day, extract values
 from the target day and 2 days before/after for each year. Total values
+
+$$
 per day: 5×30=1505×30=150 observations Distributions used: Normal,
+$$
+
 Skew-Normal, Bimodal, Pearson III GEV is disabled Best distribution
 selected by AICc Application: General climatology studies, seasonal
 cycle analysis. 15.2. Extreme Value Mode Specialized mode for extreme
@@ -1798,90 +2827,146 @@ Normal, Skew-Normal, GEV, Bimodal, Pearson III GEV is enabled and often
 outperforms other distributions Best distribution selected by AICc
 Application: Return period estimation, heatwave analysis, cold spells,
 flood frequency. Activation: yaml /
-# config.yaml window:
+## config.yaml window:
 
 use_extreme_values: true /
-# Enable extreme value mode
+## Enable extreme value mode
 
 ⚡ Performance Optimization 16.1. Block-Based Processing The engine
 processes data in blocks to manage memory efficiently. How it works:
+
+$$
 Data is divided into blocks of block_size stations Each block is loaded,
+$$
+
 processed, and written separately Memory usage is proportional to
-block_size, not n_stations Checkpoint is saved after each block
-Configuration: yaml processing: block_size: 1000 /
-# Smaller block size =
+
+$$
+block_size, not n_stations Checkpoint is saved after each block Configuration: yaml processing: block_size: 1000 /
+$$
+
+## Smaller block size =
 
 lower memory usage, more I/O /
-# Larger block size = higher memory usage,
+
+$$
+## Larger block size = higher memory usage,
+$$
 
 less I/O 16.2. Parallel Processing The engine supports multiple parallel
 backends. Backend options: Configuration: yaml parallel: enabled: true
+
+$$
 backend: "multiprocessing" max_workers: 6 /
-# Number of worker processes
+$$
+
+## Number of worker processes
 
 chunk_size: 100 /
-# For Dask/Ray Performance impact: 16.3. Memory
+## For Dask/Ray Performance impact: 16.3. Memory
 
 Management Memory optimization strategies: Data types: Using float32
-instead of float64 reduces memory by 50% python arr = np.full((n_days,
-n_stations), np.nan, dtype=np.float32) Block processing: Never load all
-data at once python for block_start in range(0, n_stations, block_size):
-block_data = load_block(block_start, block_size)
-process_block(block_data) Garbage collection: Explicitly free memory
-python import gc del block_data gc.collect() Memory monitoring: Track
-memory usage python import psutil mem = psutil.Process().memory_info()
-print(f"Memory usage: {mem.rss / 1024/*/*3:.2f} GB") Configuration: yaml
-processing: max_blocks_in_memory: 5 /
-# Maximum blocks loaded
 
+$$
+instead of float64 reduces memory by 50% python arr = np.full((n_days, n_stations), np.nan, dtype=np.float32) Block
+processing: Never load all data at once python for block_start in range(0, n_stations, block_size): block_data =
+load_block(block_start, block_size) process_block(block_data) Garbage collection: Explicitly free memory python import
+gc del block_data gc.collect() Memory monitoring: Track memory usage python import psutil mem =
+psutil.Process().memory_info()
+$$
+
+print(f"Memory usage: {mem.rss / 1024/*/*3:.2f} GB") Configuration: yaml
+
+$$
+processing: max_blocks_in_memory: 5 /
+$$
+
+## Maximum blocks loaded
+
+$$
 simultaneously output_precision: "float32" /
-# Use float32 for smaller
+$$
+
+## Use float32 for smaller
 
 output 16.4. Caching System The disk cache reduces I/O by storing loaded
 data. How it works: First time data is loaded, it's cached Subsequent
 requests load from cache (faster) Old cache entries are automatically
-purged Configuration: yaml cache: enabled: true max_size_gb: 10
-ttl_hours: 24 cache_path: "./cache" Performance impact: 16.5.
+
+$$
+purged Configuration: yaml cache: enabled: true max_size_gb: 10 ttl_hours: 24 cache_path: "./cache" Performance impact:
+16.5.
+$$
+
 Compression Zarr uses compression to reduce file size. Compression
 options: Configuration: yaml processing: compression: "zstd"
 compression_level: 3 /
-# 1 = fast, 9 = high compression
+
+$$
+## 1 = fast, 9 = high compression
+$$
 
 💾 Checkpoint & Recovery The engine automatically saves checkpoints to
 enable recovery from interruptions. Checkpoint Format Checkpoints are
-stored in key=value format: text block=86 station=86999
-timestamp=1785060753 version=1 Checkpoint Content Recovery Process
+
+$$
+stored in key=value format: text block=86 station=86999 timestamp=1785060753 version=1 Checkpoint Content Recovery
+Process
+$$
+
 Engine starts and checks for existing checkpoint If found, loads block
 and station Resumes processing from that exact point If not found,
 starts from the beginning Save frequency: Checkpoints are saved after
 every 100 stations or at block boundaries. Manual checkpoint management:
+
+$$
 python from monitoring.checkpoint import save_checkpoint,
+$$
+
 load_checkpoint
 
+$$
 save_checkpoint("nature_output", block=86, station=86999)
+$$
 
+$$
 cp = load_checkpoint("nature_output") print(f"Last block:
+$$
+
 {cp.get('block')}")
 
+$$
 🧪 Testing 18.1. Unit Tests bash pytest tests/test_distributions.py -v
+$$
+
 Test coverage includes: 18.2. Integration Tests Test the complete
 pipeline: bash pytest tests/ --run-integration Integration tests: Full
 pipeline on sample data Comparison with expected results Performance
-regression tests 18.3. Coverage Reports bash pytest tests/ --cov=.
---cov-report=html open htmlcov/index.html Coverage targets: Core
+
+$$
+regression tests 18.3. Coverage Reports bash pytest tests/ --cov=. --cov-report=html open htmlcov/index.html Coverage
+targets: Core
+$$
+
 modules: ≥ 95% Plugin modules: ≥ 90% Overall: ≥ 90% High-priority areas:
-distributions.py (core fitting) plugin_loader.py (discovery)
-quality_flag.py (quality control) bootstrap.py (uncertainty)
+
+$$
+distributions.py (core fitting) plugin_loader.py (discovery) quality_flag.py (quality control) bootstrap.py
+(uncertainty)
+$$
 
 📊 Benchmarking 19.1. Performance Metrics The benchmark measures: 19.2.
 Benchmark Results Run the benchmark: bash python benchmark/benchmark.py
 Example output: text
---- Performance
+--
+- Performance
 Benchmark ---
 Sample size: 1000 stations Mode: Normal Workers: 6
 
  Operation Time (s) Memory (GB)
- ------------------- ---------- -------------
+ ------------------
+- ---------
+- -------------
  Load data 12.34 1.23
  Window extraction 8.90 2.45
  Distribution fit 45.67 3.56
@@ -1893,15 +2978,19 @@ Sample size: 1000 stations Mode: Normal Workers: 6
 ---
 
 📖 Documentation 20.1. Sphinx Documentation Build the full
+
+$$
 documentation: bash cd docs make html open /_build/html/index.html
+$$
+
 ```text
 Documentation structure: text docs/ ├── source/ │ ├── index.rst /
 ```
-# Home
+## Home
 
 ```text
 page │ ├── installation.rst /
-# Installation guide │ ├── usage/ │ │ ├──
+## Installation guide │ ├── usage/ │ │ ├──
 ```
 
 ```text
@@ -1911,7 +3000,7 @@ utilities.rst │ ├── theory/ │ │ ├── distributions.rst │ │ 
 selection.rst │ │ └── uncertainty.rst │ ├── contributing.rst │ └──
 changelog.rst └── build/ /
 ```
-# Generated documentation 20.2. Jupyter
+## Generated documentation 20.2. Jupyter
 
 Notebooks Interactive tutorials:
 
@@ -1923,14 +3012,26 @@ paths) Verify input files exist Check read permissions Create necessary
 directories Error: MemoryError text MemoryError: Unable to allocate
 array with shape (10000, 366, 30) Causes: Block size too large Too many
 parallel workers Data type too large (float64 vs float32) Solutions:
+
+$$
 Reduce block_size in config Reduce max_workers Use float32 output
+$$
+
 precision Enable disk cache Error: KeyError text KeyError:
+
+$$
 'variable_name' Causes: Incorrect variable name in config Missing
+$$
+
 variable in input data Incorrect variable index Solutions: Check
 variable names in config.yaml Verify input dataset schema Update VARS in
 constants.py Error: ConvergenceWarning text ConvergenceWarning:
 Optimization did not converge Causes: Poor initial guesses Insufficient
+
+$$
 data Difficult parameter space Solutions: Increase max_iterations
+$$
+
 Provide better initial guesses Add more data if possible Consider
 different distribution Error: ZarrStoreError text ZarrStoreError: Failed
 to write to Zarr store Causes: Disk full Permission issues Corrupted
@@ -1938,49 +3039,55 @@ store Solutions: Check disk space Verify write permissions Delete
 corrupted store and restart 21.2. Solutions General Debugging Enable
 DEBUG logging: yaml logging: level: "DEBUG" Run on a smaller sample:
 python /
-# In main.py, reduce n_points_max n_points_max = 100 /# Instead
+
+$$
+## In main.py, reduce n_points_max n_points_max = 100 /# Instead
+$$
 
 of 40000 Check log files: bash tail -f logs/climatology.log Use
+
+$$
 interactive debugger: python import ipdb; ipdb.set_trace()
+$$
 
 🤝 Contributing 22.1. Development Setup bash /
-# Clone the repository git
+## Clone the repository git
 
 clone https://github.com/AminFazlKazemi/ClimateProcessingEngine.git cd
 ClimateProcessingEngine
 
-# Create and activate virtual environment
+## Create and activate virtual environment
 
 python -m venv venv source venv/bin/activate /
-# or
+## or
 
 venv`/Scripts``/activate `on Windows
 
-# Install development dependencies
+## Install development dependencies
 
 ```bash
 pip install -e .$dev$
 ```
 
-# Install pre-commit hooks
+## Install pre-commit hooks
 
 pre-commit install
 
-# Run tests
+## Run tests
 
 pytest tests/ 22.2. Code Style The project follows the Black code style.
 bash /
-# Format code black .
+## Format code black .
 
-# Check code style
+## Check code style
 
 flake8 .
 
-# Type checking
+## Type checking
 
 mypy .
 
-# Sort imports
+## Sort imports
 
 isort . Style rules: Max line length: 88 (Black default) Use type hints
 Write docstrings for all public functions Include unit tests for new
@@ -1998,11 +3105,18 @@ Summary ✅ Commercial use ✅ Modification ✅ Distribution ✅ Private use
 text.
 
 📧 Citation If you use this software in your research, please cite:
-BibTeX: bibtex @software{FazlKazemi_Climatology_Engine_2025, author =
-{Fazl Kazemi, Amin}, title = {Climatology Engine: A Framework for
-Distribution Fitting in Climate Science}, year = {2025}, publisher =
+
+$$
+BibTeX: bibtex @software{FazlKazemi_Climatology_Engine_2025, author = {Fazl Kazemi, Amin}, title = {Climatology Engine:
+A Framework for Distribution Fitting in Climate Science}, year = {2025}, publisher =
+$$
+
 {GitHub}, url =
+
+$$
 {https://github.com/AminFazlKazemi/ClimateProcessingEngine}, version =
+$$
+
 {4.0} } APA: text Fazl Kazemi, A. (2025). Climatology Engine: A
 Framework for Distribution Fitting in Climate Science (Version 4.0)
 $Computer software$. GitHub.
@@ -2026,28 +3140,44 @@ contributors who have helped improve this framework.
 {=html}
 
 ```
+
+$$
 `**`{=html}What is the recommended block size?`**`{=html}
+$$
 
 ```
 The optimal block size depends on your available RAM and the number of
+
+$$
 stations. Formula: block_size = min(1000, int(ram_gb /* 100))
+$$
+
 (approximate)
 
 {=html}
 
 ```
+
+$$
 `**`{=html}When should I use extreme value mode?`**`{=html}
+$$
 
 ```
 Use extreme value mode when analyzing: Annual maxima (e.g., maximum
 temperature) Return periods (e.g., 100-year events) Extreme events
 (heatwaves, cold spells) Climate extremes indices Set
+
+$$
 use_extreme_values: true in config.yaml.
+$$
 
 {=html}
 
 ```
+
+$$
 `**`{=html}How do I add a new distribution?`**`{=html}
+$$
 
 ```
 Create a new file in plugins/distributions/ Define a class inheriting
@@ -2058,7 +3188,10 @@ integer (5, 6, 7, ...).
 {=html}
 
 ```
+
+$$
 `**`{=html}What is the quality flag system?`**`{=html}
+$$
 
 ```
 The quality flag system automatically evaluates each fit and assigns
@@ -2069,7 +3202,10 @@ filtering.
 {=html}
 
 ```
+
+$$
 `**`{=html}How is GEV different from other distributions?`**`{=html}
+$$
 
 ```
 GEV is specifically designed for block maxima (e.g., annual maximum
@@ -2079,15 +3215,24 @@ normal mode.
 {=html}
 
 ```
+
+$$
 `**`{=html}Can I process gridded data?`**`{=html}
+$$
 
 ```
-Yes! Set data_format: "gridded" in config.yaml and specify the spatial
-extent using lat_min, lat_max, lon_min, lon_max.
+
+$$
+Yes! Set data_format: "gridded" in config.yaml and specify the spatial extent using lat_min, lat_max, lon_min, lon_max.
+$$
 
 📋 Changelog Version 4.0 (2025-07-26) Breaking Changes: Complete
 migration to plugin architecture New core directory structure (core/,
+
+$$
 plugins/) zarr_schema.py moved to core/storage/ New Features: Plugin
+$$
+
 architecture for distributions Extreme value mode with GEV support
 Quality flag system Bootstrap uncertainty estimation Disk cache for I/O
 optimization Gridded data support (time, lat, lon) Sample data and
@@ -2123,7 +3268,8 @@ Built with ❤️ for the climate science community.
 Last updated: July 27, 2026
 text
 
- ---------------------- ------------------------------------------------
+ ---------------------
+- ------------------------------------------------
 
 ```text
 ```
