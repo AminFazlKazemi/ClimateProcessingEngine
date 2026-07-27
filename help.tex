@@ -1565,4 +1565,526 @@ variables:
     
 \end{longtable}
 
+
+% ============================================================
+% فصل جدید: راهنمای کاربر
+% ============================================================
+\chapter{User Guide}
+\section{Getting Started}
+
+\subsection{First Run}
+To get started with ClimateProcessingEngine, follow these steps:
+
+\begin{enumerate}
+    \item \textbf{Clone the repository} as described in Chapter 3.
+    \item \textbf{Install dependencies} using \texttt{pip install -r requirements.txt}.
+    \item \textbf{Configure the engine} by editing \texttt{config.yaml} (see Section 3.2).
+    \item \textbf{Prepare input data} according to Chapter 8.
+    \item \textbf{Run the engine} using \texttt{python main.py}.
+\end{enumerate}
+
+\subsection{Example: Processing a Subset of Data}
+To test the engine on a small subset of data, modify the configuration as follows:
+
+\begin{lstlisting}[caption=Testing Configuration]
+# config.yaml (testing)
+years:
+  start: 1370
+  end: 1375          # Only 6 years for testing
+block_size: 100      # Small block size for debugging
+validation:
+  validate_after_load: true
+  validate_before_write: true
+benchmark:
+  enabled: false     # Skip benchmarking for faster tests
+\end{lstlisting}
+
+\subsection{Monitoring Progress}
+During execution, you can monitor progress through:
+\begin{itemize}
+    \item \textbf{Console output}: Real-time status updates
+    \item \textbf{Log file}: \texttt{climatology.log} with detailed events
+    \item \textbf{Checkpoint file}: \texttt{checkpoint.csv} showing completed blocks
+\end{itemize}
+
+\subsection{Customizing the Configuration}
+\subsubsection{Choosing Variables}
+The \texttt{variables} list determines which climate variables are processed. You can process any subset:
+
+\begin{lstlisting}[caption=Processing a Subset of Variables]
+variables:
+- tmin
+- tmax
+# tmean is excluded
+\end{lstlisting}
+
+\subsubsection{Adjusting the Window Size}
+The \texttt{window\_days} parameter controls the window size:
+
+\begin{lstlisting}[caption=Window Size Configuration]
+window_days: 5      # Window size = 2*5+1 = 11 days
+\end{lstlisting}
+
+Larger windows include more data but may smooth out variability.
+
+\subsubsection{Enabling Parallel Processing}
+For large datasets, enable parallel processing:
+
+\begin{lstlisting}[caption=Parallel Processing Configuration]
+cores: 8
+use_parallel: true
+\end{lstlisting}
+
+\section{Analyzing Results}
+
+\subsection{Loading Output Data}
+After processing, you can load the results using \texttt{xarray}:
+
+\begin{lstlisting}[caption=Loading Results]
+import xarray as xr
+
+ds = xr.open_zarr('I:/climatology_366_rolling/climatology_stationwise_final.zarr')
+print(ds)
+
+# Access a specific variable
+tmin_mean = ds['tmin_mean'].values
+\end{lstlisting}
+
+\subsection{Extracting Best Distributions}
+To extract the best distribution for each day and station:
+
+\begin{lstlisting}[caption=Extracting Best Distributions]
+best_dist = ds['tmin_best_dist'].values  # Shape (366, n_stations)
+
+# Distribution codes:
+# -1 = failed
+#  0 = Normal
+#  1 = Skew-Normal
+#  2 = Bimodal
+#  3 = Pearson Type III
+\end{lstlisting}
+
+\subsection{Visualizing Results}
+\subsubsection{Distribution Map}
+\begin{lstlisting}[caption=Creating a Distribution Map]
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Count distribution types
+codes, counts = np.unique(best_dist, return_counts=True)
+labels = ['Failed', 'Normal', 'Skew-Normal', 'Bimodal', 'Pearson']
+
+plt.figure(figsize=(10, 6))
+plt.bar(labels, counts)
+plt.title('Distribution of Best Fit Types')
+plt.xlabel('Distribution')
+plt.ylabel('Number of Stations')
+plt.show()
+\end{lstlisting}
+
+\subsubsection{Temperature Mean Map}
+\begin{lstlisting}[caption=Plotting Mean Temperature]
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+
+fig = plt.figure(figsize=(12, 8))
+ax = plt.axes(projection=ccrs.PlateCarree())
+ax.add_feature(cfeature.COASTLINE)
+ax.add_feature(cfeature.BORDERS)
+
+# Plot the mean temperature for a specific day (e.g., day 180)
+day_idx = 180
+sc = ax.scatter(ds['lon'], ds['lat'], c=ds['tmin_mean'][day_idx], 
+                cmap='coolwarm', s=5, transform=ccrs.PlateCarree())
+plt.colorbar(sc, label='Temperature (°C)')
+plt.title('Mean Temperature - Day 180')
+plt.show()
+\end{lstlisting}
+
+\subsection{Exporting Data}
+\subsubsection{Export to NetCDF}
+\begin{lstlisting}[caption=Exporting to NetCDF]
+ds.to_netcdf('climatology_results.nc')
+\end{lstlisting}
+
+\subsubsection{Export to CSV}
+\begin{lstlisting}[caption=Exporting to CSV]
+import pandas as pd
+
+# Convert to DataFrame for a specific day
+df = ds['tmin_mean'].sel(day_of_year=180).to_dataframe()
+df.to_csv('tmin_mean_day180.csv')
+\end{lstlisting}
+
+% ============================================================
+% فصل جدید: موضوعات پیشرفته
+% ============================================================
+\chapter{Advanced Topics}
+
+\section{Parallel Processing in Depth}
+
+\subsection{How Parallel Processing Works}
+When \texttt{use\_parallel} is enabled, the engine distributes blocks across worker processes:
+
+\begin{enumerate}
+    \item The orchestrator divides the stations into blocks.
+    \item Each block is assigned to a worker process.
+    \item Workers process blocks independently.
+    \item Results are written to the Zarr store synchronously.
+\end{enumerate}
+
+\subsection{Performance Considerations}
+\begin{itemize}
+    \item \textbf{CPU-bound}: Use parallel processing for CPU-intensive fitting.
+    \item \textbf{I/O-bound}: For I/O-intensive workloads, parallel processing may not improve performance.
+    \item \textbf{Memory}: Each worker uses its own memory space; ensure sufficient RAM.
+\end{itemize}
+
+\subsection{Tuning for Your System}
+The optimal number of cores depends on your system:
+
+\begin{lstlisting}[caption=Choosing the Number of Cores]
+# For systems with hyperthreading
+cores = min(cpu_count(), 8)  # Cap at 8 for efficiency
+
+# For systems with limited RAM
+cores = cpu_count() // 2     # Use half the cores to reduce memory pressure
+\end{lstlisting}
+
+\section{Memory Management Strategies}
+
+\subsection{Understanding Memory Usage}
+The engine's memory usage is primarily determined by:
+\begin{enumerate}
+    \item \textbf{Block size}: Larger blocks use more memory.
+    \item \textbf{Number of variables}: More variables increase memory usage.
+    \item \textbf{Parallel workers}: Each worker has its own memory footprint.
+\end{enumerate}
+
+\subsection{Estimating Memory Requirements}
+To estimate memory usage:
+
+\[
+\text{Memory (GB)} \approx \frac{\text{block\_size} \times \text{N\_YEARS} \times \text{N\_DAYS} \times \text{N\_VARS} \times 4}{1024^3}
+\]
+
+where 4 is the byte size of \texttt{float32}.
+
+\subsection{Reducing Memory Usage}
+\begin{itemize}
+    \item Use smaller block sizes.
+    \item Process fewer variables at a time.
+    \item Disable validation to save memory.
+    \item Use single-threaded mode (no parallel workers).
+\end{itemize}
+
+\section{Recovery and Checkpointing}
+
+\subsection{How Checkpointing Works}
+The engine saves a checkpoint after each block, recording:
+\begin{itemize}
+    \item The last processed block index.
+    \item The last station index.
+    \item The elapsed time.
+\end{itemize}
+
+\subsection{Manual Recovery}
+If you need to manually resume from a checkpoint:
+
+\begin{lstlisting}[caption=Manual Recovery]
+# Check the checkpoint file
+import pandas as pd
+checkpoint = pd.read_csv('checkpoint.csv')
+print(checkpoint)
+
+# Modify the checkpoint to skip failed blocks
+checkpoint['block_idx'] = 10  # Start from block 10
+checkpoint.to_csv('checkpoint_modified.csv', index=False)
+\end{lstlisting}
+
+\subsection{Troubleshooting Checkpoint Issues}
+\begin{itemize}
+    \item \textbf{Corrupted checkpoint}: Delete the checkpoint file and restart from the beginning.
+    \item \textbf{Partial processing}: If a block fails, the checkpoint will not advance.
+    \item \textbf{Inconsistent data}: If output data is corrupted, restart from a clean state.
+\end{itemize}
+
+\section{Adding New Distributions}
+
+\subsection{Dynamic Distribution Architecture}
+Starting from version 2.1, the engine supports a \textbf{dynamic distribution architecture} that allows adding new distributions without reprocessing raw data.
+
+\subsection{Steps to Add a New Distribution}
+\begin{enumerate}
+    \item \textbf{Define the distribution} in \texttt{zarr\_schema.py}:
+    \begin{lstlisting}[caption=Adding a New Distribution to Schema]
+DISTRIBUTIONS['logistic'] = {
+    'code': 4,
+    'name': 'Logistic',
+    'params': ['location', 'scale'],
+    'n_params': 2,
+    'fields': ['loglik', 'aicc', 'bic'],
+}
+    \end{lstlisting}
+
+    \item \textbf{Implement the fitting function} in \texttt{distributions.py}:
+    \begin{lstlisting}[caption=Implementing Logistic Fitting]
+from scipy.stats import logistic
+
+@njit
+def fit_logistic_numba(data):
+    # Use maximum likelihood estimation
+    # ...
+    return (loc, scale, loglik, aicc, bic)
+    \end{lstlisting}
+
+    \item \textbf{Register the fitting function}:
+    \begin{lstlisting}[caption=Registering the Function]
+FIT_FUNCS['logistic'] = fit_logistic_numba
+    \end{lstlisting}
+
+    \item \textbf{Run the add distribution script}:
+    \begin{lstlisting}[caption=Adding the Distribution]
+python add_distribution.py --dist logistic
+    \end{lstlisting}
+\end{enumerate}
+
+\subsection{Adding Bimodality Metrics}
+To add new bimodality metrics, extend the \texttt{analyze\_station.py} module:
+
+\begin{lstlisting}[caption=Adding a New Bimodality Metric]
+def compute_harris_d(w1, mu1, sigma1, mu2, sigma2):
+    """Compute Harris's D coefficient."""
+    numerator = abs(mu2 - mu1)
+    denominator = (sigma1 + sigma2) / 2
+    return numerator / denominator if denominator > 0 else 0
+\end{lstlisting}
+
+% ============================================================
+% فصل جدید: سوالات متداول
+% ============================================================
+\chapter{Frequently Asked Questions}
+
+\section{General Questions}
+
+\subsection{What is ClimateProcessingEngine?}
+ClimateProcessingEngine is an open-source Python framework for processing large-scale climate datasets, fitting statistical distributions, and generating climatological summaries.
+
+\subsection{What are the system requirements?}
+See Table 1.1 for minimum and recommended system requirements.
+
+\subsection{Is the engine compatible with Windows/Linux/macOS?}
+Yes, the engine is platform-independent and works on all major operating systems.
+
+\section{Data Questions}
+
+\subsection{What input data formats are supported?}
+The engine supports Zarr archives with the structure described in Chapter 8. The data should include \texttt{tmin}, \texttt{tmax}, \texttt{tmean}, and station metadata.
+
+\subsection{Can I process data without all three variables?}
+Yes, you can process a subset of variables by modifying the \texttt{variables} list in \texttt{config.yaml}.
+
+\subsection{How are missing values handled?}
+Missing values are represented as \texttt{NaN} and are automatically excluded from the analysis. The engine requires at least \texttt{MIN\_VALID\_VALUES} (5) valid values for fitting.
+
+\section{Performance Questions}
+
+\subsection{How long does processing take?}
+Processing time depends on:
+\begin{itemize}
+    \item Number of stations
+    \item Number of variables
+    \item Block size
+    \item CPU cores
+    \item Disk I/O speed
+\end{itemize}
+A benchmark run can estimate the optimal settings for your system.
+
+\subsection{Can I process data on a laptop?}
+Yes, but for large datasets, use a machine with sufficient RAM (at least 16 GB). Use smaller block sizes to reduce memory usage.
+
+\subsection{How can I speed up processing?}
+\begin{enumerate}
+    \item Use SSD storage for input and output data.
+    \item Increase the number of cores.
+    \item Increase the block size (if RAM permits).
+    \item Disable validation and benchmarking.
+\end{enumerate}
+
+\section{Troubleshooting Questions}
+
+\subsection{Why am I getting a memory error?}
+Reduce \texttt{block\_size} in \texttt{config.yaml} and/or disable parallel processing. The error indicates insufficient RAM for the current configuration.
+
+\subsection{Why is the engine not starting?}
+Check the following:
+\begin{enumerate}
+    \item All dependencies are installed.
+    \item \texttt{config.yaml} exists and is correctly formatted.
+    \item Input data paths are valid.
+    \item The log file shows detailed error messages.
+\end{enumerate}
+
+\subsection{How do I update to a new version?}
+Pull the latest changes from the GitHub repository and reinstall dependencies:
+
+\begin{lstlisting}[caption=Updating to a New Version]
+git pull
+pip install -r requirements.txt --upgrade
+\end{lstlisting}
+
+% ============================================================
+% پیوست جدید: قطعه کدهای مفید
+% ============================================================
+\appendix
+
+\chapter{Useful Code Snippets}
+
+\section{Post-Processing Analysis}
+
+\subsection{Summarizing Results}
+\begin{lstlisting}[caption=Summarizing Results]
+import xarray as xr
+import numpy as np
+import pandas as pd
+
+# Load results
+ds = xr.open_zarr('climatology_stationwise_final.zarr')
+
+# Summary statistics
+print("Dataset overview:")
+print(ds)
+
+# Best distribution counts
+best_dist = ds['tmin_best_dist'].values
+unique, counts = np.unique(best_dist, return_counts=True)
+print("\nBest distribution counts:")
+for code, count in zip(unique, counts):
+    name = ['Failed', 'Normal', 'Skew-Normal', 'Bimodal', 'Pearson'][code+1]
+    print(f"  {name}: {count} stations")
+\end{lstlisting}
+
+\subsection{Extracting Best Model Parameters}
+\begin{lstlisting}[caption=Extracting Best Model Parameters]
+def get_best_parameters(ds, var='tmin', day_idx=0, station_idx=0):
+    """Extract parameters of the best distribution for a specific station and day."""
+    best = ds[f'{var}_best_dist'].values[day_idx, station_idx]
+
+    if best == 0:  # Normal
+        return {
+            'mean': ds[f'{var}_normal_p1'].values[day_idx, station_idx],
+            'std': ds[f'{var}_normal_p2'].values[day_idx, station_idx],
+        }
+    elif best == 1:  # Skew-Normal
+        return {
+            'alpha': ds[f'{var}_skew_p1'].values[day_idx, station_idx],
+            'loc': ds[f'{var}_skew_p2'].values[day_idx, station_idx],
+            'scale': ds[f'{var}_skew_p3'].values[day_idx, station_idx],
+        }
+    elif best == 2:  # Bimodal
+        return {
+            'w1': ds[f'{var}_bimodal_p1'].values[day_idx, station_idx],
+            'mu1': ds[f'{var}_bimodal_p2'].values[day_idx, station_idx],
+            'sigma1': ds[f'{var}_bimodal_p3'].values[day_idx, station_idx],
+            'mu2': ds[f'{var}_bimodal_p4'].values[day_idx, station_idx],
+            'sigma2': ds[f'{var}_bimodal_p5'].values[day_idx, station_idx],
+        }
+    elif best == 3:  # Pearson III
+        return {
+            'shape': ds[f'{var}_pearson_p1'].values[day_idx, station_idx],
+            'scale': ds[f'{var}_pearson_p2'].values[day_idx, station_idx],
+            'loc': ds[f'{var}_pearson_p3'].values[day_idx, station_idx],
+        }
+    else:
+        return None
+\end{lstlisting}
+
+\subsection{Identifying Outliers}
+\begin{lstlisting}[caption=Identifying Outliers]
+def detect_outliers(ds, var='tmin', threshold=3):
+    """Detect outliers using the mean and standard deviation."""
+    mean = ds[f'{var}_mean'].values
+    std = ds[f'{var}_std'].values
+
+    # Z-score
+    z_scores = np.abs(mean - np.mean(mean)) / std
+
+    # Identify outliers
+    outliers = z_scores > threshold
+
+    return outliers
+\end{lstlisting}
+
+\section{Data Integrity Checks}
+
+\subsection{Checking for Missing Values}
+\begin{lstlisting}[caption=Checking for Missing Values]
+def check_missing_values(ds):
+    """Check for missing values in the dataset."""
+    for var in ds.data_vars:
+        missing = np.isnan(ds[var].values).sum()
+        total = ds[var].size
+        print(f"{var}: {missing}/{total} ({100*missing/total:.2f}%)")
+\end{lstlisting}
+
+\subsection{Verifying Distribution Codes}
+\begin{lstlisting}[caption=Verifying Distribution Codes]
+def verify_distribution_codes(ds, var='tmin'):
+    """Verify that distribution codes are valid."""
+    best = ds[f'{var}_best_dist'].values
+    valid_codes = [-1, 0, 1, 2, 3]
+    invalid = np.isin(best, valid_codes, invert=True)
+    if np.any(invalid):
+        print(f"Invalid codes found: {np.unique(best[invalid])}")
+        return False
+    return True
+\end{lstlisting}
+
+\section{Visualization}
+
+\subsection{Heatmap of Best Distributions}
+\begin{lstlisting}[caption=Heatmap of Best Distributions]
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+def plot_distribution_heatmap(ds, var='tmin'):
+    """Plot a heatmap of best distributions for all days."""
+    best = ds[f'{var}_best_dist'].values.T  # (n_stations, 366)
+
+    plt.figure(figsize=(15, 10))
+    sns.heatmap(best, cmap='tab10', 
+                xticklabels=50, yticklabels=False,
+                cbar_kws={'label': 'Distribution Code'})
+    plt.xlabel('Day of Year')
+    plt.ylabel('Station')
+    plt.title(f'Best Distribution for {var}')
+    plt.show()
+\end{lstlisting}
+
+\subsection{Time Series of Parameters}
+\begin{lstlisting}[caption=Time Series of Parameters]
+def plot_parameter_timeseries(ds, var='tmin', param='mean'):
+    """Plot the time series of a parameter."""
+    data = ds[f'{var}_{param}'].values  # (366, n_stations)
+
+    plt.figure(figsize=(12, 6))
+    for i in range(min(10, data.shape[1])):  # Plot first 10 stations
+        plt.plot(data[:, i], alpha=0.7)
+
+    plt.xlabel('Day of Year')
+    plt.ylabel(f'{param} ({var})')
+    plt.title(f'Time Series of {param} for {var}')
+    plt.grid(True, alpha=0.3)
+    plt.show()
+\end{lstlisting}
+
+\subsection{Comparing Distributions}
+\begin{lstlisting}[caption=Comparing Distributions]
+def compare_distributions(data, dist_names=['normal', 'skew', 'bimodal', 'pearson']):
+    """Compare distributions fitted to data."""
+    # Implementation depends on your analysis needs
+    pass
+\end{lstlisting}
+
+\end{document}
 \end{document}	
