@@ -1,10 +1,13 @@
+
+<div style="font-family: 'Segoe UI', Tahoma, sans-serif; line-height:1.8;">
+
 # Climatology Engine
 
 **A comprehensive, plugin-based framework for climatological
 distribution fitting, extreme value analysis, and large-scale climate
 data processing.**
 
-[![CI](https://github.com/AminFazlKazemi/ClimateProcessingEngine/actions/workflows/ci.yml/badge.svg)](https://github.com/AminFazlKazemi/ClimateProcessingEngine/actions/workflows/ci.yml)
+[<p align="center"><img src="https://github.com/AminFazlKazemi/ClimateProcessingEngine/actions/workflows/ci.yml/badge.svg" alt="CI" style="max-width:90%;"></p>](https://github.com/AminFazlKazemi/ClimateProcessingEngine/actions/workflows/ci.yml)
 [![Python
 3.8+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License:
@@ -93,14 +96,14 @@ Status](https://readthedocs.org/projects/climatology-engine/badge/?version=lates
 ## 🧠 Design Philosophy
 
 The framework is built on four core principles: | Principle | Description |
-| ----------- | ------------- |
+|---|---|
 | **Plugin-first architecture** | All statistical distributions and quality controls are implemented as plugins, enabling easy extension without modifying core code. |
 | **Reproducible scientific workflows** | Every run records configuration, dependencies, and input hashes to ensure results can be exactly reproduced. |
 | **Separation of concerns** | I/O, numerical computation, orchestration, and monitoring are clearly separated into independent modules. |
 | **Configuration over hard-coding** | All runtime parameters are defined in a single `config.yaml` file, making experimentation and deployment straightforward. | ## 🎯 Design Goals
 
 The project is designed with the following primary goals: | Goal | Description |
-| ------ | ------------- |
+|---|---|
 | **Scientific correctness** | All statistical methods are validated against reference implementations and literature. |
 | **Reproducibility** | Every run captures configuration, dependencies, and input metadata for exact replication. |
 | **Extensibility** | Plugin architecture allows adding new distributions, quality controls, and data adapters without modifying core code. |
@@ -153,7 +156,7 @@ This workflow is designed to be intuitive for both first-time users and experien
 ## ⚖️ Design Trade-offs
 
 The engine makes several deliberate trade-offs to achieve its goals: | Trade-off | Decision | Rationale |
-| ----------- | ---------- | ----------- |
+|---|---|---|
 | **Accuracy vs. Speed** | Prioritizes scientific accuracy over raw speed | Climate research requires reliable statistical estimates; moderate performance is acceptable. |
 | **Memory vs. I/O** | Uses block processing with moderate memory footprint | Ensures datasets larger than RAM can be processed; I/O overhead is managed with caching. |
 | **Extensibility vs. Simplicity** | Adopts plugin architecture | Adds complexity but enables easy extension without changing core code. |
@@ -163,7 +166,7 @@ The engine makes several deliberate trade-offs to achieve its goals: | Trade-off
 ## 🔌 Extension Points
 
 The engine is designed for extensibility through well-defined interfaces: | Extension Point | Location | Description |
-| ----------------- | ---------- | ------------- |
+|---|---|---|
 | **Distribution Plugins** | `plugins/distributions/` | Add new probability distributions by subclassing `DistributionPlugin`. |
 | **Quality Control Plugins** | `plugins/qc/` | Add custom quality control rules (planned). |
 | **Statistical Metrics** | `plugins/statistics/` | Add new statistical metrics (planned). |
@@ -189,7 +192,7 @@ This layered approach ensures consistency while allowing flexibility for differe
 ## 💾 Failure Recovery
 
 The engine includes robust recovery mechanisms: | Feature | Description |
-| --------- | ------------- |
+|---|---|
 | **Checkpointing** | Saves progress after each block (every 100 stations). |
 | **Resume** | Automatically resumes from the last successful checkpoint on restart. |
 | **Corruption Detection** | Validates data integrity and detects corrupted stores. |
@@ -393,7 +396,7 @@ Input Data (Zarr/NetCDF)
 
 ```
 ### Module Responsibilities | Module | Responsibility |
-| -------- | ---------------- |
+|---|---|
 | `core/` | Base classes, interfaces, and shared utilities. |
 | `io_pipeline/` | Data ingestion from various sources (Zarr, CSV, NetCDF). |
 | `numerical_engine/` | Core statistical computations (distribution fitting, window extraction). |
@@ -401,12 +404,12 @@ Input Data (Zarr/NetCDF)
 | `orchestrator/` | Workflow orchestration, block management, and checkpointing. |
 | `result_pipeline/` | Output generation, validation, and storage. |
 | `monitoring/` | Logging, benchmarking, and performance monitoring. | ## 📂 Supported Data Formats | Format | Read | Write | Notes |
-| -------- | ------ | ------- | ------- |
+|---|---|---|---|
 | **Zarr** | ✅ | ✅ | Primary storage format; chunked, compressed, cloud-optimized. |
 | **NetCDF** | ✅ | ✅ | Classic climate data format; CF-compliant output. |
 | **CSV** | ✅ | ❌ | Only for small test datasets; not recommended for production. |
 | **Parquet** | ❌ | ❌ | Not currently supported (planned for future). | ## 🔄 Execution Modes | Mode | Description | Use Case |
-| ------ | ------------- | ---------- |
+|---|---|---|
 | **CLI** | Run via `python main.py` with `config.yaml` | Production workflows, batch processing |
 | **Python API** | Import modules and call functions programmatically | Integration into existing codebases, custom scripts |
 | **Jupyter Notebook** | Interactive analysis using notebooks in `notebooks/` | Exploratory data analysis, prototyping, teaching | ## 🔌 Plugin Development Guide
@@ -729,7 +732,7 @@ CODE_OF_CONDUCT.md /# Code of conduct └── SECURITY.md /# Security policy
 
 ⚙️ Configuration The main configuration file is config.yaml. This file
 controls all aspects of the engine. Complete Configuration Example yaml
-#
+# 
 ---
 # General Project Settings /#
 ---
@@ -1445,3 +1448,4 @@ text
 ```text
 ```
 ```
+</div>
