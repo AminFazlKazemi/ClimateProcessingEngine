@@ -77,7 +77,7 @@ The project is designed with the following primary goals:
   **Modular architecture**         Clear separation of concerns (I/O, computation, orchestration, monitoring) simplifies testing and maintenance.
   **Production-ready workflows**   Designed for batch processing of real-world climate data with checkpoint recovery and comprehensive logging.
 
-## Non-goals
+## Non-Goals
 
 This project explicitly does **not** aim to:
 
@@ -165,23 +165,23 @@ The engine makes several deliberate trade-offs to achieve its goals:
   **CPU**                  4 cores                           8+ cores
   **Python Environment**   Conda or venv                     Conda
 
-## Installation From Source (recommended)
+## Installation from Source (Recommended)
 
 ``` {.bash caption="Installation Steps" language="bash"}
-# Clone The Repository
-git clone Source: https://github.com/AminFazlKazemi/ClimateProcessingEngine.git
+# Clone the repository
+git clone https://github.com/AminFazlKazemi/ClimateProcessingEngine.git
 cd ClimateProcessingEngine
 
-# Create Virtual Environment (optional But Recommended)
+# Create virtual environment (optional but recommended)
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
-## Or Venv\scripts\activate # Windows
+# or venv\Scripts\activate  # Windows
 
-# Install The Package
+# Install the package
 pip install -e .
 ```
 
-## Installation With Conda (alternative)
+## Installation with Conda (Alternative)
 
 ``` {.bash caption="Conda Installation" language="bash"}
 conda create -n climatology python=3.11
@@ -192,25 +192,25 @@ pip install -e .
 
 # Quick Start
 
-## Using The Sample Dataset
+## Using the Sample Dataset
 
 ``` {.python caption="Loading Sample Data" language="python"}
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Load Sample Station Data
+# Load sample station data
 sample_dir = "sample_data"
 station_data = pd.read_csv(f"{sample_dir}/station_001.csv").values
 
-# Display Data Shape
+# Display data shape
 print(f"Data shape: {station_data.shape}")  # (10950, 3) = 30 years * 365 days, 3 variables
 
-# Plot Temperature For The First 365 Days
+# Plot temperature for the first 365 days
 plt.figure(figsize=(12, 6))
-plt.plot(station_data\left[:365, 1\right], label='tmean', linewidth=2)
-plt.plot(station_data\left[:365, 0\right], label='tmin', alpha=0.7)
-plt.plot(station_data\left[:365, 2\right], label='tmax', alpha=0.7)
+plt.plot(station_data[:365, 1], label='tmean', linewidth=2)
+plt.plot(station_data[:365, 0], label='tmin', alpha=0.7)
+plt.plot(station_data[:365, 2], label='tmax', alpha=0.7)
 plt.xlabel('Day of Year')
 plt.ylabel('Temperature (°C)')
 plt.title('Station 001 - Daily Temperature')
@@ -221,24 +221,24 @@ plt.savefig('station_001_temperature.png', dpi=300)
 plt.show()
 ```
 
-## Fitting A Normal Distribution
+## Fitting a Normal Distribution
 
 ``` {.python caption="Normal Distribution Fitting" language="python"}
 from plugins.distributions.normal import NormalDistribution
 
-# Extract Tmean Data For The First 30 Years
-tmean_data = station_data\left[:365, 1\right]  # First 365 days (one year)
+# Extract tmean data for the first 30 years
+tmean_data = station_data[:365, 1]  # First 365 days (one year)
 
-# Fit Normal Distribution
+# Fit Normal distribution
 dist = NormalDistribution()
 result = dist.fit(tmean_data)
 
 print("Normal Distribution Fit Results:")
-print(f" Mean (μ): {result\left['p1'\right]:.3f}")
-print(f" Std Dev (σ): {result\left['p2'\right]:.3f}")
-print(f" Log-likelihood: {result\left['loglik'\right]:.3f}")
-print(f" AICc: {result\left['aicc'\right]:.3f}")
-print(f" BIC: {result\left['bic'\right]:.3f}")
+print(f" Mean (μ): {result['p1']:.3f}")
+print(f" Std Dev (σ): {result['p2']:.3f}")
+print(f" Log-likelihood: {result['loglik']:.3f}")
+print(f" AICc: {result['aicc']:.3f}")
+print(f" BIC: {result['bic']:.3f}")
 ```
 
 ## Fitting All Distributions
@@ -247,23 +247,23 @@ print(f" BIC: {result\left['bic'\right]:.3f}")
 from core.engine.plugin_loader import load_plugins
 from core.engine.distribution_plugin import DistributionPlugin
 
-# Load All Plugin Distributions
+# Load all plugin distributions
 plugins = load_plugins()
-print(f"Loaded {len(plugins)} distributions: {\left[p.name for p in plugins.values()\right]}")
+print(f"Loaded {len(plugins)} distributions: {[p.name for p in plugins.values()]}")
 
-# Fit All Distributions To The Data
+# Fit all distributions to the data
 results = {}
 for code, dist in plugins.items():
     try:
         res = dist.fit(tmean_data)
-        results\left[dist.name\right] = res
+        results[dist.name] = res
         print(f"{dist.name}: AICc = {res.get('aicc', np.nan):.3f}")
     except Exception as e:
         print(f"{dist.name}: Failed - {str(e)}")
 
-# Find The Best Distribution (minimum Aicc)
-best_dist = min(results.items(), key=lambda x: x\left[1\right].get('aicc', np.inf))
-print(f"\n✅ Best distribution: {best_dist\left[0\right]} (AICc = {best_dist\left[1\right]\left['aicc'\right]:.3f})")
+# Find the best distribution (minimum AICc)
+best_dist = min(results.items(), key=lambda x: x[1].get('aicc', np.inf))
+print(f"\n✅ Best distribution: {best_dist[0]} (AICc = {best_dist[1]['aicc']:.3f})")
 ```
 
 # Project Structure
@@ -369,7 +369,7 @@ time:
 processing:
   block_size: 1000
   max_blocks_in_memory: 5
-  chunk_size: \left[100, 100\right]
+  chunk_size: [100, 100]
   compression: "zstd"
   compression_level: 3
   n_points_max: 40000
@@ -382,7 +382,7 @@ window:
   min_valid_years: 10
   window_type: "centered"
 
-# Active Distributions (per Processing Mode)
+# Active Distributions (per processing mode)
 distributions:
   normal_mode:
     - normal
@@ -396,7 +396,7 @@ distributions:
     - bimodal
     - pearson
 
-# Data Format And Spatial Extent
+# Data Format and Spatial Extent
 data_format: "auto"
 lat_min: 25.0
 lat_max: 40.0
@@ -465,7 +465,7 @@ output:
 visualization:
   enabled: true
   output_dir: "./visualizations"
-  format: \left["png", "pdf"\right]
+  format: ["png", "pdf"]
   interactive: true
   map_projection: "PlateCarree"
   dpi: 300
@@ -473,30 +473,30 @@ visualization:
 
 # Output Schema
 
-## Reading The Output
+## Reading the Output
 
 ``` {.python caption="Reading Output Data" language="python"}
 import xarray as xr
 
-# Open The Zarr Output
+# Open the Zarr output
 ds = xr.open_zarr("climatology_stationwise_final.zarr", consolidated=False)
 
-# List All Variables
+# List all variables
 print(list(ds.data_vars))
 
-# Access The Best Distribution
-best_dist = ds\left['best_dist'\right].values  # Shape: (n_points, 366)
+# Access the best distribution
+best_dist = ds['best_dist'].values  # Shape: (n_points, 366)
 
-# Access The Mean Temperature
-mean_temp = ds\left['mean'\right].values  # Shape: (n_points, 366)
+# Access the mean temperature
+mean_temp = ds['mean'].values  # Shape: (n_points, 366)
 
-# Access Station Metadata
-station_ids = ds\left['stationid'\right].values
-lats = ds\left['lat'\right].values
-lons = ds\left['lon'\right].values
-elevs = ds\left['elev'\right].values
+# Access station metadata
+station_ids = ds['stationid'].values
+lats = ds['lat'].values
+lons = ds['lon'].values
+elevs = ds['elev'].values
 
-# Close The Dataset
+# Close the dataset
 ds.close()
 ```
 
@@ -507,9 +507,7 @@ ds.close()
 The Normal (Gaussian) distribution is the most commonly used
 distribution in climatology. Its probability density function (PDF) is:
 
-$$
-f(x) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
-$$
+$$f(x) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)$$
 
 **Parameters:**
 
@@ -531,24 +529,18 @@ $$
 indices.
 
 **Estimation:** Maximum Likelihood Estimation (MLE):
-$$
-\hat{\mu} = \bar{x} \quad \text{(sample mean)}
-$$
-$$
-\hat{\sigma} = \sqrt{\frac{1}{n}\sum_{i=1}^{n}(x_i - \bar{x})^2} \quad \text{(sample standard deviation)}
-$$
+$$\hat{\mu} = \bar{x} \quad \text{(sample mean)}$$
+$$\hat{\sigma} = \sqrt{\frac{1}{n}\sum_{i=1}^{n}(x_i - \bar{x})^2} \quad \text{(sample standard deviation)}$$
 
 **Goodness of fit:** The Normal distribution is recommended when the
 data are symmetric and the sample size is large.
 
-## Skew-normal Distribution
+## Skew-Normal Distribution
 
 The Skew-Normal distribution extends the Normal distribution to allow
 for asymmetry. Its PDF is:
 
-$$
-f(x) = \frac{2}{\omega} \phi\left(\frac{x-\xi}{\omega}\right) \Phi\left(\alpha\frac{x-\xi}{\omega}\right)
-$$
+$$f(x) = \frac{2}{\omega} \phi\left(\frac{x-\xi}{\omega}\right) \Phi\left(\alpha\frac{x-\xi}{\omega}\right)$$
 
 where $\phi$ is the standard Normal PDF and $\Phi$ is the standard
 Normal CDF.
@@ -579,15 +571,13 @@ skewness.
 
 **Estimation:** MLE with iterative optimization.
 
-## Gev Distribution (extreme Value Mode)
+## GEV Distribution (Extreme Value Mode)
 
 The Generalized Extreme Value (GEV) distribution is the limit
 distribution of block maxima (or minima). It is only active in extreme
 value mode. The PDF is:
 
-$$
-f(x) = \frac{1}{\sigma} \left\left[1 + \xi \frac{x-\mu}{\sigma}\right\right]^{-1/\xi - 1} \exp\left(-\left\left[1 + \xi \frac{x-\mu}{\sigma}\right\right]^{-1/\xi}\right)
-$$
+$$f(x) = \frac{1}{\sigma} \left[1 + \xi \frac{x-\mu}{\sigma}\right]^{-1/\xi - 1} \exp\left(-\left[1 + \xi \frac{x-\mu}{\sigma}\right]^{-1/\xi}\right)$$
 
 **Parameters:**
 
@@ -629,9 +619,7 @@ distributions. It is suitable for data with two distinct peaks (e.g.,
 seasonal temperature patterns, precipitation with two regimes). The PDF
 is:
 
-$$
-f(x) = w_1 \mathcal{N}(x; \mu_1, \sigma_1^2) + w_2 \mathcal{N}(x; \mu_2, \sigma_2^2)
-$$
+$$f(x) = w_1 \mathcal{N}(x; \mu_1, \sigma_1^2) + w_2 \mathcal{N}(x; \mu_2, \sigma_2^2)$$
 
 **Parameters:**
 
@@ -653,15 +641,11 @@ $$
 **Metrics:**
 
 -   **Ashman's D:** Measures separation between modes
-    $$
-D = \frac{|\mu_2 - \mu_1|}{\sqrt{(\sigma_1^2 + \sigma_2^2)/2}}
-$$
+    $$D = \frac{|\mu_2 - \mu_1|}{\sqrt{(\sigma_1^2 + \sigma_2^2)/2}}$$
     $D > 2$ indicates clear bimodality.
 
 -   **Overlap Coefficient (OVL):**
-    $$
-\text{OVL} = \int_{-\infty}^{\infty} \min\{f_1(x), f_2(x)\} \, dx
-$$
+    $$\text{OVL} = \int_{-\infty}^{\infty} \min\{f_1(x), f_2(x)\} \, dx$$
     OVL ranges from 0 (no overlap) to 1 (complete overlap).
 
 **Application:** Temperature with warm and cold seasons, precipitation
@@ -669,15 +653,13 @@ with wet and dry regimes.
 
 **Estimation:** Expectation-Maximization (EM) algorithm or MLE.
 
-## Pearson Type Iii Distribution
+## Pearson Type III Distribution
 
 The Pearson Type III distribution is a shifted Gamma distribution,
 widely used in hydrology and climatology for positively skewed data
 (e.g., precipitation, flood flows). The PDF is:
 
-$$
-f(x) = \frac{1}{\Gamma(\alpha)\beta^\alpha} (x-\gamma)^{\alpha-1} \exp\left(-\frac{x-\gamma}{\beta}\right)
-$$
+$$f(x) = \frac{1}{\Gamma(\alpha)\beta^\alpha} (x-\gamma)^{\alpha-1} \exp\left(-\frac{x-\gamma}{\beta}\right)$$
 
 **Parameters:**
 
@@ -709,14 +691,12 @@ analysis.
 The engine selects the best distribution using information criteria. All
 criteria aim to balance goodness-of-fit with model complexity.
 
-## Akaike Information Criterion (aic)
+## Akaike Information Criterion (AIC)
 
 AIC estimates the relative quality of statistical models for a given
 dataset.
 
-$$
-\text{AIC} = 2k - 2\ln(\hat{L})
-$$
+$$\text{AIC} = 2k - 2\ln(\hat{L})$$
 
 where:
 
@@ -743,13 +723,11 @@ where:
 
 -   $\Delta\text{AIC} \leq 2$: Substantial support
 
-## Corrected Aic (aicc)
+## Corrected AIC (AICc)
 
 AICc is AIC with a correction for small sample sizes.
 
-$$
-\text{AICc} = \text{AIC} + \frac{2k(k+1)}{n - k - 1}
-$$
+$$\text{AICc} = \text{AIC} + \frac{2k(k+1)}{n - k - 1}$$
 
 where $n$ is the sample size.
 
@@ -761,14 +739,12 @@ where $n$ is the sample size.
 
 -   More stringent penalization for complex models with small samples
 
-## Bayesian Information Criterion (bic)
+## Bayesian Information Criterion (BIC)
 
 BIC is derived from a Bayesian perspective and penalizes complexity more
 strongly than AIC.
 
-$$
-\text{BIC} = k\ln(n) - 2\ln(\hat{L})
-$$
+$$\text{BIC} = k\ln(n) - 2\ln(\hat{L})$$
 
 **Characteristics:**
 
@@ -784,9 +760,7 @@ $$
 For nested models, the Likelihood Ratio Test can determine if the more
 complex model significantly improves the fit.
 
-$$
-\Lambda = 2(\ln(\hat{L}_1) - \ln(\hat{L}_0))
-$$
+$$\Lambda = 2(\ln(\hat{L}_1) - \ln(\hat{L}_0))$$
 
 where:
 
@@ -893,11 +867,9 @@ fitted parameters.
 
 ## Confidence Intervals
 
-The engine computes percentile-based confidence intervals:
+The engine calculates percentile-based confidence intervals:
 
-$$
-\mathrm{CI}_{95\\%}(\theta) = \left[\theta_{(0.025)}, \theta_{(0.975)}\right]
-$$
+$$\text{CI}_{95\%}(\theta) = [\theta_{(0.025)}, \theta_{(0.975)}]$$
 
 where $\theta_{(p)}$ is the $p$-th percentile of the bootstrap
 distribution.
@@ -957,7 +929,7 @@ from core.engine.distribution_plugin import DistributionPlugin
 class MyDistribution(DistributionPlugin):
     name = "MyDistribution"
     code = 5
-    params = \left["p1", "p2", "p3"\right]
+    params = ["p1", "p2", "p3"]
     n_params = 3
     supports_negative = True
     supports_zero = True
@@ -988,7 +960,7 @@ class DistributionPlugin:
     # Required class attributes
     name = None  # Display name (string)
     code = None  # Unique integer code
-    params = \left[\right]  # List of parameter names (strings)
+    params = []  # List of parameter names (strings)
     n_params = 0  # Number of parameters (integer)
 
     # Optional class attributes
@@ -1014,7 +986,7 @@ class DistributionPlugin:
     # Optional methods
     def initial_guess(self, data):
         """Provide initial parameter guesses for optimization."""
-        return \left[np.mean(data), np.std(data)\right]
+        return [np.mean(data), np.std(data)]
 
     def pdf(self, x, params):
         """Probability density function."""
@@ -1067,19 +1039,19 @@ from core.interfaces.data_adapter import StationDataAdapter
 
 adapter = StationDataAdapter(
     zarr_base="M:/temp/zarr_input",
-    year_list=\left[1370, 1371, ..., 1399\right],
+    year_list=[1370, 1371, ..., 1399],
     cache_enabled=True,
     max_points=40000
 )
 
-# Get Coordinates
+# Get coordinates
 coords = adapter.get_coords()
-station_ids = coords\left['stationid'\right]
-lats = coords\left['lat'\right]
-lons = coords\left['lon'\right]
-elevs = coords\left['elev'\right]
+station_ids = coords['stationid']
+lats = coords['lat']
+lons = coords['lon']
+elevs = coords['elev']
 
-# Load A Block Of Data
+# Load a block of data
 data_block = adapter.load_block(
     block_start=0,
     block_size=1000,
@@ -1098,7 +1070,7 @@ from core.interfaces.data_adapter import GriddedDataAdapter
 
 adapter = GriddedDataAdapter(
     zarr_base="M:/temp/zarr_input",
-    year_list=\left[1370, ..., 1399\right],
+    year_list=[1370, ..., 1399],
     cache_enabled=True,
     max_points=40000,
     lat_min=25.0,
@@ -1107,7 +1079,7 @@ adapter = GriddedDataAdapter(
     lon_max=64.0
 )
 
-# Data Is Automatically Flattened To (time, Point) Format
+# Data is automatically flattened to (time, point) format
 data_block = adapter.load_block(
     block_start=0,
     block_size=1000,
@@ -1117,7 +1089,7 @@ data_block = adapter.load_block(
 )
 ```
 
-## Auto-detection
+## Auto-Detection
 
 The engine can automatically detect the data format:
 
@@ -1132,8 +1104,8 @@ adapter = create_adapter(
     max_points=40000
 )
 
-# The Adapter Detects Station Or Gridded Format From The Zarr Files
-# And Returns The Appropriate Adapter Instance
+# The adapter detects station or gridded format from the Zarr files
+# and returns the appropriate adapter instance
 ```
 
 # Processing Modes
@@ -1178,14 +1150,14 @@ spells, flood frequency.
 **Activation:**
 
 ``` {.yaml caption="Activating Extreme Value Mode" language="yaml"}
-# Config.yaml
+# config.yaml
 window:
   use_extreme_values: true  # Enable extreme value mode
 ```
 
 # Performance Optimization
 
-## Block-based Processing
+## Block-Based Processing
 
 The engine processes data in blocks to manage memory efficiently.
 
@@ -1338,10 +1310,10 @@ block boundaries.
 ``` {.python caption="Manual Checkpoint Management" language="python"}
 from monitoring.checkpoint import save_checkpoint, load_checkpoint
 
-# Save Checkpoint
+# Save checkpoint
 save_checkpoint("nature_output", block=86, station=86999)
 
-# Load Checkpoint
+# Load checkpoint
 cp = load_checkpoint("nature_output")
 print(f"Last block: {cp.get('block')}")
 ```
@@ -1492,10 +1464,10 @@ jupyter notebook notebooks/01_Quick_Start.ipynb
 
 ## Common Errors
 
-### Filenotfounderror
+### FileNotFoundError
 
 ``` {.text caption="FileNotFoundError" language="text"}
-FileNotFoundError: \left[WinError 3\right] The system cannot find the path specified
+FileNotFoundError: [WinError 3] The system cannot find the path specified
 ```
 
 **Causes:**
@@ -1516,7 +1488,7 @@ FileNotFoundError: \left[WinError 3\right] The system cannot find the path speci
 
 -   Create necessary directories
 
-### Memoryerror
+### MemoryError
 
 ``` {.text caption="MemoryError" language="text"}
 MemoryError: Unable to allocate array with shape (10000, 366, 30)
@@ -1540,7 +1512,7 @@ MemoryError: Unable to allocate array with shape (10000, 366, 30)
 
 -   Enable disk cache
 
-### Keyerror
+### KeyError
 
 ``` {.text caption="KeyError" language="text"}
 KeyError: 'variable_name'
@@ -1562,7 +1534,7 @@ KeyError: 'variable_name'
 
 -   Update VARS in `constants.py`
 
-### Convergencewarning
+### ConvergenceWarning
 
 ``` {.text caption="ConvergenceWarning" language="text"}
 ConvergenceWarning: Optimization did not converge
@@ -1586,7 +1558,7 @@ ConvergenceWarning: Optimization did not converge
 
 -   Consider different distribution
 
-### Zarrstoreerror
+### ZarrStoreError
 
 ``` {.text caption="ZarrStoreError" language="text"}
 ZarrStoreError: Failed to write to Zarr store
@@ -1620,7 +1592,7 @@ logging:
 **Run on a smaller sample:**
 
 ``` {.python caption="Smaller Sample" language="python"}
-# In Main.py, Reduce N_points_max
+# In main.py, reduce n_points_max
 n_points_max = 100  # Instead of 40000
 ```
 
@@ -1641,21 +1613,21 @@ import ipdb; ipdb.set_trace()
 ## Development Setup
 
 ``` {.bash caption="Development Setup" language="bash"}
-# Clone The Repository
-git clone Source: https://github.com/AminFazlKazemi/ClimateProcessingEngine.git
+# Clone the repository
+git clone https://github.com/AminFazlKazemi/ClimateProcessingEngine.git
 cd ClimateProcessingEngine
 
-# Create And Activate Virtual Environment
+# Create and activate virtual environment
 python -m venv venv
 source venv/bin/activate  # or venv\Scripts\activate on Windows
 
-# Install Development Dependencies
-pip install -e .\left[dev\right]
+# Install development dependencies
+pip install -e .[dev]
 
-# Install Pre-commit Hooks
+# Install pre-commit hooks
 pre-commit install
 
-# Run Tests
+# Run tests
 pytest tests/
 ```
 
@@ -1664,16 +1636,16 @@ pytest tests/
 The project follows the Black code style.
 
 ``` {.bash caption="Code Style Checks" language="bash"}
-# Format Code
+# Format code
 black .
 
-# Check Code Style
+# Check code style
 flake8 .
 
-# Type Checking
+# Type checking
 mypy .
 
-# Sort Imports
+# Sort imports
 isort .
 ```
 
@@ -1753,7 +1725,7 @@ If you use this software in your research, please cite:
   title = {ClimateProcessingEngine},
   year = {2025},
   publisher = {GitHub},
-  url = {Source: https://github.com/AminFazlKazemi/ClimateProcessingEngine},
+  url = {https://github.com/AminFazlKazemi/ClimateProcessingEngine},
   version = {4.0}
 }
 ```
@@ -1761,15 +1733,15 @@ If you use this software in your research, please cite:
 **APA:**
 
 ``` {.text caption="APA Citation" language="text"}
-Fazl Kazemi, A. (2025). ClimateProcessingEngine (Version 4.0) \left[Computer software\right].
-GitHub. Source: https://github.com/AminFazlKazemi/ClimateProcessingEngine
+Fazl Kazemi, A. (2025). ClimateProcessingEngine (Version 4.0) [Computer software].
+GitHub. https://github.com/AminFazlKazemi/ClimateProcessingEngine
 ```
 
 # Contact
 
 -   **Author:** Amin Fazl Kazemi
 
--   **GitHub:** <Source: https://github.com/AminFazlKazemi>
+-   **GitHub:** <https://github.com/AminFazlKazemi>
 
 -   **LinkedIn:** <https://linkedin.com/in/aminfazlkazemi>
 
@@ -1800,7 +1772,7 @@ framework.
 
 # Frequently Asked Questions
 
-## What Is The Recommended Block Size?
+## What is the recommended block size?
 
 The optimal block size depends on your available RAM and the number of
 stations.
@@ -1809,7 +1781,7 @@ stations.
 block_size = min(1000, int(ram_gb * 100))  # approximate
 ```
 
-## When Should I Use Extreme Value Mode?
+## When should I use extreme value mode?
 
 Use extreme value mode when analyzing:
 
@@ -1823,7 +1795,7 @@ Use extreme value mode when analyzing:
 
 Set `use_extreme_values: true` in `config.yaml`.
 
-## How Do I Add A New Distribution?
+## How do I add a new distribution?
 
 1.  Create a new file in `plugins/distributions/`
 
@@ -1835,7 +1807,7 @@ Set `use_extreme_values: true` in `config.yaml`.
 
 **Note:** Make sure to assign a unique code integer (5, 6, 7, ...).
 
-## What Is The Quality Flag System?
+## What is the quality flag system?
 
 The quality flag system automatically evaluates each fit and assigns
 flags based on:
@@ -1852,13 +1824,13 @@ flags based on:
 
 Flags are stored in the output and can be used for filtering.
 
-## How Is Gev Different From Other Distributions?
+## How is GEV different from other distributions?
 
 GEV is specifically designed for block maxima (e.g., annual maximum
 temperature). It is only active in extreme value mode and is not used in
 normal mode.
 
-## Can I Process Gridded Data?
+## Can I process gridded data?
 
 Yes! Set `data_format: "gridded"` in `config.yaml` and specify the
 spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
@@ -1947,7 +1919,7 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 
 # Roadmap
 
-## Version 4.1 (q3 2025)
+## Version 4.1 (Q3 2025)
 
 -   Bayesian fitting (PyMC integration)
 
@@ -1961,7 +1933,7 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 
 -   Temporal consistency checks
 
-## Version 4.2 (q4 2025)
+## Version 4.2 (Q4 2025)
 
 -   Dask backend for distributed processing
 
@@ -1975,7 +1947,7 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 
 -   Digital twin framework
 
-## Version 5.0 (q1 2026)
+## Version 5.0 (Q1 2026)
 
 -   Full plugin ecosystem
 
