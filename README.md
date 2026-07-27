@@ -6,15 +6,13 @@ data processing.**
 
 [![CI](https://github.com/AminFazlKazemi/ClimateProcessingEngine/actions/workflows/ci.yml/badge.svg)](https://github.com/AminFazlKazemi/ClimateProcessingEngine/actions/workflows/ci.yml)
 [![Python
-3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+3.8+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License:
 MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style:
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Documentation
 Status](https://readthedocs.org/projects/climatology-engine/badge/?version=latest)](https://climatology-engine.readthedocs.io/)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1234567.svg)](https://doi.org/10.5281/zenodo.1234567)
-[![Downloads](https://pepy.tech/badge/climatology-engine)](https://pepy.tech/project/climatology-engine)
 
 ------------------------------------------------------------------------
 
@@ -95,6 +93,424 @@ Status](https://readthedocs.org/projects/climatology-engine/badge/?version=lates
 ------------------------------------------------------------------------
 
 ## 🌟 Overview
+
+## 🧠 Design Philosophy
+
+The framework is built on four core principles:
+
+| Principle | Description |
+|-----------|-------------|
+| **Plugin-first architecture** | All statistical distributions and quality controls are implemented as plugins, enabling easy extension without modifying core code. |
+| **Reproducible scientific workflows** | Every run records configuration, dependencies, and input hashes to ensure results can be exactly reproduced. |
+| **Separation of concerns** | I/O, numerical computation, orchestration, and monitoring are clearly separated into independent modules. |
+| **Configuration over hard-coding** | All runtime parameters are defined in a single `config.yaml` file, making experimentation and deployment straightforward. |
+
+
+## 🎯 Design Goals
+
+The project is designed with the following primary goals:
+
+| Goal | Description |
+|------|-------------|
+| **Scientific correctness** | All statistical methods are validated against reference implementations and literature. |
+| **Reproducibility** | Every run captures configuration, dependencies, and input metadata for exact replication. |
+| **Extensibility** | Plugin architecture allows adding new distributions, quality controls, and data adapters without modifying core code. |
+| **High performance** | Block-based processing, vectorized operations, and optional parallel execution handle large datasets efficiently. |
+| **Modular architecture** | Clear separation of concerns (I/O, computation, orchestration, monitoring) simplifies testing and maintenance. |
+| **Production-ready workflows** | Designed for batch processing of real-world climate data with checkpoint recovery and comprehensive logging. |
+
+## ❌ Non-Goals
+
+This project explicitly does **not** aim to:
+
+- **Be a full GIS platform** – while it handles geospatial data, it does not provide map visualization, spatial analysis, or advanced geospatial operations.
+- **Provide weather forecasting** – it performs statistical fitting and climatology generation, not real-time or short-term weather prediction.
+- **Be a machine learning framework** – it does not include deep learning models, neural networks, or general-purpose ML pipelines.
+- **Serve as a visualization library** – while it includes basic plotting utilities, it is not a replacement for tools like Matplotlib, Cartopy, or Seaborn.
+- **Replace specialized extreme value packages** – for advanced non-stationary extreme value analysis, refer to dedicated tools like `extRemes` or `climextRemes`.
+
+These boundaries ensure the project remains focused, maintainable, and effective for its core mission.
+
+## 🔄 Typical Workflow
+
+A typical user workflow with the engine follows these steps:
+┌─────────────────────────────────────────────────────────┐
+│ 1. Prepare Input Data │
+│ └── Organize Zarr/NetCDF files with monthly data │
+├─────────────────────────────────────────────────────────┤
+│ 2. Configure the Engine │
+│ └── Edit config.yaml (paths, years, variables) │
+├─────────────────────────────────────────────────────────┤
+│ 3. Run the Processing Pipeline │
+│ └── python main.py │
+│ ├── IO Pipeline loads data in blocks │
+│ ├── Numerical Engine fits distributions │
+│ ├── Quality Control flags results │
+│ └── Result Pipeline writes to Zarr/NetCDF │
+├─────────────────────────────────────────────────────────┤
+│ 4. Inspect Quality Control Flags │
+│ └── Check flags to identify problematic fits │
+├─────────────────────────────────────────────────────────┤
+│ 5. Generate Climatology Outputs │
+│ └── Extract best distribution parameters │
+│ └── Export to NetCDF, CSV, or visualize │
+├─────────────────────────────────────────────────────────┤
+│ 6. Iterate or Automate │
+│ └── Modify config, run again, or integrate into CI │
+└─────────────────────────────────────────────────────────┘
+text
+
+This workflow is designed to be intuitive for both first-time users and experienced researchers.
+
+## ⚖️ Design Trade-offs
+
+The engine makes several deliberate trade-offs to achieve its goals:
+
+| Trade-off | Decision | Rationale |
+|-----------|----------|-----------|
+| **Accuracy vs. Speed** | Prioritizes scientific accuracy over raw speed | Climate research requires reliable statistical estimates; moderate performance is acceptable. |
+| **Memory vs. I/O** | Uses block processing with moderate memory footprint | Ensures datasets larger than RAM can be processed; I/O overhead is managed with caching. |
+| **Extensibility vs. Simplicity** | Adopts plugin architecture | Adds complexity but enables easy extension without changing core code. |
+| **Python vs. Compiled Languages** | Written in Python with Numba acceleration | Balances development velocity with performance for numerical workloads. |
+| **Zarr vs. NetCDF** | Zarr as primary storage; NetCDF export supported | Zarr provides better scalability and cloud compatibility; NetCDF ensures interoperability. |
+
+These trade-offs are carefully chosen based on the needs of climate science workflows.
+
+## 🔌 Extension Points
+
+The engine is designed for extensibility through well-defined interfaces:
+
+| Extension Point | Location | Description |
+|-----------------|----------|-------------|
+| **Distribution Plugins** | `plugins/distributions/` | Add new probability distributions by subclassing `DistributionPlugin`. |
+| **Quality Control Plugins** | `plugins/qc/` | Add custom quality control rules (planned). |
+| **Statistical Metrics** | `plugins/statistics/` | Add new statistical metrics (planned). |
+| **Data Adapters** | `core/interfaces/` | Add support for new input formats by implementing `DataAdapter`. |
+| **Output Writers** | `result_pipeline/` | Add new output formats by extending the result pipeline. |
+
+Each extension point includes a clear interface and example implementation to simplify development.
+
+## 📋 Configuration Layers
+
+Configuration is managed through multiple layers with well-defined precedence:
+┌─────────────────────────────────────────────────────────┐
+│ 1. Defaults (hard-coded in constants.py) │
+│ └── Built-in fallback values │
+├─────────────────────────────────────────────────────────┤
+│ 2. config.yaml (primary configuration file) │
+│ └── User-defined settings for paths, parameters │
+├─────────────────────────────────────────────────────────┤
+│ 3. Command-line arguments (future) │
+│ └── Override specific settings at runtime │
+└─────────────────────────────────────────────────────────┘
+text
+
+This layered approach ensures consistency while allowing flexibility for different use cases.
+
+## 💾 Failure Recovery
+
+The engine includes robust recovery mechanisms:
+
+| Feature | Description |
+|---------|-------------|
+| **Checkpointing** | Saves progress after each block (every 100 stations). |
+| **Resume** | Automatically resumes from the last successful checkpoint on restart. |
+| **Corruption Detection** | Validates data integrity and detects corrupted stores. |
+| **Graceful Shutdown** | Handles interruptions (KeyboardInterrupt, power loss) without data loss. |
+
+To resume after interruption, simply run `python main.py` again – the engine will continue from where it stopped.
+
+**Manual checkpoint management:**
+```python
+from monitoring.checkpoint import save_checkpoint, load_checkpoint
+
+# Save checkpoint
+save_checkpoint("nature_output", block=86, station=86999)
+
+# Load checkpoint
+cp = load_checkpoint("nature_output")
+print(f"Last block: {cp.get('block')}")
+
+⚡ Performance Philosophy
+The engine achieves performance through several strategic choices:
+Strategy	Implementation	Impact
+Block Processing	Processes data in chunks (block_size stations)	Controls memory usage; scales to any dataset size.
+Vectorized Operations	Uses NumPy and Numba for array operations	10–100x speedup over pure Python loops.
+JIT Compilation	Numba @njit decorators on critical functions	Near-C performance for distribution fitting.
+Lazy Loading	Loads only the required data for each block	Minimizes I/O overhead and memory pressure.
+Configurable Parallelism	Optional multiprocessing, Dask, or Ray backends	Exploits multi-core systems for large workloads.
+Zarr Compression	Blosc/Zstd compression with tunable levels	Reduces storage footprint and I/O time.
+Performance is balanced with scientific accuracy and memory constraints.
+
+✅ Compatibility Matrix
+Component	Supported Versions	Notes
+Operating Systems	Windows 10/11, Linux (Ubuntu 20.04+), macOS 11+	Tested on all major platforms.
+Python	3.12, 3.13	Uses modern type hints and features.
+CPU	x86_64, ARM64 (Apple Silicon)	Native support for M1/M2/M3.
+RAM	16 GB minimum, 32+ GB recommended	Larger datasets require more memory.
+Storage	SSD recommended for large datasets	I/O performance is critical for big data.
+Dependencies	See requirements.txt	All dependencies are pinned for reproducibility.
+Note: Python 3.11 and earlier are not supported due to use of modern language features.
+
+🔬 Scientific Assumptions
+The engine relies on the following scientific assumptions:
+Assumption	Description	Justification
+Stationarity	Climate data within each day/window is treated as stationary for fitting.	Standard practice in climatological distribution fitting.
+Independence	Observations within a window are assumed independent.	While not strictly true, window-based estimation is widely accepted.
+Missing Data	Missing values (NaN) are ignored in fitting.	Assumes missingness is random and does not bias estimates.
+Calendar	Uses Persian calendar (Solar Hijri) with 365/366 days.	Supports region-specific climatology.
+Temperature Units	All temperatures are in degrees Celsius (°C).	Standard for most climate applications.
+Users should verify these assumptions for their specific use cases.
+
+📋 Reproducibility Checklist
+To ensure reproducible results, the engine tracks:
+•	☑
+Configuration – All settings in config.yaml are logged.
+•	☑
+Dependencies – Pinned versions in requirements.txt and pyproject.toml.
+•	☑
+Code Version – Git commit hash is recorded in output metadata.
+•	☑
+Execution Time – Start and end timestamps are logged.
+•	☑
+Input Hashes – Checksums of input data are optional but recommended.
+•	☑
+Random Seeds – Bootstrap and stochastic methods use fixed seeds for deterministic results.
+For complete reproducibility:
+1.	Use pip freeze > requirements-lock.txt to freeze exact versions.
+2.	Record the git commit: git rev-parse HEAD.
+3.	Share config.yaml and input data (or its hash).
+4.	Use the same Python environment.
+
+✅ Validation
+The engine validates data and results at multiple stages:
+Stage	Validation Checks	Action on Failure
+Input Loading	Schema compliance, missing data ratio, infinite values	Warning or error (configurable).
+Assembled Block	Shape, dtype, contiguous memory, NaN ratio	Stop processing (strict mode).
+Distribution Fitting	Convergence, parameter bounds, log-likelihood	Flag fit as failed (best_dist = -1).
+Results	Shape, dtype, valid distribution codes, finite values	Stop processing if critical.
+Output Write	Zarr store integrity, disk space	Retry or abort.
+Validation is controlled by the validation section in config.yaml.
+
+📁 Directory Responsibilities
+Each directory in the project serves a specific purpose:
+Directory	Responsibility	Key Files
+core/	Base classes, interfaces, and shared utilities.	engine/distribution_plugin.py, interfaces/data_adapter.py
+plugins/distributions/	Implementation of probability distributions.	normal.py, skewnormal.py, gev.py, bimodal.py, pearson.py
+io_pipeline/	Data ingestion from Zarr, NetCDF, CSV.	read_month_files.py, assemble_block.py
+numerical_engine/	Statistical computations (fitting, window extraction).	distributions.py, window_engine.py, analyze_station.py
+orchestrator/	Workflow orchestration, block management, checkpointing.	process_block.py, main.py
+result_pipeline/	Output generation, validation, and storage.	write_block.py, validate_result.py
+monitoring/	Logging, benchmarking, performance monitoring.	logger.py, benchmark.py, checkpoint.py
+tests/	Unit and integration tests.	test_distributions.py, test_adapters.py
+docs/	Sphinx documentation source.	source/ with .rst files.
+notebooks/	Jupyter notebook tutorials.	01_Quick_Start.ipynb
+benchmark/	Performance benchmarking tools.	benchmark.py
+sample_data/	Sample dataset for testing.	station_001.csv ... station_010.csv
+.github/	GitHub Actions CI/CD workflows.	workflows/ci.yml
+
+👤 User Personas
+The project is designed for three primary user personas:
+Persona	Description	Typical Workflow
+Climate Researcher	Academic or research scientist analyzing climate trends and extremes.	Processes large datasets, fits distributions, interprets results, publishes findings.
+Operational Meteorologist	Works in weather services or environmental agencies.	Runs production workflows, monitors quality, delivers climatological summaries.
+Scientific Software Developer	Builds tools, integrates with other systems, or extends the framework.	Develops plugins, adapters, or custom workflows; contributes to the project.
+Each persona interacts with the engine at different levels of abstraction, from high-level configuration to low-level plugin development.
+
+📐 Project Scope
+The engine is intentionally scoped to address specific challenges in climate data processing:
+In Scope:
+•	Distribution fitting (Normal, Skew-Normal, GEV, Bimodal, Pearson III).
+•	Quality control and flagging.
+•	Block-based processing of large datasets.
+•	Zarr/NetCDF input and output.
+•	Checkpoint recovery for long-running jobs.
+•	Plugin architecture for extensibility.
+Out of Scope:
+•	Full GIS capabilities (mapping, spatial analysis, geoprocessing).
+•	Weather forecasting or prediction models.
+•	Deep learning or neural networks.
+•	Interactive visualization dashboards.
+•	Real-time data ingestion or streaming.
+This focused scope ensures the project remains a reliable, maintainable tool for its core mission.
+
+📦 Dependency Philosophy
+The engine's dependencies are carefully selected:
+Dependency	Role	Philosophy
+NumPy, SciPy	Core numerical computing	Essential for all scientific computations.
+Xarray, Zarr	Data storage and manipulation	Provides scalable, cloud-friendly data structures.
+Numba	JIT compilation	Performance-critical for distribution fitting.
+Pandas	Data handling	Used for sample data and intermediate processing.
+Matplotlib, Seaborn	Visualization	For diagnostics and exploratory analysis.
+PyYAML	Configuration	Human-readable configuration files.
+pytest	Testing	Comprehensive test suite.
+Dependencies are kept minimal and are regularly updated to latest stable versions. All dependencies are pinned in requirements.txt for reproducibility.
+
+🔧 Maintenance Policy
+The project follows these maintenance guidelines:
+Aspect	Policy
+Python Version Support	Only the latest two stable Python versions (currently 3.12 and 3.13) are actively supported.
+Dependency Updates	Dependencies are updated quarterly or as security patches require.
+Issue Response	Bug reports and feature requests are reviewed within 7 business days.
+Pull Request Process	All PRs require review, passing tests, and code style compliance.
+Release Schedule	Minor releases every 2–3 months; patch releases as needed for critical fixes.
+Backward Compatibility	Deprecations are announced at least one minor version in advance.
+See CONTRIBUTING.md for detailed contribution guidelines.
+
+📖 Documentation Map
+Document	Purpose	Audience
+README.md	Project overview, quick start, and key features.	All users.
+CONTRIBUTING.md	Guidelines for contributors and developers.	Developers.
+CODE_OF_CONDUCT.md	Community standards and expected behavior.	All users.
+CITATION.cff	Citation metadata for academic use.	Researchers.
+docs/	Full Sphinx-generated documentation (API reference, theory).	All users.
+notebooks/	Jupyter notebook tutorials and interactive examples.	Learners, researchers.
+SECURITY.md	Security policy and vulnerability reporting.	Developers, security.
+Start with this README for an overview, then explore notebooks/ for hands-on tutorials, and docs/ for detailed reference.
+## ❌ What This Project Is Not
+
+- **Not a full GIS platform** – while it handles geospatial data, it does not provide map visualization or spatial analysis beyond basic operations.
+- **Not a forecasting system** – it performs statistical fitting and climatology generation, not weather prediction.
+- **Not a real-time processing engine** – designed for batch processing of historical climate data, not streaming.
+- **Not a replacement for specialized tools** – for tasks like extreme value analysis with non-stationary models, refer to dedicated packages (e.g., `extRemes`, `climextRemes`).
+
+## 🏗️ Architecture & Data Flow
+
+The engine follows a pipeline-based architecture:
+Input Data (Zarr/NetCDF)
+│
+▼
+┌─────────────────┐
+│ IO Pipeline │ → Reads data in blocks, handles missing values
+└─────────────────┘
+│
+▼
+┌─────────────────┐
+│ Validation │ → Checks data integrity against schema
+└─────────────────┘
+│
+▼
+┌─────────────────┐
+│ Orchestrator │ → Coordinates block processing, manages checkpoints
+└─────────────────┘
+│
+▼
+┌─────────────────┐
+│ Plugins │ → Load distribution plugins (Normal, Skew-Normal, etc.)
+└─────────────────┘
+│
+▼
+┌─────────────────┐
+│ Numerical Engine│ → Fits distributions, computes statistics
+└─────────────────┘
+│
+▼
+┌─────────────────┐
+│ Result Pipeline │ → Writes results to Zarr/NetCDF with metadata
+└─────────────────┘
+│
+▼
+┌─────────────────┐
+│ Monitoring │ → Logging, benchmarking, checkpointing
+└─────────────────┘
+text
+
+### Module Responsibilities
+
+| Module | Responsibility |
+|--------|----------------|
+| `core/` | Base classes, interfaces, and shared utilities. |
+| `io_pipeline/` | Data ingestion from various sources (Zarr, CSV, NetCDF). |
+| `numerical_engine/` | Core statistical computations (distribution fitting, window extraction). |
+| `plugins/distributions/` | Individual distribution implementations (each as a plugin). |
+| `orchestrator/` | Workflow orchestration, block management, and checkpointing. |
+| `result_pipeline/` | Output generation, validation, and storage. |
+| `monitoring/` | Logging, benchmarking, and performance monitoring. |
+
+## 📂 Supported Data Formats
+
+| Format | Read | Write | Notes |
+|--------|------|-------|-------|
+| **Zarr** | ✅ | ✅ | Primary storage format; chunked, compressed, cloud-optimized. |
+| **NetCDF** | ✅ | ✅ | Classic climate data format; CF-compliant output. |
+| **CSV** | ✅ | ❌ | Only for small test datasets; not recommended for production. |
+| **Parquet** | ❌ | ❌ | Not currently supported (planned for future). |
+
+## 🔄 Execution Modes
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **CLI** | Run via `python main.py` with `config.yaml` | Production workflows, batch processing |
+| **Python API** | Import modules and call functions programmatically | Integration into existing codebases, custom scripts |
+| **Jupyter Notebook** | Interactive analysis using notebooks in `notebooks/` | Exploratory data analysis, prototyping, teaching |
+
+## 🔌 Plugin Development Guide
+
+To add a new distribution plugin:
+
+1. **Create a new Python file** in `plugins/distributions/` (e.g., `logistic.py`).
+2. **Subclass `DistributionPlugin`** and implement the `fit()` method.
+3. **Register the plugin** by adding its code to the distribution registry (or rely on auto-discovery).
+4. **Test** your plugin using the provided test suite.
+
+Example skeleton:
+
+```python
+from core.engine.distribution_plugin import DistributionPlugin
+
+class LogisticDistribution(DistributionPlugin):
+    name = "Logistic"
+    code = 5
+    params = ["location", "scale"]
+    n_params = 2
+
+    def fit(self, data):
+        # Fit the logistic distribution to data
+        # Return dict with parameters, loglik, aicc, bic
+        return {
+            "location": loc,
+            "scale": scale,
+            "loglik": loglik,
+            "aicc": aicc,
+            "bic": bic
+        }
+The engine will automatically discover and load your plugin.
+
+🧪 Testing
+Run the test suite with:
+bash
+pytest tests/ -v
+Coverage reports:
+bash
+pytest tests/ --cov=. --cov-report=html
+The CI pipeline (GitHub Actions) runs tests on every push.
+
+📧 Citation
+If you use this software in your research, please cite it using the information provided in the CITATION.cff file. You can also generate a citation using the "Cite this repository" button on GitHub.
+BibTeX example:
+bibtex
+@software{FazlKazemi_ClimateProcessingEngine_2025,
+  author = {Fazl Kazemi, Amin},
+  title = {ClimateProcessingEngine},
+  year = {2025},
+  publisher = {GitHub},
+  url = {https://github.com/AminFazlKazemi/ClimateProcessingEngine}
+}
+
+⚠️ Limitations
+•	Memory usage: Block size must be tuned for available RAM; processing very large grids may require high-memory instances.
+•	Python version: Only Python 3.12 and above are supported (due to use of modern type hints and features).
+•	Input data requirements: Input data must follow the expected Zarr structure (see documentation); custom schemas are not supported.
+•	No GPU acceleration: All computations are CPU-based; GPU support is planned for future releases.
+
+📖 Documentation Map
+File	Purpose
+README.md	Overview and quick start
+CONTRIBUTING.md	Guidelines for contributors
+CODE_OF_CONDUCT.md	Community standards and behavior
+CITATION.cff	Citation metadata
+docs/	Full Sphinx-generated documentation
+notebooks/	Jupyter notebook tutorials
 
 **Climatology Engine** is a high-performance, modular framework for
 fitting probability distributions to climatological time series data. It
@@ -993,7 +1409,7 @@ Distribution Fitting in Climate Science}, year = {2025}, publisher =
 Framework for Distribution Fitting in Climate Science (Version 4.0)
 \[Computer software\]. GitHub.
 https://github.com/AminFazlKazemi/ClimateProcessingEngine DOI:
-https://doi.org/10.5281/zenodo.1234567
+https://doi.org/
 
 📧 Contact Author: Amin Fazl Kazemi GitHub: AminFazlKazemi LinkedIn:
 aminfazlkazemi Email: aminfazlkazemi@gmail.com Twitter/X:
@@ -1142,7 +1558,7 @@ tool for the climate science community.
 
 Built with ❤️ for the climate science community.
 
-Last updated: July 26, 2025 Version: 4.0.0 Maintainer: Amin Fazl Kazemi
+Last updated: July 27, 2026
 text
 
 ------------------------------------------------------------------------
