@@ -183,7 +183,6 @@ Configuration is managed through multiple layers with well-defined precedence:
 │ 3. Command-line arguments (future) │
 │ └── Override specific settings at runtime │
 └─────────────────────────────────────────────────────────┘
-text
 
 This layered approach ensures consistency while allowing flexibility for different use cases.
 
@@ -1439,26 +1438,10 @@ Built with ❤️ for the climate science community.
 Last updated: July 27, 2026
 text
 
-## 📊 آمار نهایی
 
- ویژگی مقدار
  ---------------------- ------------------------------------------------
- **تعداد خطوط** /~۱۱۰۰ خط
- **تعداد بخش‌ها** ۳۰ بخش اصلی
- **تعداد فرمول‌ها** ۱۵ فرمول ریاضی
- **تعداد جداول** ۸ جدول
- **تعداد مثال‌های کد** ۱۲ مثال
- **پوشش** نصب، استفاده، معماری، توزیع‌ها، عیب‌یابی، مشارکت
 
-## 🚀 نحوه استفاده
-
-1. محتوای بالا را در فایل `README.md` کپی کنید.
-2. فایل را ذخیره کنید.
-3. در GitHub، فرمول‌ها با MathJax به درستی نمایش داده می‌شوند.
-4. لینک‌های DOI، ReadTheDocs و PyPI را به‌روز کنید.
-
-پروژه شما اکنون یک README کامل، جامع و حرفه‌ای دارد که برای انتشار در
-GitHub، مجلات علمی و ارائه‌های پژوهشی مناسب است. 🎉
 
 ```text
+```
 ```
