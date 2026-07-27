@@ -1,6 +1,7 @@
 
-<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height:1.7; max-width:900px; margin:auto;">
+<div style="font-family: 'Segoe UI', Tahoma, sans-serif; line-height:1.7;">
 
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height:1.7; max-width:900px; margin:auto;">
 
 <div style="font-family: 'Segoe UI', Tahoma, sans-serif; line-height:1.8;">
 
@@ -100,97 +101,101 @@ Status](https://readthedocs.org/projects/climatology-engine/badge/?version=lates
 
 The framework is built on four core principles:
 
-| Principle |
-| --- |
+ | Principle | 
+ | --- | 
 
-| Description |
-| --- |
+ | Description | 
+ | --- | 
 
-|  | --- |
-| --- | --- |
+ |  | --- | 
+ | --- | --- | 
 
-| --- |
-| --- |
+ | --- | 
+ | --- | 
 
-|  | **Plugin-first architecture** |
-| --- | --- |
+ |  | **Plugin-first architecture** | 
+ | --- | --- | 
 
-| All statistical distributions and quality controls are implemented as plugins, enabling easy extension without modifying core code. |
-| --- |
+ | All statistical distributions and quality controls are implemented as plugins, enabling easy extension without modifying core code. | 
+ | --- | 
 
-|  | **Reproducible scientific workflows** |
-| --- | --- |
+ |  | **Reproducible scientific workflows** | 
+ | --- | --- | 
 
-| Every run records configuration, dependencies, and input hashes to ensure results can be exactly reproduced. |
-| --- |
+ | Every run records configuration, dependencies, and input hashes to ensure results can be exactly reproduced. | 
+ | --- | 
 
-|  | **Separation of concerns** |
-| --- | --- |
+ |  | **Separation of concerns** | 
+ | --- | --- | 
 
-| I/O, numerical computation, orchestration, and monitoring are clearly separated into independent modules. |
-| --- |
+ | I/O, numerical computation, orchestration, and monitoring are clearly separated into independent modules. | 
+ | --- | 
 
-|  | **Configuration over hard-coding** |
-| --- | --- |
+ |  | **Configuration over hard-coding** | 
+ | --- | --- | 
 
-| All runtime parameters are defined in a single `config.yaml` file, making experimentation and deployment straightforward. |
-| --- |
+ | All runtime parameters are defined in a single `config.yaml` file, making experimentation and deployment straightforward. | 
+ | --- | 
 
-| ## 🎯 Design Goals |
-| --- |
+ | 
+## 🎯 Design Goals | 
+
+ | --- | 
 
 The project is designed with the following primary goals:
 
-| Goal |
-| --- |
+ | Goal | 
+ | --- | 
 
-| Description |
-| --- |
+ | Description | 
+ | --- | 
 
-|  | --- |
-| --- | --- |
+ |  | --- | 
+ | --- | --- | 
 
-| --- |
-| --- |
+ | --- | 
+ | --- | 
 
-|  | **Scientific correctness** |
-| --- | --- |
+ |  | **Scientific correctness** | 
+ | --- | --- | 
 
-| All statistical methods are validated against reference implementations and literature. |
-| --- |
+ | All statistical methods are validated against reference implementations and literature. | 
+ | --- | 
 
-|  | **Reproducibility** |
-| --- | --- |
+ |  | **Reproducibility** | 
+ | --- | --- | 
 
-| Every run captures configuration, dependencies, and input metadata for exact replication. |
-| --- |
+ | Every run captures configuration, dependencies, and input metadata for exact replication. | 
+ | --- | 
 
-|  | **Extensibility** |
-| --- | --- |
+ |  | **Extensibility** | 
+ | --- | --- | 
 
-| Plugin architecture allows adding new distributions, quality controls, and data adapters without modifying core code. |
-| --- |
+ | Plugin architecture allows adding new distributions, quality controls, and data adapters without modifying core code. | 
+ | --- | 
 
-|  | **High performance** |
-| --- | --- |
+ |  | **High performance** | 
+ | --- | --- | 
 
-| Block-based processing, vectorized operations, and optional parallel execution handle large datasets efficiently. |
-| --- |
+ | Block-based processing, vectorized operations, and optional parallel execution handle large datasets efficiently. | 
+ | --- | 
 
-|  | **Modular architecture** |
-| --- | --- |
+ |  | **Modular architecture** | 
+ | --- | --- | 
 
-| Clear separation of concerns (I/O, computation, orchestration, monitoring) simplifies testing and maintenance. |
-| --- |
+ | Clear separation of concerns (I/O, computation, orchestration, monitoring) simplifies testing and maintenance. | 
+ | --- | 
 
-|  | **Production-ready workflows** |
-| --- | --- |
+ |  | **Production-ready workflows** | 
+ | --- | --- | 
 
-| Designed for batch processing of real-world climate data with checkpoint recovery and comprehensive logging. |
-| --- |
+ | Designed for batch processing of real-world climate data with checkpoint recovery and comprehensive logging. | 
+ | --- | 
 
-| ## ❌ Non-Goals |
-| --- |
+ | 
+## ❌ Non-Goals | 
+
+ | --- | 
 
 This project explicitly does **not** aim to:
 
@@ -234,145 +239,146 @@ A typical user workflow with the engine follows these steps:
 This workflow is designed to be intuitive for both first-time users and experienced researchers.
 
 ```
+
 ## ⚖️ Design Trade-offs
 
 The engine makes several deliberate trade-offs to achieve its goals:
 
-| Trade-off |
-| --- |
+ | Trade-off | 
+ | --- | 
 
-| Decision |
-| --- |
+ | Decision | 
+ | --- | 
 
-| Rationale |
-| --- |
+ | Rationale | 
+ | --- | 
 
-|  | --- |
-| --- | --- |
+ |  | --- | 
+ | --- | --- | 
 
-| --- |
-| --- |
+ | --- | 
+ | --- | 
 
-| --- |
-| --- |
+ | --- | 
+ | --- | 
 
-|  | **Accuracy vs. Speed** |
-| --- | --- |
+ |  | **Accuracy vs. Speed** | 
+ | --- | --- | 
 
-| Prioritizes scientific accuracy over raw speed |
-| --- |
+ | Prioritizes scientific accuracy over raw speed | 
+ | --- | 
 
-| Climate research requires reliable statistical estimates; moderate performance is acceptable. |
-| --- |
+ | Climate research requires reliable statistical estimates; moderate performance is acceptable. | 
+ | --- | 
 
-|  | **Memory vs. I/O** |
-| --- | --- |
+ |  | **Memory vs. I/O** | 
+ | --- | --- | 
 
-| Uses block processing with moderate memory footprint |
-| --- |
+ | Uses block processing with moderate memory footprint | 
+ | --- | 
 
-| Ensures datasets larger than RAM can be processed; I/O overhead is managed with caching. |
-| --- |
+ | Ensures datasets larger than RAM can be processed; I/O overhead is managed with caching. | 
+ | --- | 
 
-|  | **Extensibility vs. Simplicity** |
-| --- | --- |
+ |  | **Extensibility vs. Simplicity** | 
+ | --- | --- | 
 
-| Adopts plugin architecture |
-| --- |
+ | Adopts plugin architecture | 
+ | --- | 
 
-| Adds complexity but enables easy extension without changing core code. |
-| --- |
+ | Adds complexity but enables easy extension without changing core code. | 
+ | --- | 
 
-|  | **Python vs. Compiled Languages** |
-| --- | --- |
+ |  | **Python vs. Compiled Languages** | 
+ | --- | --- | 
 
-| Written in Python with Numba acceleration |
-| --- |
+ | Written in Python with Numba acceleration | 
+ | --- | 
 
-| Balances development velocity with performance for numerical workloads. |
-| --- |
+ | Balances development velocity with performance for numerical workloads. | 
+ | --- | 
 
-|  | **Zarr vs. NetCDF** |
-| --- | --- |
+ |  | **Zarr vs. NetCDF** | 
+ | --- | --- | 
 
-| Zarr as primary storage; NetCDF export supported |
-| --- |
+ | Zarr as primary storage; NetCDF export supported | 
+ | --- | 
 
-| Zarr provides better scalability and cloud compatibility; NetCDF ensures interoperability. |
-| --- |
+ | Zarr provides better scalability and cloud compatibility; NetCDF ensures interoperability. | 
+ | --- | 
 
-| These trade-offs are carefully chosen based on the needs of climate science workflows. |
-| --- |
+ | These trade-offs are carefully chosen based on the needs of climate science workflows. | 
+ | --- | 
 
 ## 🔌 Extension Points
 
 The engine is designed for extensibility through well-defined interfaces:
 
-| Extension Point |
-| --- |
+ | Extension Point | 
+ | --- | 
 
-| Location |
-| --- |
+ | Location | 
+ | --- | 
 
-| Description |
-| --- |
+ | Description | 
+ | --- | 
 
-|  | --- |
-| --- | --- |
+ |  | --- | 
+ | --- | --- | 
 
-| --- |
-| --- |
+ | --- | 
+ | --- | 
 
-| --- |
-| --- |
+ | --- | 
+ | --- | 
 
-|  | **Distribution Plugins** |
-| --- | --- |
+ |  | **Distribution Plugins** | 
+ | --- | --- | 
 
-| `plugins/distributions/` |
-| --- |
+ | `plugins/distributions/` | 
+ | --- | 
 
-| Add new probability distributions by subclassing `DistributionPlugin`. |
-| --- |
+ | Add new probability distributions by subclassing `DistributionPlugin`. | 
+ | --- | 
 
-|  | **Quality Control Plugins** |
-| --- | --- |
+ |  | **Quality Control Plugins** | 
+ | --- | --- | 
 
-| `plugins/qc/` |
-| --- |
+ | `plugins/qc/` | 
+ | --- | 
 
-| Add custom quality control rules (planned). |
-| --- |
+ | Add custom quality control rules (planned). | 
+ | --- | 
 
-|  | **Statistical Metrics** |
-| --- | --- |
+ |  | **Statistical Metrics** | 
+ | --- | --- | 
 
-| `plugins/statistics/` |
-| --- |
+ | `plugins/statistics/` | 
+ | --- | 
 
-| Add new statistical metrics (planned). |
-| --- |
+ | Add new statistical metrics (planned). | 
+ | --- | 
 
-|  | **Data Adapters** |
-| --- | --- |
+ |  | **Data Adapters** | 
+ | --- | --- | 
 
-| `core/interfaces/` |
-| --- |
+ | `core/interfaces/` | 
+ | --- | 
 
-| Add support for new input formats by implementing `DataAdapter`. |
-| --- |
+ | Add support for new input formats by implementing `DataAdapter`. | 
+ | --- | 
 
-|  | **Output Writers** |
-| --- | --- |
+ |  | **Output Writers** | 
+ | --- | --- | 
 
-| `result_pipeline/` |
-| --- |
+ | `result_pipeline/` | 
+ | --- | 
 
-| Add new output formats by extending the result pipeline. |
-| --- |
+ | Add new output formats by extending the result pipeline. | 
+ | --- | 
 
-| Each extension point includes a clear interface and example implementation to simplify development. |
-| --- |
+ | Each extension point includes a clear interface and example implementation to simplify development. | 
+ | --- | 
 
 ## 📋 Configuration Layers
 
@@ -394,54 +400,57 @@ This layered approach ensures consistency while allowing flexibility for differe
 
 The engine includes robust recovery mechanisms:
 
-| Feature |
-| --- |
+ | Feature | 
+ | --- | 
 
-| Description |
-| --- |
+ | Description | 
+ | --- | 
 
-|  | --- |
-| --- | --- |
+ |  | --- | 
+ | --- | --- | 
 
-| --- |
-| --- |
+ | --- | 
+ | --- | 
 
-|  | **Checkpointing** |
-| --- | --- |
+ |  | **Checkpointing** | 
+ | --- | --- | 
 
-| Saves progress after each block (every 100 stations). |
-| --- |
+ | Saves progress after each block (every 100 stations). | 
+ | --- | 
 
-|  | **Resume** |
-| --- | --- |
+ |  | **Resume** | 
+ | --- | --- | 
 
-| Automatically resumes from the last successful checkpoint on restart. |
-| --- |
+ | Automatically resumes from the last successful checkpoint on restart. | 
+ | --- | 
 
-|  | **Corruption Detection** |
-| --- | --- |
+ |  | **Corruption Detection** | 
+ | --- | --- | 
 
-| Validates data integrity and detects corrupted stores. |
-| --- |
+ | Validates data integrity and detects corrupted stores. | 
+ | --- | 
 
-|  | **Graceful Shutdown** |
-| --- | --- |
+ |  | **Graceful Shutdown** | 
+ | --- | --- | 
 
-| Handles interruptions (KeyboardInterrupt, power loss) without data loss. |
-| --- |
+ | Handles interruptions (KeyboardInterrupt, power loss) without data loss. | 
+ | --- | 
 
-| To resume after interruption, simply run `python main.py` again – the engine will continue from where it stopped. |
-| --- |
+ | To resume after interruption, simply run `python main.py` again – the engine will continue from where it stopped. | 
+ | --- | 
 
 **Manual checkpoint management:**
 ```python
 from monitoring.checkpoint import save_checkpoint, load_checkpoint
 
 ```
+
 # Save checkpoint
+
 save_checkpoint("nature_output", block=86, station=86999)
 
 # Load checkpoint
+
 cp = load_checkpoint("nature_output")
 print(f"Last block: {cp.get('block')}")
 
@@ -581,6 +590,7 @@ docs/	Full Sphinx-generated documentation (API reference, theory).	All users.
 notebooks/	Jupyter notebook tutorials and interactive examples.	Learners, researchers.
 SECURITY.md	Security policy and vulnerability reporting.	Developers, security.
 Start with this README for an overview, then explore notebooks/ for hands-on tutorials, and docs/ for detailed reference.
+
 ## ❌ What This Project Is Not
 
 - **Not a full GIS platform** – while it handles geospatial data, it does not provide map visualization or spatial analysis beyond basic operations.
@@ -630,175 +640,182 @@ Input Data (Zarr/NetCDF)
 ```text
 
 ```
+
 ### Module Responsibilities
 
-| Module |
-| --- |
+ | Module | 
+ | --- | 
 
-| Responsibility |
-| --- |
+ | Responsibility | 
+ | --- | 
 
-|  | --- |
-| --- | --- |
+ |  | --- | 
+ | --- | --- | 
 
-| --- |
-| --- |
+ | --- | 
+ | --- | 
 
-|  | `core/` |
-| --- | --- |
+ |  | `core/` | 
+ | --- | --- | 
 
-| Base classes, interfaces, and shared utilities. |
-| --- |
+ | Base classes, interfaces, and shared utilities. | 
+ | --- | 
 
-|  | `io_pipeline/` |
-| --- | --- |
+ |  | `io_pipeline/` | 
+ | --- | --- | 
 
-| Data ingestion from various sources (Zarr, CSV, NetCDF). |
-| --- |
+ | Data ingestion from various sources (Zarr, CSV, NetCDF). | 
+ | --- | 
 
-|  | `numerical_engine/` |
-| --- | --- |
+ |  | `numerical_engine/` | 
+ | --- | --- | 
 
-| Core statistical computations (distribution fitting, window extraction). |
-| --- |
+ | Core statistical computations (distribution fitting, window extraction). | 
+ | --- | 
 
-|  | `plugins/distributions/` |
-| --- | --- |
+ |  | `plugins/distributions/` | 
+ | --- | --- | 
 
-| Individual distribution implementations (each as a plugin). |
-| --- |
+ | Individual distribution implementations (each as a plugin). | 
+ | --- | 
 
-|  | `orchestrator/` |
-| --- | --- |
+ |  | `orchestrator/` | 
+ | --- | --- | 
 
-| Workflow orchestration, block management, and checkpointing. |
-| --- |
+ | Workflow orchestration, block management, and checkpointing. | 
+ | --- | 
 
-|  | `result_pipeline/` |
-| --- | --- |
+ |  | `result_pipeline/` | 
+ | --- | --- | 
 
-| Output generation, validation, and storage. |
-| --- |
+ | Output generation, validation, and storage. | 
+ | --- | 
 
-|  | `monitoring/` |
-| --- | --- |
+ |  | `monitoring/` | 
+ | --- | --- | 
 
-| Logging, benchmarking, and performance monitoring. |
-| --- |
+ | Logging, benchmarking, and performance monitoring. | 
+ | --- | 
 
-| ## 📂 Supported Data Formats |
-| --- |
+ | 
+## 📂 Supported Data Formats | 
 
-| Format |
-| --- |
+ | --- | 
 
-| Read |
-| --- |
+ | Format | 
+ | --- | 
 
-| Write |
-| --- |
+ | Read | 
+ | --- | 
 
-| Notes |
-| --- |
+ | Write | 
+ | --- | 
 
-|  | --- |
-| --- | --- |
+ | Notes | 
+ | --- | 
 
-| --- |
-| --- |
+ |  | --- | 
+ | --- | --- | 
 
-| --- |
-| --- |
+ | --- | 
+ | --- | 
 
-| --- |
-| --- |
+ | --- | 
+ | --- | 
 
-|  | **Zarr** |
-| --- | --- |
+ | --- | 
+ | --- | 
 
-| ✅ | ✅ |
-| --- | --- |
+ |  | **Zarr** | 
+ | --- | --- | 
 
-| Primary storage format; chunked, compressed, cloud-optimized. |
-| --- |
+ | ✅ | ✅ | 
+ | --- | --- | 
 
-|  | **NetCDF** |
-| --- | --- |
+ | Primary storage format; chunked, compressed, cloud-optimized. | 
+ | --- | 
 
-| ✅ | ✅ |
-| --- | --- |
+ |  | **NetCDF** | 
+ | --- | --- | 
 
-| Classic climate data format; CF-compliant output. |
-| --- |
+ | ✅ | ✅ | 
+ | --- | --- | 
 
-|  | **CSV** |
-| --- | --- |
+ | Classic climate data format; CF-compliant output. | 
+ | --- | 
 
-| ✅ | ❌ |
-| --- | --- |
+ |  | **CSV** | 
+ | --- | --- | 
 
-| Only for small test datasets; not recommended for production. |
-| --- |
+ | ✅ | ❌ | 
+ | --- | --- | 
 
-|  | **Parquet** |
-| --- | --- |
+ | Only for small test datasets; not recommended for production. | 
+ | --- | 
 
-| ❌ | ❌ |
-| --- | --- |
+ |  | **Parquet** | 
+ | --- | --- | 
 
-| Not currently supported (planned for future). |
-| --- |
+ | ❌ | ❌ | 
+ | --- | --- | 
 
-| ## 🔄 Execution Modes |
-| --- |
+ | Not currently supported (planned for future). | 
+ | --- | 
 
-| Mode |
-| --- |
+ | 
+## 🔄 Execution Modes | 
 
-| Description |
-| --- |
+ | --- | 
 
-| Use Case |
-| --- |
+ | Mode | 
+ | --- | 
 
-|  | --- |
-| --- | --- |
+ | Description | 
+ | --- | 
 
-| --- |
-| --- |
+ | Use Case | 
+ | --- | 
 
-| --- |
-| --- |
+ |  | --- | 
+ | --- | --- | 
 
-|  | **CLI** |
-| --- | --- |
+ | --- | 
+ | --- | 
 
-| Run via `python main.py` with `config.yaml` |
-| --- |
+ | --- | 
+ | --- | 
 
-| Production workflows, batch processing |
-| --- |
+ |  | **CLI** | 
+ | --- | --- | 
 
-|  | **Python API** |
-| --- | --- |
+ | Run via `python main.py` with `config.yaml` | 
+ | --- | 
 
-| Import modules and call functions programmatically |
-| --- |
+ | Production workflows, batch processing | 
+ | --- | 
 
-| Integration into existing codebases, custom scripts |
-| --- |
+ |  | **Python API** | 
+ | --- | --- | 
 
-|  | **Jupyter Notebook** |
-| --- | --- |
+ | Import modules and call functions programmatically | 
+ | --- | 
 
-| Interactive analysis using notebooks in `notebooks/` |
-| --- |
+ | Integration into existing codebases, custom scripts | 
+ | --- | 
 
-| Exploratory data analysis, prototyping, teaching |
-| --- |
+ |  | **Jupyter Notebook** | 
+ | --- | --- | 
 
-| ## 🔌 Plugin Development Guide |
-| --- |
+ | Interactive analysis using notebooks in `notebooks/` | 
+ | --- | 
+
+ | Exploratory data analysis, prototyping, teaching | 
+ | --- | 
+
+ | 
+## 🔌 Plugin Development Guide | 
+
+ | --- | 
 
 To add a new distribution plugin:
 
@@ -819,8 +836,12 @@ class LogisticDistribution(DistributionPlugin):
  n_params = 2
 
  def fit(self, data):
- # Fit the logistic distribution to data
- # Return dict with parameters, loglik, aicc, bic
+ 
+# Fit the logistic distribution to data
+
+ 
+# Return dict with parameters, loglik, aicc, bic
+
  return {
  "location": loc,
  "scale": scale,
@@ -873,6 +894,7 @@ processing with Zarr storage, and provides advanced features for
 uncertainty quantification, quality control, and reproducibility.
 
 ```
+
 ### Core Philosophy
 
 The engine is built on three core principles:
@@ -997,20 +1019,27 @@ validated, and efficient implementation of the state-of-the-art methods.
 
 ### From source (recommended)
 
-/`/`/`bash /# Clone the repository git clone
+/`/`/`bash /
+# Clone the repository git clone
+
 https://github.com/AminFazlKazemi/ClimateProcessingEngine.git cd
 ClimateProcessingEngine
 
 # Create virtual environment (optional but recommended)
 
-python -m venv venv source venv/bin/activate /# Linux/macOS /# or
-venv`/Scripts``/activate `/# Windows
+python -m venv venv source venv/bin/activate /
+# Linux/macOS /# or
+
+venv`/Scripts``/activate `/
+# Windows
 
 # Install the package
 
 pip install -e . Dependencies Core dependencies are automatically
 installed: Optional development dependencies: bash pip install -e
-.$dev$ /# Includes: pytest, sphinx, black, flake8, mypy Installing
+.$dev$ /
+# Includes: pytest, sphinx, black, flake8, mypy Installing
+
 with Conda (alternative) bash conda create -n climatology python=3.11
 conda activate climatology conda install numpy scipy xarray zarr numba
 pandas matplotlib seaborn pyyaml pip install -e .
@@ -1025,7 +1054,9 @@ pd.read_csv(f"{sample_dir}/station_001.csv").values
 
 # Display data shape
 
-print(f"Data shape: {station_data.shape}") /# (10950, 3) = 30 years /*
+print(f"Data shape: {station_data.shape}") /
+# (10950, 3) = 30 years /*
+
 365 days, 3 variables
 
 # Plot temperature for the first 365 days
@@ -1041,7 +1072,8 @@ plugins.distributions.normal import NormalDistribution
 
 # Extract tmean data for the first 30 years
 
-tmean_data = station_data$:365, 1$ /# First 365 days (one year)
+tmean_data = station_data$:365, 1$ /
+# First 365 days (one year)
 
 # Fit Normal distribution
 
@@ -1071,56 +1103,123 @@ print(f"{dist.name}: Failed - {str(e)}")
 
 best_dist = min(results.items(), key=lambda x: x$1$.get('aicc',
 np.inf)) print(f"`/n`✅ Best distribution: {best_dist$0$} (AICc
-= {best_dist$1$$'aicc'$:.3f})") 4. Run the full pipeline bash python
+= {best_dist$1
+$$
+'aicc'$:.3f})") 4. Run the full pipeline bash python
 main.py This will: Load data from config.yaml Process all stations in
 blocks Fit all active distributions Select the best based on AICc Save
 results to a Zarr store 5. Interactive tutorial bash jupyter notebook
 notebooks/01_Quick_Start.ipynb
 
 ```text
-ClimateProcessingEngine/ ├── core/ /# Core
-framework (abstract layers) │ ├── engine/ /# Engine components │ │ ├──
-distribution_plugin.py /# Base class for all distributions │ │ └──
-plugin_loader.py /# Auto-discover and load plugins │ ├── interfaces/ /#
-Data interface adapters │ │ └── data_adapter.py /# Station & gridded
-data adapters │ ├── storage/ /# Storage backends │ │ └── zarr_schema.py
+ClimateProcessingEngine/ ├── core/ /
+# Core
+
+framework (abstract layers) │ ├── engine/ /
+# Engine components │ │ ├──
+
+distribution_plugin.py /
+# Base class for all distributions │ │ └──
+
+plugin_loader.py /
+# Auto-discover and load plugins │ ├── interfaces/ /#
+
+Data interface adapters │ │ └── data_adapter.py /
+# Station & gridded
+
+data adapters │ ├── storage/ /
+# Storage backends │ │ └── zarr_schema.py
+
 ```
+
 # Zarr output schema definition │ ├── quality/ /# Quality control
-system │ │ └── quality_flag.py /# Quality flag definitions and evaluator
-│ └── uncertainty/ /# Uncertainty quantification │ └── bootstrap.py /#
-Bootstrap confidence intervals │ ├── plugins/ /# Plugin architecture │
-├── distributions/ /# Distribution plugins │ │ ├── normal.py /# Normal
-distribution │ │ ├── skewnormal.py /# Skew-Normal distribution │ │ ├──
-gev.py /# Generalized Extreme Value │ │ ├── bimodal.py /# Bimodal
-mixture distribution │ │ └── pearson.py /# Pearson Type III │ ├── qc/ /#
+
+system │ │ └── quality_flag.py /
+# Quality flag definitions and evaluator
+
+│ └── uncertainty/ /
+# Uncertainty quantification │ └── bootstrap.py /#
+
+Bootstrap confidence intervals │ ├── plugins/ /
+# Plugin architecture │
+
+├── distributions/ /
+# Distribution plugins │ │ ├── normal.py /# Normal
+
+distribution │ │ ├── skewnormal.py /
+# Skew-Normal distribution │ │ ├──
+
+gev.py /
+# Generalized Extreme Value │ │ ├── bimodal.py /# Bimodal
+
+mixture distribution │ │ └── pearson.py /
+# Pearson Type III │ ├── qc/ /#
+
 Quality control plugins (future) │ │ └── (empty) │ └── statistics/ /#
 Statistical metric plugins (future) │ └── (empty) │ ├── notebooks/ /#
 Jupyter Notebook tutorials │ └── 01_Quick_Start.ipynb │ ├── tests/ /#
-Test suite │ ├── test_distributions.py /# Distribution unit tests │ ├──
-test_adapters.py /# Data adapter tests │ ├── test_quality.py /# Quality
-flag tests │ └── expected_results/ /# Golden results for CI │ └──
-station_001_expected.csv │ ├── benchmark/ /# Performance benchmarks │
-└── benchmark.py /# Benchmark runner │ ├── docs/ /# Sphinx documentation
-│ └── source/ │ ├── conf.py /# Sphinx configuration │ ├── index.rst /#
+Test suite │ ├── test_distributions.py /
+# Distribution unit tests │ ├──
+
+test_adapters.py /
+# Data adapter tests │ ├── test_quality.py /# Quality
+
+flag tests │ └── expected_results/ /
+# Golden results for CI │ └──
+
+station_001_expected.csv │ ├── benchmark/ /
+# Performance benchmarks │
+
+└── benchmark.py /
+# Benchmark runner │ ├── docs/ /# Sphinx documentation
+
+│ └── source/ │ ├── conf.py /
+# Sphinx configuration │ ├── index.rst /#
+
 Documentation home page │ ├── installation.rst │ ├── usage.rst │ ├──
-api.rst │ └── contributing.rst │ ├── sample_data/ /# Sample data (10
+api.rst │ └── contributing.rst │ ├── sample_data/ /
+# Sample data (10
+
 synthetic stations) │ ├── station_001.csv │ ├── station_002.csv │ ├──
-... │ └── station_010.csv │ ├── .github/ /# GitHub-specific files │ └──
-workflows/ │ └── ci.yml /# GitHub Actions CI/CD │ ├── config.yaml /#
-Main configuration file ├── main.py /# Entry point ├── pyproject.toml /#
-Package metadata and build configuration ├── setup.cfg /# Additional
-configuration ├── LICENSE /# MIT License ├── CITATION.cff /# Citation
-information ├── .pre-commit-config.yaml /# Pre-commit hooks ├──
-.gitignore /# Git ignore patterns ├── .readthedocs.yaml /# ReadTheDocs
-configuration ├── MANIFEST.in /# Package manifest ├── README.md /# This
-file ├── CONTRIBUTING.md /# Contributing guidelines ├──
-CODE_OF_CONDUCT.md /# Code of conduct └── SECURITY.md /# Security policy
+... │ └── station_010.csv │ ├── .github/ /
+# GitHub-specific files │ └──
+
+workflows/ │ └── ci.yml /
+# GitHub Actions CI/CD │ ├── config.yaml /#
+
+Main configuration file ├── main.py /
+# Entry point ├── pyproject.toml /#
+
+Package metadata and build configuration ├── setup.cfg /
+# Additional
+
+configuration ├── LICENSE /
+# MIT License ├── CITATION.cff /# Citation
+
+information ├── .pre-commit-config.yaml /
+# Pre-commit hooks ├──
+
+.gitignore /
+# Git ignore patterns ├── .readthedocs.yaml /# ReadTheDocs
+
+configuration ├── MANIFEST.in /
+# Package manifest ├── README.md /# This
+
+file ├── CONTRIBUTING.md /
+# Contributing guidelines ├──
+
+CODE_OF_CONDUCT.md /
+# Code of conduct └── SECURITY.md /# Security policy
 
 ⚙️ Configuration The main configuration file is config.yaml. This file
 controls all aspects of the engine. Complete Configuration Example yaml
+
 # 
+
 ---
+
 # General Project Settings /#
+
 ---
 project: name: "Climatology Engine" version: "4.0.0" description:
 "Climate data distribution fitting and analysis"
@@ -1129,105 +1228,202 @@ project: name: "Climatology Engine" version: "4.0.0" description:
 
 # Data Paths
 
-paths: input_zarr_base: "M:/temp/zarr_input" /# Input Zarr files
-(monthly) output_dir: "./nature_output" /# Output directory
+paths: input_zarr_base: "M:/temp/zarr_input" /
+# Input Zarr files
+
+(monthly) output_dir: "./nature_output" /
+# Output directory
+
 output_zarr_name: "climatology_stationwise_final.zarr" checkpoint_dir:
-"./nature_output" /# Checkpoint directory log_dir: "./logs" /# Log files
-cache_dir: "./cache" /# Disk cache for loaded data sample_data_dir:
-"./sample_data" /# Sample dataset location
+"./nature_output" /
+# Checkpoint directory log_dir: "./logs" /# Log files
+
+cache_dir: "./cache" /
+# Disk cache for loaded data sample_data_dir:
+
+"./sample_data" /
+# Sample dataset location
 
 # Time Range
 
-time: start_year: 1370 /# 1991 (Persian calendar) end_year: 1399 /# 2020
-(Persian calendar) n_days: 366 /# Number of days (including leap years)
+time: start_year: 1370 /
+# 1991 (Persian calendar) end_year: 1399 /# 2020
+
+(Persian calendar) n_days: 366 /
+# Number of days (including leap years)
 
 # Processing Parameters
 
-processing: block_size: 1000 /# Number of points per block
-max_blocks_in_memory: 5 /# Maximum blocks loaded simultaneously
-chunk_size: $100, 100$ /# Zarr chunk size (day, point) compression:
-"zstd" /# Compression algorithm (zstd, blosc, none) compression_level: 3
+processing: block_size: 1000 /
+# Number of points per block
+
+max_blocks_in_memory: 5 /
+# Maximum blocks loaded simultaneously
+
+chunk_size: $100, 100$ /
+# Zarr chunk size (day, point) compression:
+
+"zstd" /
+# Compression algorithm (zstd, blosc, none) compression_level: 3
+
 # Compression level (1-9) n_points_max: 40000 /# Maximum number of
-points to process output_precision: "float32" /# Output precision
+
+points to process output_precision: "float32" /
+# Output precision
+
 (float32, float64)
 
 # Window Extraction Parameters
 
-window: days: 2 /# ±2 days (5-day window total) use_extreme_values:
-false /# true = extreme mode (GEV active) min_valid_years: 10 /# Minimum
-years with valid data window_type: "centered" /# centered, forward,
+window: days: 2 /
+# ±2 days (5-day window total) use_extreme_values:
+
+false /
+# true = extreme mode (GEV active) min_valid_years: 10 /# Minimum
+
+years with valid data window_type: "centered" /
+# centered, forward,
+
 backward
 
 # Active Distributions (per processing mode)
 
-distributions: normal_mode: /# Mode: normal (standard 5-day window) -
-normal - skew - bimodal - pearson /# - gev /# GEV is disabled in normal
-mode extreme_mode: /# Mode: extreme (max/min extraction) - normal -
-skew - gev /# GEV is active in extreme mode - bimodal - pearson
+distributions: normal_mode: /
+# Mode: normal (standard 5-day window) -
+
+normal - skew - bimodal - pearson /
+# - gev /# GEV is disabled in normal
+
+mode extreme_mode: /
+# Mode: extreme (max/min extraction) - normal -
+
+skew - gev /
+# GEV is active in extreme mode - bimodal - pearson
 
 # Data Format and Spatial Extent
 
-data_format: "auto" /# auto, station, gridded lat_min: 25.0 /# Minimum
-latitude (gridded data) lat_max: 40.0 /# Maximum latitude (gridded data)
-lon_min: 44.0 /# Minimum longitude (gridded data) lon_max: 64.0 /#
-Maximum longitude (gridded data) point_sampling: "all" /# all, random,
-regular n_sample_points: 40000 /# If sampling, number of points
+data_format: "auto" /
+# auto, station, gridded lat_min: 25.0 /# Minimum
+
+latitude (gridded data) lat_max: 40.0 /
+# Maximum latitude (gridded data)
+
+lon_min: 44.0 /
+# Minimum longitude (gridded data) lon_max: 64.0 /#
+
+Maximum longitude (gridded data) point_sampling: "all" /
+# all, random,
+
+regular n_sample_points: 40000 /
+# If sampling, number of points
 
 # Cache System
 
-cache: enabled: true /# Enable/disable disk cache max_size_gb: 10 /#
-Maximum cache size in GB ttl_hours: 24 /# Time-to-live for cached data
-cache_path: "./cache" /# Cache directory
+cache: enabled: true /
+# Enable/disable disk cache max_size_gb: 10 /#
+
+Maximum cache size in GB ttl_hours: 24 /
+# Time-to-live for cached data
+
+cache_path: "./cache" /
+# Cache directory
 
 # Quality Control
 
-quality: min_sample_size: 3 /# Minimum observations for fitting
-threshold_aicc: 1000 /# AICc threshold for quality flag threshold_skew:
-5.0 /# Maximum absolute skewness allowed detect_outliers: true /# Enable
-outlier detection outlier_sigma: 4.0 /# Sigma threshold for outliers
+quality: min_sample_size: 3 /
+# Minimum observations for fitting
+
+threshold_aicc: 1000 /
+# AICc threshold for quality flag threshold_skew:
+
+5.0 /
+# Maximum absolute skewness allowed detect_outliers: true /# Enable
+
+outlier detection outlier_sigma: 4.0 /
+# Sigma threshold for outliers
 
 # Bootstrap Uncertainty
 
-bootstrap: enabled: true /# Enable Bootstrap uncertainty n_iterations:
-100 /# Number of bootstrap iterations confidence_level: 0.95 /#
-Confidence level (0.95 = 95% CI) random_seed: 42 /# Random seed for
+bootstrap: enabled: true /
+# Enable Bootstrap uncertainty n_iterations:
+
+100 /
+# Number of bootstrap iterations confidence_level: 0.95 /#
+
+Confidence level (0.95 = 95% CI) random_seed: 42 /
+# Random seed for
+
 reproducibility
 
 # Parallel Processing
 
-parallel: enabled: true /# Enable parallel processing backend:
-"multiprocessing" /# multiprocessing, dask, ray, serial max_workers: 6
+parallel: enabled: true /
+# Enable parallel processing backend:
+
+"multiprocessing" /
+# multiprocessing, dask, ray, serial max_workers: 6
+
 # Number of parallel workers chunk_size: 100 /# Chunk size for Dask/Ray
-use_gpu: false /# GPU acceleration (future)
+
+use_gpu: false /
+# GPU acceleration (future)
 
 # Logging
 
-logging: level: "INFO" /# DEBUG, INFO, WARNING, ERROR, CRITICAL
-console_output: true /# Output to console file_output: true /# Output to
-file file_rotation: "10 MB" /# Rotate logs after 10 MB log_format:
-"detailed" /# simple, detailed, json log_dir: "./logs"
+logging: level: "INFO" /
+# DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+console_output: true /
+# Output to console file_output: true /# Output to
+
+file file_rotation: "10 MB" /
+# Rotate logs after 10 MB log_format:
+
+"detailed" /
+# simple, detailed, json log_dir: "./logs"
 
 # Model Selection
 
-selection: criterion: "aicc" /# aic, aicc, bic, waic, loo min_delta: 2.0
+selection: criterion: "aicc" /
+# aic, aicc, bic, waic, loo min_delta: 2.0
+
 # Minimum AIC difference for significance report_all: false /# Report
-all distributions or just best save_weights: true /# Save Akaike weights
+
+all distributions or just best save_weights: true /
+# Save Akaike weights
 
 # Output Settings
 
-output: format: "zarr" /# zarr, netcdf, parquet, csv overwrite: true /#
-Overwrite existing output include_metadata: true /# Include full
-metadata include_provenance: true /# Include provenance information
-compress: true /# Compress output compression_algorithm: "zstd" /# zstd,
+output: format: "zarr" /
+# zarr, netcdf, parquet, csv overwrite: true /#
+
+Overwrite existing output include_metadata: true /
+# Include full
+
+metadata include_provenance: true /
+# Include provenance information
+
+compress: true /
+# Compress output compression_algorithm: "zstd" /# zstd,
+
 blosc, lz4, none compression_level: 3
 
 # Visualization
 
-visualization: enabled: true /# Generate visualizations output_dir:
-"./visualizations" /# Output directory for plots format: $"png",
-"pdf"$ /# Output formats interactive: true /# Generate interactive
-plots map_projection: "PlateCarree" /# Map projection for spatial plots
-dpi: 300 /# Image resolution
+visualization: enabled: true /
+# Generate visualizations output_dir:
+
+"./visualizations" /
+# Output directory for plots format: $"png",
+
+"pdf"$ /
+# Output formats interactive: true /# Generate interactive
+
+plots map_projection: "PlateCarree" /
+# Map projection for spatial plots
+
+dpi: 300 /
+# Image resolution
 
 📊 Output Schema The engine produces a Zarr store with the following
 variables: Complete List of Output Variables Reading the Output python
@@ -1244,11 +1440,13 @@ print(list(ds.data_vars))
 
 # Access the best distribution
 
-best_dist = ds$'best_dist'$.values /# Shape: (n_points, 366)
+best_dist = ds$'best_dist'$.values /
+# Shape: (n_points, 366)
 
 # Access the mean temperature
 
-mean_temp = ds$'mean'$.values /# Shape: (n_points, 366)
+mean_temp = ds$'mean'$.values /
+# Shape: (n_points, 366)
 
 # Access station metadata
 
@@ -1363,12 +1561,23 @@ validation: Convergence status Parameter bounds (e.g., σ/>0σ/>0,
 threshold Skewness threshold Variance check Diagnostic validation:
 Hessian matrix positive definite Gradient norm 11.3. Threshold
 Configuration All quality thresholds are configurable in config.yaml:
-yaml quality: min_sample_size: 3 /# Minimum observations for fitting
-threshold_aicc: 1000 /# AICc threshold for quality flag threshold_skew:
-5.0 /# Maximum absolute skewness allowed detect_outliers: true /# Enable
-outlier detection outlier_sigma: 4.0 /# Sigma threshold for outliers
-max_iterations: 1000 /# Maximum optimization iterations tolerance: 1e-6
+yaml quality: min_sample_size: 3 /
+# Minimum observations for fitting
+
+threshold_aicc: 1000 /
+# AICc threshold for quality flag threshold_skew:
+
+5.0 /
+# Maximum absolute skewness allowed detect_outliers: true /# Enable
+
+outlier detection outlier_sigma: 4.0 /
+# Sigma threshold for outliers
+
+max_iterations: 1000 /
+# Maximum optimization iterations tolerance: 1e-6
+
 # Optimization tolerance check_hessian: true /# Check Hessian positive
+
 definiteness
 
 📈 Uncertainty Quantification 12.1. Bootstrap Method The engine uses the
@@ -1401,14 +1610,22 @@ DistributionPlugin: python from core.engine.distribution_plugin import
 DistributionPlugin
 
 class MyDistribution(DistributionPlugin): name = "MyDistribution" /#
-Display name code = 5 /# Unique code (5+) params = $"p1", "p2", "p3"$
+Display name code = 5 /
+# Unique code (5+) params = $"p1", "p2", "p3"$
+
 # Parameter names n_params = 3 /# Number of parameters
+
 supports_negative = True supports_zero = True supports_positive = True
-extreme_only = False /# True if only for extreme mode
+extreme_only = False /
+# True if only for extreme mode
 
  def fit(self, data):
- # Your fitting algorithm here
- # Must return a dict with parameter values and metrics
+ 
+# Your fitting algorithm here
+
+ 
+# Must return a dict with parameter values and metrics
+
  return {
  "p1": value1,
  "p2": value2,
@@ -1420,12 +1637,24 @@ extreme_only = False /# True if only for extreme mode
 
 The engine will automatically discover and load your plugin. 13.2.
 Plugin Structure Each distribution plugin must implement: python class
-DistributionPlugin: /# Required class attributes name = None /# Display
-name (string) code = None /# Unique integer code params = $$ /# List
-of parameter names (strings) n_params = 0 /# Number of parameters
+DistributionPlugin: /
+# Required class attributes name = None /# Display
+
+name (string) code = None /
+# Unique integer code params =
+
+$$
+ /
+# List
+
+of parameter names (strings) n_params = 0 /
+# Number of parameters
+
 (integer)
 
- # Optional class attributes
+ 
+# Optional class attributes
+
  supports_negative = False
  supports_zero = False
  supports_positive = False
@@ -1433,7 +1662,9 @@ of parameter names (strings) n_params = 0 /# Number of parameters
  requires_bootstrap = False
  require_initial_guess = False
 
- # Required method
+ 
+# Required method
+
  def fit(self, data):
  """Fit the distribution to data.
 
@@ -1445,7 +1676,9 @@ of parameter names (strings) n_params = 0 /# Number of parameters
  """
  raise NotImplementedError
 
- # Optional methods
+ 
+# Optional methods
+
  def initial_guess(self, data):
  """Provide initial parameter guesses for optimization."""
  return [np.mean(data), np.std(data)]
@@ -1469,7 +1702,9 @@ of parameter names (strings) n_params = 0 /# Number of parameters
 13.3. Loading Plugins The engine loads all plugin distributions
 automatically: python from core.engine.plugin_loader import load_plugins
 
-plugins = load_plugins() /# plugins is a dict: {code:
+plugins = load_plugins() /
+# plugins is a dict: {code:
+
 DistributionPlugin} To load only specific distributions: python from
 core.engine.plugin_loader import load_plugins from
 plugins.distributions.normal import NormalDistribution from
@@ -1489,10 +1724,13 @@ max_points=40000 )
 
 coords = adapter.get_coords() station_ids = coords$'stationid'$ lats =
 coords$'lat'$ lons = coords$'lon'$ elevs = coords$'elev'$
+
 # Load a block of data
 
 data_block = adapter.load_block( block_start=0, block_size=1000,
-year_idx=0, month=1, var_idx=1 /# tmean ) 14.2. Gridded Data Adapter
+year_idx=0, month=1, var_idx=1 /
+# tmean ) 14.2. Gridded Data Adapter
+
 Handles gridded data with dimensions (time, latitude, longitude). python
 from core.interfaces.data_adapter import GriddedDataAdapter
 
@@ -1503,12 +1741,16 @@ lat_min=25.0, lat_max=40.0, lon_min=44.0, lon_max=64.0 )
 # Data is automatically flattened to (time, point) format
 
 data_block = adapter.load_block( block_start=0, block_size=1000,
-year_idx=0, month=1, var_idx=1 /# tmean ) 14.3. Auto-Detection The
+year_idx=0, month=1, var_idx=1 /
+# tmean ) 14.3. Auto-Detection The
+
 engine can automatically detect the data format: python from
 core.interfaces.data_adapter import create_adapter
 
 adapter = create_adapter( zarr_base="M:/temp/zarr_input",
-year_list=year_list, data_format="auto", /# auto, station, gridded
+year_list=year_list, data_format="auto", /
+# auto, station, gridded
+
 cache_enabled=True, max_points=40000 )
 
 # The adapter detects station or gridded format from the Zarr files
@@ -1528,20 +1770,31 @@ and minimum from the 5-day window for each year. Maxima: 3030 values
 Normal, Skew-Normal, GEV, Bimodal, Pearson III GEV is enabled and often
 outperforms other distributions Best distribution selected by AICc
 Application: Return period estimation, heatwave analysis, cold spells,
-flood frequency. Activation: yaml /# config.yaml window:
-use_extreme_values: true /# Enable extreme value mode
+flood frequency. Activation: yaml /
+# config.yaml window:
+
+use_extreme_values: true /
+# Enable extreme value mode
 
 ⚡ Performance Optimization 16.1. Block-Based Processing The engine
 processes data in blocks to manage memory efficiently. How it works:
 Data is divided into blocks of block_size stations Each block is loaded,
 processed, and written separately Memory usage is proportional to
 block_size, not n_stations Checkpoint is saved after each block
-Configuration: yaml processing: block_size: 1000 /# Smaller block size =
-lower memory usage, more I/O /# Larger block size = higher memory usage,
+Configuration: yaml processing: block_size: 1000 /
+# Smaller block size =
+
+lower memory usage, more I/O /
+# Larger block size = higher memory usage,
+
 less I/O 16.2. Parallel Processing The engine supports multiple parallel
 backends. Backend options: Configuration: yaml parallel: enabled: true
-backend: "multiprocessing" max_workers: 6 /# Number of worker processes
-chunk_size: 100 /# For Dask/Ray Performance impact: 16.3. Memory
+backend: "multiprocessing" max_workers: 6 /
+# Number of worker processes
+
+chunk_size: 100 /
+# For Dask/Ray Performance impact: 16.3. Memory
+
 Management Memory optimization strategies: Data types: Using float32
 instead of float64 reduces memory by 50% python arr = np.full((n_days,
 n_stations), np.nan, dtype=np.float32) Block processing: Never load all
@@ -1551,8 +1804,12 @@ process_block(block_data) Garbage collection: Explicitly free memory
 python import gc del block_data gc.collect() Memory monitoring: Track
 memory usage python import psutil mem = psutil.Process().memory_info()
 print(f"Memory usage: {mem.rss / 1024/*/*3:.2f} GB") Configuration: yaml
-processing: max_blocks_in_memory: 5 /# Maximum blocks loaded
-simultaneously output_precision: "float32" /# Use float32 for smaller
+processing: max_blocks_in_memory: 5 /
+# Maximum blocks loaded
+
+simultaneously output_precision: "float32" /
+# Use float32 for smaller
+
 output 16.4. Caching System The disk cache reduces I/O by storing loaded
 data. How it works: First time data is loaded, it's cached Subsequent
 requests load from cache (faster) Old cache entries are automatically
@@ -1560,7 +1817,8 @@ purged Configuration: yaml cache: enabled: true max_size_gb: 10
 ttl_hours: 24 cache_path: "./cache" Performance impact: 16.5.
 Compression Zarr uses compression to reduce file size. Compression
 options: Configuration: yaml processing: compression: "zstd"
-compression_level: 3 /# 1 = fast, 9 = high compression
+compression_level: 3 /
+# 1 = fast, 9 = high compression
 
 💾 Checkpoint & Recovery The engine automatically saves checkpoints to
 enable recovery from interruptions. Checkpoint Format Checkpoints are
@@ -1609,13 +1867,19 @@ Sample size: 1000 stations Mode: Normal Workers: 6
 
 📖 Documentation 20.1. Sphinx Documentation Build the full
 documentation: bash cd docs make html open /_build/html/index.html
-Documentation structure: text docs/ ├── source/ │ ├── index.rst /# Home
-page │ ├── installation.rst /# Installation guide │ ├── usage/ │ │ ├──
+Documentation structure: text docs/ ├── source/ │ ├── index.rst /
+# Home
+
+page │ ├── installation.rst /
+# Installation guide │ ├── usage/ │ │ ├──
+
 quickstart.rst │ │ ├── configuration.rst │ │ ├── running.rst │ │ └──
 output.rst │ ├── api/ │ │ ├── core.rst │ │ ├── plugins.rst │ │ └──
 utilities.rst │ ├── theory/ │ │ ├── distributions.rst │ │ ├──
 selection.rst │ │ └── uncertainty.rst │ ├── contributing.rst │ └──
-changelog.rst └── build/ /# Generated documentation 20.2. Jupyter
+changelog.rst └── build/ /
+# Generated documentation 20.2. Jupyter
+
 Notebooks Interactive tutorials:
 
 🛠️ Troubleshooting 21.1. Common Errors Error: FileNotFoundError text
@@ -1640,22 +1904,29 @@ to write to Zarr store Causes: Disk full Permission issues Corrupted
 store Solutions: Check disk space Verify write permissions Delete
 corrupted store and restart 21.2. Solutions General Debugging Enable
 DEBUG logging: yaml logging: level: "DEBUG" Run on a smaller sample:
-python /# In main.py, reduce n_points_max n_points_max = 100 /# Instead
+python /
+# In main.py, reduce n_points_max n_points_max = 100 /# Instead
+
 of 40000 Check log files: bash tail -f logs/climatology.log Use
 interactive debugger: python import ipdb; ipdb.set_trace()
 
-🤝 Contributing 22.1. Development Setup bash /# Clone the repository git
+🤝 Contributing 22.1. Development Setup bash /
+# Clone the repository git
+
 clone https://github.com/AminFazlKazemi/ClimateProcessingEngine.git cd
 ClimateProcessingEngine
 
 # Create and activate virtual environment
 
-python -m venv venv source venv/bin/activate /# or
+python -m venv venv source venv/bin/activate /
+# or
+
 venv`/Scripts``/activate `on Windows
 
 # Install development dependencies
 
 pip install -e .$dev$
+
 # Install pre-commit hooks
 
 pre-commit install
@@ -1663,7 +1934,8 @@ pre-commit install
 # Run tests
 
 pytest tests/ 22.2. Code Style The project follows the Black code style.
-bash /# Format code black .
+bash /
+# Format code black .
 
 # Check code style
 
@@ -1823,5 +2095,6 @@ text
 ```
 </div>
 
+</div>
 
 </div>
