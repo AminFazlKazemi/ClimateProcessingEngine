@@ -585,9 +585,13 @@ The Generalized Extreme Value (GEV) distribution is the limit
 distribution of block maxima (or minima). It is only active in extreme
 value mode. The PDF is:
 
-$$
-f(x) = \frac{1}{\sigma} \left\left[1 + \xi \frac{x-\mu}{\sigma}\right\right]^{-1/\xi - 1} \exp\left(-\left\left[1 + \xi \frac{x-\mu}{\sigma}\right\right]^{-1/\xi}\right)
-$$
+\[
+f(x) = \frac{1}{\sigma}
+\left(1 + \xi \frac{x - \mu}{\sigma}\right)^{-\left(1/\xi + 1\right)}
+\exp\left(
+-\left(1 + \xi \frac{x - \mu}{\sigma}\right)^{-1/\xi}
+\right)
+\]
 
 **Parameters:**
 
@@ -596,6 +600,11 @@ $$
 -   $\sigma$: Scale parameter ($\sigma > 0$)
 
 -   $\xi$: Shape parameter
+
+**Constraints:**
+\[
+1 + \xi \frac{x - \mu}{\sigma} > 0
+\]
 
 **Three types:**
 

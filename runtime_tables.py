@@ -22,6 +22,9 @@ from constants import (
 def build_window_table():
     """ساخت جدول روزهای پنجره برای هر روز سال"""
     window_table = []
+    for day in range(N_DAYS):  # 0-based day indices
+        window = [(day + offset) % N_DAYS for offset in range(-WINDOW_DAYS, WINDOW_DAYS + 1)]
+        window_table.append(window)
     for doy in range(N_DAYS):
         indices = []
         for d in range(doy - WINDOW_DAYS, doy + WINDOW_DAYS + 1):
@@ -68,31 +71,59 @@ def build_variable_table():
 # =============================================
 # ۴. ساخت همه جداول (تابع اصلی)
 # =============================================
-def build_runtime_tables(zarr_base=None):
-    """
-    ساخت تمام جداول زمان اجرا
-    Args:
-        zarr_base: مسیر پایه فایل‌های Zarr (در صورت None، از constants.ZARR_BASE استفاده می‌کند)
-    Returns:
-        dict: شامل window_table, file_map, variable_table
-    """
-    if zarr_base is None:
-        zarr_base = ZARR_BASE
-    
-    tables = {
-        "window_table": build_window_table(),
-        "file_map": build_file_map(zarr_base),
-        "variable_table": build_variable_table(),
-        "year_list": YEAR_LIST,
-        "n_years": N_YEARS,
-        "n_days": N_DAYS,
-        "vars": VARS,
-    }
-    return tables
 
-# =============================================
-# ۵. نمایش اطلاعات (برای دیباگ)
-# =============================================
+def build_runtime_tables(zarr_base):
+    """ساخت جداول زمان اجرا از فایل‌های موجود Zarr"""
+    import glob
+    import os
+    import re
+    from constants import WINDOW_DAYS, N_DAYS, YEAR_START, YEAR_END
+
+    # 1. پیدا کردن تمام فایل‌های Zarr
+    pattern = os.path.join(zarr_base, "*.zarr")
+    zarr_files = glob.glob(pattern)
+
+    if not zarr_files:
+        raise FileNotFoundError(f"No Zarr files found in {zarr_base}")
+
+    # 2. ساخت file_map با استخراج سال و ماه از نام فایل
+    file_map = {}
+    years_set = set()
+    for f in zarr_files:
+        basename = os.path.basename(f)
+        # نام فایل: 1369_01_Farvardin.zarr یا 1370_02.zarr
+        # استخراج سال و ماه
+        parts = basename.replace(".zarr", "").split("_")
+        if len(parts) >= 2:
+            try:
+                year = int(parts[0])
+                month = int(parts[1])
+                file_map[(year, month)] = f
+                years_set.add(year)
+            except ValueError:
+                continue
+
+    if not file_map:
+        raise FileNotFoundError(f"No valid Zarr files with year/month found in {zarr_base}")
+
+    # 3. ساخت year_list از سال‌های موجود
+    year_list = sorted(years_set)
+
+    # 4. ساخت window_table
+    window_table = []
+    for day in range(N_DAYS):  # 0-based day indices
+        window = [(day + offset) % N_DAYS for offset in range(-WINDOW_DAYS, WINDOW_DAYS + 1)]
+        window_table.append(window)
+    for day in range(1, N_DAYS + 1):
+        window = [(day + offset - 1) % N_DAYS + 1 for offset in range(-WINDOW_DAYS, WINDOW_DAYS + 1)]
+        window_table.append(window)
+
+    return {
+        "file_map": file_map,
+        "window_table": window_table,
+        "year_list": year_list
+    }
+
 def print_runtime_info(tables):
     print(f"   window_table: {len(tables['window_table'])} روز")
     print(f"   file_map: {len(tables['file_map'])} فایل")

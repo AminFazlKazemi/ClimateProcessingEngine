@@ -55,24 +55,3 @@ docs/_build/
 
 # Backup
 backup_*/
-# Added by sync tool
-*.pyc
-*.bak*
-*.tmp
-*.log
-*.zip
-checkpoint.csv
-climatology.log
-backup/
-*.aux
-*.toc
-*.lof
-*.lot
-*.out
-*.fls
-*.fdb_latexmk
-*.synctex.gz
-site/
-.coverage/
-.mypy_cache/
-.ruff_cache/

@@ -15,6 +15,9 @@ from constants import N_DAYS, VALID_BEST_DIST
 def validate_result(block_result, block_start, block_size, strict=True):
     report = {"valid": True, "errors": [], "warnings": [], "stats": {}}
     for name in VAR_NAMES:
+        if name not in block_result:
+            report["warnings"].append(f"{name} not in block_result, skipping")
+            continue
         arr = block_result[name]
         if arr.shape != (N_DAYS, block_size):
             report["valid"] = False

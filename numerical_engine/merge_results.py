@@ -1,59 +1,40 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-numerical_engine/merge_results.py
-جمع‌آوری نتایج ایستگاه‌ها با پشتیبانی از موازی‌سازی
+merge_results.py - ادغام نتایج تحلیل ایستگاه‌ها
 """
 
-import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
-from zarr_schema import create_empty_block_result, VAR_NAMES
 
-def merge_station_result(block_result, station_result, local_idx):
-    for name in VAR_NAMES:
-        block_result[name][:, local_idx] = station_result[name]
 
-def analyze_station_wrapper(args):
-    """wrapper برای استفاده در ThreadPoolExecutor"""
-    station_data, window_table, var_idx, local_idx = args
-    from numerical_engine.analyze_station import analyze_station
-    try:
-        station_result = analyze_station(station_data, window_table, var_idx)
-        return local_idx, station_result
-    except Exception as e:
-        return local_idx, None
-
-def create_and_merge_results(block_data, window_table, var_idx):
+def merge_results(block_result, station_result, station_idx, block_start):
     """
-    پردازش همه ایستگاه‌ها با موازی‌سازی (در صورت فعال بودن)
+    ادغام نتایج یک ایستگاه در نتایج بلوک
+
+    Parameters
+    ----------
+    block_result : dict
+        دیکشنری نتایج بلوک (کلید: نام متغیر، مقدار: آرایه (N_DAYS, block_size))
+    station_result : dict
+        نتایج ایستگاه (کلید: نام متغیر، مقدار: آرایه (N_DAYS,))
+    station_idx : int
+        ایندکس جهانی ایستگاه
+    block_start : int
+        ایندکس شروع بلوک
     """
-    block_size = block_data.shape[0]
-    block_result = create_empty_block_result(block_size)
+    local_idx = station_idx - block_start
 
-    # خواندن تعداد کارگرهای موازی از محیط یا استفاده از پیش‌فرض
-    n_workers = int(os.environ.get("PARALLEL_WORKERS", "4"))
-    use_parallel = os.environ.get("USE_PARALLEL", "1") == "1"
+    for key, value in station_result.items():
+        if key not in block_result:
+            # مقداردهی اولیه با NaN
+            N_DAYS = len(value)
+            block_result[key] = np.full((N_DAYS, block_start + 1), np.nan, dtype=np.float32)
+        # اگر ابعاد ناهماهنگ است، توسعه دهید
+        if block_result[key].shape[1] <= local_idx:
+            # افزایش بعد دوم
+            new_shape = (block_result[key].shape[0], local_idx + 1)
+            new_array = np.full(new_shape, np.nan, dtype=np.float32)
+            new_array[:, :block_result[key].shape[1]] = block_result[key]
+            block_result[key] = new_array
 
-    if not use_parallel or block_size < 50:
-        # حالت سریال (برای بلوک‌های کوچک)
-        for local_idx in range(block_size):
-            station_data = block_data[local_idx]
-            station_result = analyze_station(station_data, window_table, var_idx)
-            merge_station_result(block_result, station_result, local_idx)
-        return block_result
-
-    # حالت موازی
-    args_list = [(block_data[i], window_table, var_idx, i) for i in range(block_size)]
-    completed = 0
-    with ThreadPoolExecutor(max_workers=n_workers) as executor:
-        futures = [executor.submit(analyze_station_wrapper, args) for args in args_list]
-        for future in as_completed(futures):
-            local_idx, station_result = future.result()
-            if station_result is not None:
-                merge_station_result(block_result, station_result, local_idx)
-            completed += 1
-            if completed % 250 == 0:
-                print(f"   ⏳ پردازش {completed}/{block_size} ایستگاه...")
-
-    return block_result
+        # قرار دادن داده‌ها در ستون مربوطه
+        block_result[key][:, local_idx] = value

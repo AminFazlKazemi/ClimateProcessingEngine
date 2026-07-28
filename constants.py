@@ -1,177 +1,157 @@
-#!/usr/bin/env python3
+
 # -*- coding: utf-8 -*-
 """
-constants.py
-============================================
-تعاریف ثابت‌های اصلی برنامه
-تمام مقادیر از config.yaml خوانده می‌شوند.
+constants.py – automatically generated with safe defaults.
 """
 
 import os
 import yaml
 import numpy as np
 
-# =============================================
-# بارگذاری فایل config.yaml
-# =============================================
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
 
 def load_config(path):
+    if not os.path.exists(path):
+        return {}
     with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        return yaml.safe_load(f) or {}
 
 CONFIG = load_config(CONFIG_PATH)
 
 # =============================================
 # ۱. تنظیمات سال و روز
 # =============================================
-YEAR_START = CONFIG["years"]["start"]
-YEAR_END = CONFIG["years"]["end"]
-YEAR_LIST = list(range(YEAR_START, YEAR_END + 1))   # [1369, 1370, ..., 1399]
-N_YEARS = len(YEAR_LIST)                            # 31
-N_DAYS = CONFIG["days"]                             # 366
+YEAR_START = CONFIG.get("years", {}).get("start", 1370)
+YEAR_END = CONFIG.get("years", {}).get("end", 1399)
+YEAR_LIST = list(range(YEAR_START, YEAR_END + 1))
+N_YEARS = len(YEAR_LIST)
+N_DAYS = CONFIG.get("days", 366)
 
 # =============================================
 # ۲. تنظیمات متغیرها
 # =============================================
-VARS = CONFIG["variables"]                          # ['tmin', 'tmean', 'tmax']
-N_VARS = len(VARS)                                  # 3
+VARS = CONFIG.get("variables", ["tmin", "tmean", "tmax"])
+N_VARS = len(VARS)
 VAR_INDEX = {name: idx for idx, name in enumerate(VARS)}
-VAR_INDEX_FOR_FIT = CONFIG["fit_variable_index"]    # معمولاً 1 (tmean)
+VAR_INDEX_FOR_FIT = CONFIG.get("fit_variable_index", 1)
 
 # =============================================
 # ۳. تنظیمات پنجره (Window)
 # =============================================
-WINDOW_DAYS = CONFIG["window_days"]                 # 2 (یعنی ±2 روز)
+WINDOW_DAYS = CONFIG.get("window_days", 2)
+WINDOW_SIZE = 2 * WINDOW_DAYS + 1
+WINDOW_TYPE = CONFIG.get("window_type", "centered")
+MIN_VALID_YEARS = CONFIG.get("min_valid_years", 10)
 
 # =============================================
 # ۴. تنظیمات مسیرها (Paths)
 # =============================================
-PATHS = CONFIG["paths"]
-OUTPUT_DIR = PATHS["output_dir"]
-OUTPUT_ZARR = os.path.join(OUTPUT_DIR, PATHS["output_zarr_name"])
-CHECKPOINT_FILE = os.path.join(OUTPUT_DIR, PATHS["checkpoint_file"])
-ZARR_BASE = PATHS["zarr_base"]
-CALENDAR_FILE = PATHS["calendar_file"]
+PATHS = CONFIG.get("paths", {})
 
 # =============================================
-# ۵. تنظیمات پردازش
+# ۵. تنظیمات پردازش (به‌روز شده با خودکار)
 # =============================================
-BLOCK_SIZE = CONFIG["block_size"]                   # 5000 (پیش‌فرض جدید)
-USE_PARALLEL = CONFIG["use_parallel"]               # True
-CORES = CONFIG["cores"]                             # 6
+USE_PARALLEL = CONFIG.get("use_parallel", True)          # پیش‌فرض: فعال
+BLOCK_SIZE = CONFIG.get("block_size", 30000)              # پیش‌فرض: ۳۰,۰۰۰
+CHUNK_SIZE = CONFIG.get("chunk_size", 500)                # پیش‌فرض: ۵۰۰
+CORES = CONFIG.get("cores", 0)                            # ۰ = تشخیص خودکار (نصف هسته‌ها)
+
+MAX_BLOCKS_IN_MEMORY = CONFIG.get("processing", {}).get("max_blocks_in_memory", 5)
+CHUNK_SIZE_ZARR = CONFIG.get("processing", {}).get("chunk_size", [366, 500])
+COMPRESSION = CONFIG.get("processing", {}).get("compression", "zstd")
+COMPRESSION_LEVEL = CONFIG.get("processing", {}).get("compression_level", 3)
+N_POINTS_MAX = CONFIG.get("processing", {}).get("n_points_max", 40000)
+OUTPUT_PRECISION = CONFIG.get("processing", {}).get("output_precision", "float32")
 
 # =============================================
 # ۶. تنظیمات اعتبارسنجی (Validation)
 # =============================================
-VALIDATION = CONFIG["validation"]
-VALIDATE_AFTER_LOAD = VALIDATION["validate_after_load"]
-VALIDATE_BEFORE_WRITE = VALIDATION["validate_before_write"]
-VALIDATE_EVERY_N_BLOCKS = VALIDATION["validate_every_n_blocks"]
+VALIDATE_AFTER_LOAD = CONFIG.get("validate_after_load", False)
+VALIDATE_BEFORE_WRITE = CONFIG.get("validate_before_write", False)
+VALIDATE_EVERY_N_BLOCKS = CONFIG.get("validate_every_n_blocks", 10)
 
 # =============================================
-# ۷. تنظیمات لاگ (Logging)
+# ۷. تنظیمات لاگ
 # =============================================
-LOG_LEVEL = CONFIG["logging"]["level"]
-LOG_FILE = os.path.join(OUTPUT_DIR, CONFIG["logging"]["log_file"])
-LOG_TIMESTAMPS = CONFIG["logging"]["log_timestamps"]
+LOG_LEVEL = CONFIG.get("logging", {}).get("level", "INFO")
 
 # =============================================
-# ۸. تنظیمات Benchmark
+# ۸. داده‌های اضافی
 # =============================================
-BENCHMARK_ENABLED = CONFIG["benchmark"]["enabled"]
-BENCHMARK_RUN_ON_FIRST = CONFIG["benchmark"]["run_on_first_block"]
-BENCHMARK_TEST_SIZES = CONFIG["benchmark"]["test_block_sizes"]
+DATA_FORMAT = CONFIG.get("data_format", "auto")
+POINT_SAMPLING = CONFIG.get("point_sampling", "all")
+N_SAMPLE_POINTS = CONFIG.get("n_sample_points", 40000)
 
 # =============================================
-# ۹. ثابت‌های عددی و نوع داده
+# ۹. انواع داده‌ها
 # =============================================
+FLOAT_DTYPE = np.float32 if OUTPUT_PRECISION == "float32" else np.float64
 INT_DTYPE = np.int32
-FLOAT_DTYPE = np.float32
 
 # =============================================
-# ۱۰. مقادیر معتبر برای best_dist
+# ۱۰. تنظیمات اضافی (اختیاری)
 # =============================================
-VALID_BEST_DIST = [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+BOOTSTRAP_ENABLED = CONFIG.get("bootstrap", {}).get("enabled", True)
+BOOTSTRAP_ITERATIONS = CONFIG.get("bootstrap", {}).get("n_iterations", 100)
+BOOTSTRAP_CONFIDENCE = CONFIG.get("bootstrap", {}).get("confidence_level", 0.95)
+BOOTSTRAP_SEED = CONFIG.get("bootstrap", {}).get("random_seed", 42)
+
+QUALITY_MIN_SAMPLE = CONFIG.get("quality", {}).get("min_sample_size", 3)
+QUALITY_THRESHOLD_AICC = CONFIG.get("quality", {}).get("threshold_aicc", 1000)
+QUALITY_THRESHOLD_SKEW = CONFIG.get("quality", {}).get("threshold_skew", 5.0)
+QUALITY_DETECT_OUTLIERS = CONFIG.get("quality", {}).get("detect_outliers", False)
+QUALITY_OUTLIER_SIGMA = CONFIG.get("quality", {}).get("outlier_sigma", 4.0)
 
 # =============================================
-# ۱۱. حداقل تعداد مقادیر معتبر برای برازش
+# ۱۱. توزیع‌های فعال
 # =============================================
-MIN_VALID_VALUES = 10
+DISTRIBUTIONS = CONFIG.get("distributions", {})
+NORMAL_MODE_DISTS = DISTRIBUTIONS.get("normal_mode", ["normal", "skew", "bimodal", "pearson"])
+EXTREME_MODE_DISTS = DISTRIBUTIONS.get("extreme_mode", ["normal", "skew", "gev", "bimodal", "pearson"])
 
 # =============================================
-# ۱۲. حداکثر تعداد مقادیر برای برازش (برای window cache)
+# ۱۲. تنظیمات خروجی
 # =============================================
-MAX_VALUES_PER_FIT = 155  # 5 سال × 31 روز = 155
+OUTPUT_FORMAT = CONFIG.get("output", {}).get("format", "zarr")
+OUTPUT_OVERWRITE = CONFIG.get("output", {}).get("overwrite", True)
+OUTPUT_INCLUDE_METADATA = CONFIG.get("output", {}).get("include_metadata", True)
+OUTPUT_INCLUDE_PROVENANCE = CONFIG.get("output", {}).get("include_provenance", True)
 
 # =============================================
-# ۱۳. تعریف توزیع‌ها (برای استفاده در zarr_schema و distributions)
+# ۱۳. تنظیمات بصری‌سازی
 # =============================================
-DISTRIBUTIONS = [
-    {
-        "name": "normal",
-        "params": [
-            ("mean", "float32", "mean"),
-            ("std", "float32", "std"),
-        ],
-        "fit_func": "fit_normal",
-    },
-    {
-        "name": "lognormal",
-        "params": [
-            ("shape", "float32", "shape"),
-            ("loc", "float32", "loc"),
-            ("scale", "float32", "scale"),
-        ],
-        "fit_func": "fit_lognormal",
-    },
-    {
-        "name": "gamma",
-        "params": [
-            ("alpha", "float32", "alpha"),
-            ("loc", "float32", "loc"),
-            ("beta", "float32", "beta"),
-        ],
-        "fit_func": "fit_gamma",
-    },
-    {
-        "name": "weibull",
-        "params": [
-            ("shape", "float32", "shape"),
-            ("loc", "float32", "loc"),
-            ("scale", "float32", "scale"),
-        ],
-        "fit_func": "fit_weibull",
-    },
-]
+VIZ_ENABLED = CONFIG.get("visualization", {}).get("enabled", True)
+VIZ_DIR = CONFIG.get("visualization", {}).get("output_dir", "./visualizations")
+VIZ_FORMATS = CONFIG.get("visualization", {}).get("format", ["png", "pdf"])
+VIZ_INTERACTIVE = CONFIG.get("visualization", {}).get("interactive", True)
+VIZ_MAP_PROJECTION = CONFIG.get("visualization", {}).get("map_projection", "PlateCarree")
+VIZ_DPI = CONFIG.get("visualization", {}).get("dpi", 300)
+
+
+LOG_TIMESTAMPS = True
 
 # =============================================
-# ۱۴. اعتبارسنجی تنظیمات
+# توزیع‌های معتبر
 # =============================================
-def validate_constants():
-    errors = []
-    if N_DAYS not in [365, 366]:
-        errors.append(f"N_DAYS باید 365 یا 366 باشد (فعلاً {N_DAYS})")
-    if VAR_INDEX_FOR_FIT not in range(N_VARS):
-        errors.append(f"VAR_INDEX_FOR_FIT باید بین 0 تا {N_VARS-1} باشد (فعلاً {VAR_INDEX_FOR_FIT})")
-    if not os.path.exists(CALENDAR_FILE):
-        errors.append(f"فایل تقویم وجود ندارد: {CALENDAR_FILE}")
-    if errors:
-        raise ValueError("خطا در تنظیمات:\n" + "\n".join(errors))
-    return True
-
-validate_constants()
+VALID_BEST_DIST = {-1, 0, 1, 2, 3}   # -1: failed, 0: Normal, 1: Skew-Normal, 2: Bimodal, 3: Pearson
 
 # =============================================
-# نمایش اطلاعات (اختیاری)
+# پارامترهای محاسباتی
 # =============================================
-if __name__ == "__main__":
-    print(f"✅ تنظیمات بارگذاری شد:")
-    print(f"   سال‌ها: {YEAR_START} تا {YEAR_END} ({N_YEARS} سال)")
-    print(f"   روزها: {N_DAYS}")
-    print(f"   متغیرها: {VARS} ({N_VARS} متغیر)")
-    print(f"   پنجره: ±{WINDOW_DAYS} روز")
-    print(f"   بلوک‌ها: {BLOCK_SIZE} ایستگاه")
-    print(f"   MIN_VALID_VALUES: {MIN_VALID_VALUES}")
-    print(f"   MAX_VALUES_PER_FIT: {MAX_VALUES_PER_FIT}")
-    print(f"   تعداد توزیع‌ها: {len(DISTRIBUTIONS)}")
+MAX_VALUES_PER_FIT = N_YEARS * WINDOW_SIZE   # حداکثر تعداد مقادیر برای هر برازش
+MIN_VALID_VALUES = 5                         # حداقل تعداد مقادیر معتبر مورد نیاز
+
+# Zarr paths (read from config.yaml)
+INPUT_ZARR_BASE = PATHS.get("input_zarr_base", r"K:\gozareshha\dr vazife\140504 - qc temp\zarr_yearly_monthly")
+ZARR_BASE = PATHS.get("zarr_base", PATHS.get("input_zarr_base", r"K:\gozareshha\dr vazife\140504 - qc temp\zarr_yearly_monthly"))
+
+# Output paths (read from config.yaml)
+OUTPUT_DIR = PATHS.get("output_dir", r"./nature_output")
+OUTPUT_ZARR_NAME = PATHS.get("output_zarr_name", r"climatology_stationwise_final.zarr")
+OUTPUT_ZARR = os.path.join(OUTPUT_DIR, OUTPUT_ZARR_NAME)
+CHECKPOINT_FILE = PATHS.get("checkpoint_file", r"checkpoint.csv")
+CHECKPOINT_PATH = os.path.join(OUTPUT_DIR, CHECKPOINT_FILE)
+LOG_FILE = PATHS.get("log_file", r"climatology.log")
+CACHE_DIR = PATHS.get("cache_dir", r"./cache")
+SAMPLE_DATA_DIR = PATHS.get("sample_data_dir", r"./sample_data")
+CALENDAR_FILE = PATHS.get("calendar_file", r"K:/Temp/needed/calendar.txt")

@@ -14,16 +14,17 @@ import numpy as np
 import xarray as xr
 import pickle
 import hashlib
+import gzip                         # ← اضافه شده برای فشرده‌سازی
 from datetime import datetime
 from typing import Dict, Optional, Tuple, List
 from constants import VARS
 
 # ============================================================================
-# ۱. مدیریت کش (Disk Cache)
+# ۱. مدیریت کش (Disk Cache) – با فشرده‌سازی gzip
 # ============================================================================
 
 class DiskCache:
-    """کش دیسکی برای ذخیره دادههای خوانده شده و کاهش I/O"""
+    """کش دیسکی با فشرده‌سازی gzip – بدون تغییر در نوع داده"""
     def __init__(self, cache_dir="./cache", max_size_gb=10, ttl_hours=24):
         self.cache_dir = cache_dir
         self.max_size_bytes = max_size_gb * 1024**3
@@ -36,33 +37,52 @@ class DiskCache:
 
     def get(self, block_start, block_size, year, month, var):
         key = self._get_cache_key(block_start, block_size, year, month, var)
-        path = os.path.join(self.cache_dir, f"{key}.pkl")
+        path = os.path.join(self.cache_dir, f"{key}.pkl.gz")   # پسوند جدید
+
         if os.path.exists(path):
             mtime = os.path.getmtime(path)
             if (datetime.now().timestamp() - mtime) < self.ttl_seconds:
                 try:
+                    with gzip.open(path, "rb") as f:
+                        return pickle.load(f)
+                except (gzip.BadGzipFile, OSError):
+                    # Fallback برای فایل‌های قدیمی (بدون فشرده‌سازی)
                     with open(path, "rb") as f:
                         return pickle.load(f)
-                except:
-                    pass
         return None
 
     def set(self, block_start, block_size, year, month, var, data):
         key = self._get_cache_key(block_start, block_size, year, month, var)
-        path = os.path.join(self.cache_dir, f"{key}.pkl")
-        total_size = sum(os.path.getsize(os.path.join(self.cache_dir, f)) 
-                         for f in os.listdir(self.cache_dir) 
-                         if f.endswith(".pkl"))
-        if total_size + data.nbytes > self.max_size_bytes:
-            files = sorted([os.path.join(self.cache_dir, f) for f in os.listdir(self.cache_dir) 
-                           if f.endswith(".pkl")], key=os.path.getmtime)
-            while files and total_size + data.nbytes > self.max_size_bytes:
-                os.remove(files.pop(0))
-                total_size = sum(os.path.getsize(os.path.join(self.cache_dir, f)) 
-                                 for f in os.listdir(self.cache_dir) 
-                                 if f.endswith(".pkl"))
-        with open(path, "wb") as f:
-            pickle.dump(data, f)
+        path = os.path.join(self.cache_dir, f"{key}.pkl.gz")   # پسوند جدید
+
+        # محاسبه حجم فعلی کش (هم فایل‌های قدیمی و هم جدید)
+        total_size = sum(
+            os.path.getsize(os.path.join(self.cache_dir, f))
+            for f in os.listdir(self.cache_dir)
+            if f.endswith((".pkl", ".pkl.gz"))
+        )
+
+        # برآورد حجم فشرده‌شده (تقریباً ۳۰٪ حجم اصلی)
+        estimated_compressed_size = data.nbytes * 0.3
+        if total_size + estimated_compressed_size > self.max_size_bytes:
+            files = sorted(
+                [os.path.join(self.cache_dir, f) for f in os.listdir(self.cache_dir)
+                 if f.endswith((".pkl", ".pkl.gz"))],
+                key=os.path.getmtime
+            )
+            while files and total_size + estimated_compressed_size > self.max_size_bytes:
+                removed = files.pop(0)
+                os.remove(removed)
+                total_size = sum(
+                    os.path.getsize(os.path.join(self.cache_dir, f))
+                    for f in os.listdir(self.cache_dir)
+                    if f.endswith((".pkl", ".pkl.gz"))
+                )
+
+        # ذخیره با فشرده‌سازی – داده دقیقاً به همان شکل (مثلاً int16) نوشته می‌شود
+        with gzip.open(path, "wb", compresslevel=6) as f:
+            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 # ============================================================================
 # ۲. شناسایی خودکار فرمت داده (اصلاح‌شده)
