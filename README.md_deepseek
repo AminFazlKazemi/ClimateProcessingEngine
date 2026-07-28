@@ -125,34 +125,16 @@ The engine makes several deliberate trade-offs to achieve its goals:
   **Multi-Variable Support**        Process `tmin`, `tmean`, and `tmax` simultaneously or individually.
   **Normal & Extreme Modes**        Switch between standard 5-day windows and extreme-value (max/min) extraction with automatic GEV activation.
   **Quality Flag System**           Automatically flags low-sample, non-convergence, high-AICC, outlier, and NaN/Inf fits.
-  **Bootstrap Uncertainty**         Estimate parameter confidence intervals (95% CI) for every fit.
-  **Parallel Processing**           Block-based processing with optional multiprocessing, Dask, or Ray backends.
-  **Scalable Storage**              Outputs to Zarr (v3) with Blosc/Zstd compression; NetCDF export also supported.
-  **Checkpoint & Recovery**         Resistant to power failures -- resumes exactly where it stopped.
-  **Sample Data Included**          10 synthetic stations for quick testing and tutorials.
-  **CI/CD Ready**                   GitHub Actions workflows for testing, coverage, and notebook execution.
-  **Comprehensive Documentation**   Sphinx-based docs + Jupyter Notebook tutorials.
-  **Full Provenance Tracking**      Tracks git commit, Python version, config, and execution time.
-  **Out-of-Core Processing**        Handles datasets larger than available RAM.
-  **Spatial Consistency Checks**    Compares neighboring stations to identify anomalous fits.
-  **Temporal Consistency Checks**   Detects unrealistic day-to-day changes in best distribution.
+  **Bootstrap Uncertainty**         Estimate parameter
+## Confidence Intervals
 
-# Target Audience
+The engine computes percentile-based confidence intervals:
 
-  **Audience**                    **Application**
-  ------------------------------- -------------------------------------------------------------
-  **Audience**                    **Application**
-  **Climate Scientists**          Research on climate variability, trends, and extremes
-  **Meteorologists**              Operational weather and climate monitoring
-  **Hydrologists**                Water resource assessment and flood risk analysis
-  **Environmental Researchers**   Ecosystem and environmental impact studies
-  **Agricultural Scientists**     Crop yield modeling and climate adaptation
-  **Geospatial Data Engineers**   Large-scale climate data processing pipelines
-  **Graduate Students**           Academic research and thesis projects
-  **Data Scientists**             Machine learning and statistical modeling with climate data
+$$
+\mathrm{CI}_{95\\%}(\theta) = \left\left[\theta_{(0.025)}, \theta_{(0.975)}\right\right]
+$$
 
-# Installation
-
+Source: https://github.com/AminFazlKazemi/ClimateProcessingEngine
 ## System Requirements
 
   **Component**            **Minimum**                       **Recommended**
@@ -208,9 +190,9 @@ print(f"Data shape: {station_data.shape}")  # (10950, 3) = 30 years * 365 days, 
 
 # Plot temperature for the first 365 days
 plt.figure(figsize=(12, 6))
-plt.plot(station_data[:365, 1], label='tmean', linewidth=2)
-plt.plot(station_data[:365, 0], label='tmin', alpha=0.7)
-plt.plot(station_data[:365, 2], label='tmax', alpha=0.7)
+plt.plot(station_data\left[:365, 1\right], label='tmean', linewidth=2)
+plt.plot(station_data\left[:365, 0\right], label='tmin', alpha=0.7)
+plt.plot(station_data\left[:365, 2\right], label='tmax', alpha=0.7)
 plt.xlabel('Day of Year')
 plt.ylabel('Temperature (°C)')
 plt.title('Station 001 - Daily Temperature')
@@ -227,18 +209,18 @@ plt.show()
 from plugins.distributions.normal import NormalDistribution
 
 # Extract tmean data for the first 30 years
-tmean_data = station_data[:365, 1]  # First 365 days (one year)
+tmean_data = station_data\left[:365, 1\right]  # First 365 days (one year)
 
 # Fit Normal distribution
 dist = NormalDistribution()
 result = dist.fit(tmean_data)
 
 print("Normal Distribution Fit Results:")
-print(f" Mean (μ): {result['p1']:.3f}")
-print(f" Std Dev (σ): {result['p2']:.3f}")
-print(f" Log-likelihood: {result['loglik']:.3f}")
-print(f" AICc: {result['aicc']:.3f}")
-print(f" BIC: {result['bic']:.3f}")
+print(f" Mean (μ): {result\left['p1'\right]:.3f}")
+print(f" Std Dev (σ): {result\left['p2'\right]:.3f}")
+print(f" Log-likelihood: {result\left['loglik'\right]:.3f}")
+print(f" AICc: {result\left['aicc'\right]:.3f}")
+print(f" BIC: {result\left['bic'\right]:.3f}")
 ```
 
 ## Fitting All Distributions
@@ -249,21 +231,21 @@ from core.engine.distribution_plugin import DistributionPlugin
 
 # Load all plugin distributions
 plugins = load_plugins()
-print(f"Loaded {len(plugins)} distributions: {[p.name for p in plugins.values()]}")
+print(f"Loaded {len(plugins)} distributions: {\left[p.name for p in plugins.values()\right]}")
 
 # Fit all distributions to the data
 results = {}
 for code, dist in plugins.items():
     try:
         res = dist.fit(tmean_data)
-        results[dist.name] = res
+        results\left[dist.name\right] = res
         print(f"{dist.name}: AICc = {res.get('aicc', np.nan):.3f}")
     except Exception as e:
         print(f"{dist.name}: Failed - {str(e)}")
 
 # Find the best distribution (minimum AICc)
-best_dist = min(results.items(), key=lambda x: x[1].get('aicc', np.inf))
-print(f"\n✅ Best distribution: {best_dist[0]} (AICc = {best_dist[1]['aicc']:.3f})")
+best_dist = min(results.items(), key=lambda x: x\left[1\right].get('aicc', np.inf))
+print(f"\n✅ Best distribution: {best_dist\left[0\right]} (AICc = {best_dist\left[1\right]\left['aicc'\right]:.3f})")
 ```
 
 # Project Structure
@@ -369,7 +351,7 @@ time:
 processing:
   block_size: 1000
   max_blocks_in_memory: 5
-  chunk_size: [100, 100]
+  chunk_size: \left[100, 100\right]
   compression: "zstd"
   compression_level: 3
   n_points_max: 40000
@@ -465,7 +447,7 @@ output:
 visualization:
   enabled: true
   output_dir: "./visualizations"
-  format: ["png", "pdf"]
+  format: \left["png", "pdf"\right]
   interactive: true
   map_projection: "PlateCarree"
   dpi: 300
@@ -485,16 +467,16 @@ ds = xr.open_zarr("climatology_stationwise_final.zarr", consolidated=False)
 print(list(ds.data_vars))
 
 # Access the best distribution
-best_dist = ds['best_dist'].values  # Shape: (n_points, 366)
+best_dist = ds\left['best_dist'\right].values  # Shape: (n_points, 366)
 
 # Access the mean temperature
-mean_temp = ds['mean'].values  # Shape: (n_points, 366)
+mean_temp = ds\left['mean'\right].values  # Shape: (n_points, 366)
 
 # Access station metadata
-station_ids = ds['stationid'].values
-lats = ds['lat'].values
-lons = ds['lon'].values
-elevs = ds['elev'].values
+station_ids = ds\left['stationid'\right].values
+lats = ds\left['lat'\right].values
+lons = ds\left['lon'\right].values
+elevs = ds\left['elev'\right].values
 
 # Close the dataset
 ds.close()
@@ -577,7 +559,7 @@ The Generalized Extreme Value (GEV) distribution is the limit
 distribution of block maxima (or minima). It is only active in extreme
 value mode. The PDF is:
 
-$$f(x) = \frac{1}{\sigma} \left[1 + \xi \frac{x-\mu}{\sigma}\right]^{-1/\xi - 1} \exp\left(-\left[1 + \xi \frac{x-\mu}{\sigma}\right]^{-1/\xi}\right)$$
+$$f(x) = \frac{1}{\sigma} \left\left[1 + \xi \frac{x-\mu}{\sigma}\right\right]^{-1/\xi - 1} \exp\left(-\left\left[1 + \xi \frac{x-\mu}{\sigma}\right\right]^{-1/\xi}\right)$$
 
 **Parameters:**
 
@@ -867,9 +849,9 @@ fitted parameters.
 
 ## Confidence Intervals
 
-The engine calculates percentile-based confidence intervals:
+The engine computes percentile-based confidence intervals:
 
-$$\text{CI}_{95\%}(\theta) = [\theta_{(0.025)}, \theta_{(0.975)}]$$
+$$\mathrm{CI}_{95\\%}(\theta) = \left[\theta_{(0.025)}, \theta_{(0.975)}\right]$$
 
 where $\theta_{(p)}$ is the $p$-th percentile of the bootstrap
 distribution.
@@ -929,7 +911,7 @@ from core.engine.distribution_plugin import DistributionPlugin
 class MyDistribution(DistributionPlugin):
     name = "MyDistribution"
     code = 5
-    params = ["p1", "p2", "p3"]
+    params = \left["p1", "p2", "p3"\right]
     n_params = 3
     supports_negative = True
     supports_zero = True
@@ -960,7 +942,7 @@ class DistributionPlugin:
     # Required class attributes
     name = None  # Display name (string)
     code = None  # Unique integer code
-    params = []  # List of parameter names (strings)
+    params = \left[\right]  # List of parameter names (strings)
     n_params = 0  # Number of parameters (integer)
 
     # Optional class attributes
@@ -986,7 +968,7 @@ class DistributionPlugin:
     # Optional methods
     def initial_guess(self, data):
         """Provide initial parameter guesses for optimization."""
-        return [np.mean(data), np.std(data)]
+        return \left[np.mean(data), np.std(data)\right]
 
     def pdf(self, x, params):
         """Probability density function."""
@@ -1039,17 +1021,17 @@ from core.interfaces.data_adapter import StationDataAdapter
 
 adapter = StationDataAdapter(
     zarr_base="M:/temp/zarr_input",
-    year_list=[1370, 1371, ..., 1399],
+    year_list=\left[1370, 1371, ..., 1399\right],
     cache_enabled=True,
     max_points=40000
 )
 
 # Get coordinates
 coords = adapter.get_coords()
-station_ids = coords['stationid']
-lats = coords['lat']
-lons = coords['lon']
-elevs = coords['elev']
+station_ids = coords\left['stationid'\right]
+lats = coords\left['lat'\right]
+lons = coords\left['lon'\right]
+elevs = coords\left['elev'\right]
 
 # Load a block of data
 data_block = adapter.load_block(
@@ -1070,7 +1052,7 @@ from core.interfaces.data_adapter import GriddedDataAdapter
 
 adapter = GriddedDataAdapter(
     zarr_base="M:/temp/zarr_input",
-    year_list=[1370, ..., 1399],
+    year_list=\left[1370, ..., 1399\right],
     cache_enabled=True,
     max_points=40000,
     lat_min=25.0,
