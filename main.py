@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 main.py - نقطه ورود اصلی با Data Adapter و Checkpoint صحیح
-نسخه ۳.۰
+نسخه ۳.۱ - همراه با تولید نقشه‌های صدک
 """
 
 import os
@@ -13,7 +13,7 @@ import yaml
 import gc
 import numpy as np
 import xarray as xr
-import logging  # <-- اضافه شد
+import logging
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -53,6 +53,12 @@ LAT_MAX = CONFIG.get("lat_max", None)
 LON_MIN = CONFIG.get("lon_min", None)
 LON_MAX = CONFIG.get("lon_max", None)
 
+# تنظیمات تولید نقشه‌های صدک (از config.yaml خوانده می‌شود)
+GENERATE_MAPS = CONFIG.get("generate_percentile_maps", True)
+PERCENTILES = CONFIG.get("percentiles", [0.9, 0.95, 0.99])
+MAP_DAYS = CONFIG.get("map_days", [1, 91, 181, 271])  # روزهای نمونه
+MAP_OUTPUT_DIR = CONFIG.get("map_output_dir", os.path.join(OUTPUT_DIR, "percentile_maps"))
+
 # ============================================================================
 # تنظیمات Dask
 # ============================================================================
@@ -70,7 +76,6 @@ if USE_PARALLEL:
 # تابع اصلی
 # ============================================================================
 
-
 def warmup_numba():
     """پیش‌کامپایل Numba قبل از شروع پردازش"""
     try:
@@ -84,22 +89,47 @@ def warmup_numba():
         logger.warning(f"   ⚠️ Warmup failed: {e}")
 
 
+def generate_percentile_maps(zarr_path, output_dir, percentiles, days=None):
+    """
+    تولید نقشه‌های صدک از خروجی Zarr
+    """
+    try:
+        from generate_percentile_maps import compute_percentile_map
+        logger.info("🗺️ Generating percentile maps...")
+        compute_percentile_map(
+            zarr_path=zarr_path,
+            percentiles=percentiles,
+            output_dir=output_dir,
+            days=days
+        )
+        logger.info("✅ Percentile maps generated successfully.")
+    except ImportError as e:
+        logger.warning(f"⚠️ Could not import generate_percentile_maps: {e}")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to generate percentile maps: {e}")
+
+
 def main():
     # Warmup Numba (pre-compile JIT)
     warmup_numba()
 
-    # ===== فقط این خط اضافه شد =====
     logger.setLevel(logging.INFO)
-    # ===============================
     
     logger.info("=" * 80)
-    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v3.0")
+    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v3.1")
     logger.info(f"   Years: {YEAR_START}–{YEAR_END} ({N_YEARS} years)")
     logger.info(f"   Days: {N_DAYS}")
     logger.info(f"   Output: {OUTPUT_ZARR}")
     logger.info(f"   Block Size: {BLOCK_SIZE}")
     logger.info(f"   Max Points: {N_POINTS_MAX}")
     logger.info(f"   Data Format: {DATA_FORMAT}")
+    if GENERATE_MAPS:
+        logger.info(f"   🗺️  Percentile maps: enabled")
+        logger.info(f"      Percentiles: {PERCENTILES}")
+        logger.info(f"      Days: {MAP_DAYS}")
+        logger.info(f"      Output: {MAP_OUTPUT_DIR}")
+    else:
+        logger.info(f"   🗺️  Percentile maps: disabled")
     logger.info("=" * 80)
 
     try:
@@ -146,6 +176,7 @@ def main():
         else:
             import zarr
             root = zarr.open(OUTPUT_ZARR, mode="a")
+            logger.info(f"   📂 Existing Zarr opened: {OUTPUT_ZARR}")
 
         # ============================================================
         # ۴. Checkpoint
@@ -166,7 +197,6 @@ def main():
         total_blocks = (n_stations + BLOCK_SIZE - 1) // BLOCK_SIZE
         logger.info(f"   Total blocks: {total_blocks}")
 
-    # Warmup Numba
         for block_idx in range(start_block, total_blocks):
             block_start = block_idx * BLOCK_SIZE
             block_end = min(block_start + BLOCK_SIZE, n_stations)
@@ -201,19 +231,30 @@ def main():
                 raise
 
         # ============================================================
-        # ۶. نهاییسازی
+        # ۶. نهایی‌سازی
         # ============================================================
         logger.info("Finalizing Zarr...")
         ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
         ds = add_coords_and_metadata(ds, station_ids, lons, lats, elevs)
         ds.attrs["source"] = f"Years {YEAR_START}-{YEAR_END}"
-        ds.attrs["version"] = "3.0"
+        ds.attrs["version"] = "3.1"
         ds.attrs["data_format"] = DATA_FORMAT
         ds.to_zarr(OUTPUT_ZARR, mode="a", consolidated=False)
         ds.close()
 
         delete_checkpoint()
         logger.info("✅ PROCESSING COMPLETED SUCCESSFULLY")
+
+        # ============================================================
+        # ۷. تولید نقشه‌های صدک (اختیاری)
+        # ============================================================
+        if GENERATE_MAPS:
+            generate_percentile_maps(
+                zarr_path=OUTPUT_ZARR,
+                output_dir=MAP_OUTPUT_DIR,
+                percentiles=PERCENTILES,
+                days=MAP_DAYS if MAP_DAYS else None
+            )
 
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)

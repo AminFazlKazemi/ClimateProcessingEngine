@@ -18,7 +18,7 @@ from numerical_engine.merge_results import merge_station_result
 from result_pipeline.validate_result import validate_result
 from result_pipeline.write_block import write_block_safe
 from constants import VARS, VAR_INDEX_FOR_FIT, N_DAYS, INT_DTYPE
-from zarr_schema import VAR_NAMES, VAR_DTYPES
+from zarr_schema import VAR_NAMES, VAR_DTYPES, create_empty_block_result
 
 
 def process_block(block_start, block_end, block_idx, file_map, doy_table, window_table,
@@ -149,7 +149,10 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
     # ۴. تحلیل آماری هر ایستگاه
     # ============================================================
     logger.info("   ⚙️ Analyzing...")
-    block_result = {}
+    
+    # ✅ ایجاد block_result با ابعاد صحیح (N_DAYS, block_size)
+    block_result = create_empty_block_result(block_size)
+    
     N_YEARS = len(year_list)
     N_DAYS_LOCAL = 366
     n_vars = len(VARS)
@@ -196,7 +199,7 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
         try:
             result = analyze_station(station_data, year_list, window_table, var_idx)
             if result is not None:
-                # ✅ اصلاح: ارسال station_idx و block_start به جای local_idx
+                # ✅ merge_station_result فقط مقداردهی می‌کند (آرایه‌ها از قبل وجود دارند)
                 merge_station_result(block_result, result, station_idx, block_start)
         except Exception as e:
             logger.warning(f"   ⚠️ Station {station_idx} failed: {e}")
@@ -210,18 +213,6 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
 
     pbar_stations.close()
     times["analyze"] = time.time() - t_analyze_start
-
-    # ============================================================
-    # ۴.۵. پر کردن کلیدهای گم‌شده در block_result
-    # ============================================================
-    logger.info("   🔧 Ensuring all expected keys exist in block_result...")
-    for name in VAR_NAMES:
-        if name not in block_result:
-            dtype = VAR_DTYPES[name]
-            if dtype == INT_DTYPE:
-                block_result[name] = np.full((N_DAYS, block_size), -1, dtype=dtype)
-            else:
-                block_result[name] = np.full((N_DAYS, block_size), np.nan, dtype=dtype)
 
     # ============================================================
     # ۵. اعتبارسنجی نتایج
