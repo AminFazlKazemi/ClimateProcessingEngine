@@ -227,7 +227,7 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
     # ۵. اعتبارسنجی نتایج
     # ============================================================
     if block_result:
-        validate_result(block_result, block_start, block_end)
+        validate_result(block_result, block_start, block_size)
 
     # ============================================================
     # ۶. نوشتن در Zarr

@@ -20,22 +20,13 @@ from constants import (
 # ۱. ساخت جدول پنجره‌ها (Window Table)
 # =============================================
 def build_window_table():
-    """ساخت جدول روزهای پنجره برای هر روز سال"""
+    N_DAYS_LOCAL = 366
+    WINDOW_DAYS_LOCAL = 2
     window_table = []
-    for day in range(N_DAYS):  # 0-based day indices
-        window = [(day + offset) % N_DAYS for offset in range(-WINDOW_DAYS, WINDOW_DAYS + 1)]
+    for day in range(N_DAYS_LOCAL):
+        window = [(day + offset) % N_DAYS_LOCAL for offset in range(-WINDOW_DAYS_LOCAL, WINDOW_DAYS_LOCAL + 1)]
         window_table.append(window)
-    for doy in range(N_DAYS):
-        indices = []
-        for d in range(doy - WINDOW_DAYS, doy + WINDOW_DAYS + 1):
-            # تنظیم دامنه روز (0 تا N_DAYS-1)
-            d_adj = d % N_DAYS
-            if d_adj < 0:
-                d_adj += N_DAYS
-            indices.append(d_adj)
-        window_table.append(indices)
     return window_table
-
 # =============================================
 # ۲. ساخت نقشه فایل‌ها (File Map)
 # =============================================

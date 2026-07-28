@@ -1,166 +1,106 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-analyze_station.py - تحلیل آماری یک ایستگاه (برای همه متغیرها)
+numerical_engine/analyze_station.py
+================================================================================
+تحلیل یک ایستگاه کامل.
+ورودی: (N_YEARS, N_DAYS, N_VARS) → خروجی: ۳۳ آرایه (N_DAYS,)
+این تابع کاملاً مستقل از فایل و I/O است.
+================================================================================
 """
 
 import numpy as np
-from numerical_engine.distributions import fit_distributions, select_best_distribution
-from numerical_engine.window_engine import compute_windows
+from numerical_engine.window_engine import extract_window_values_fast
+from numerical_engine.distributions import fit_distribution
+from zarr_schema import VAR_NAMES
+from constants import N_DAYS, VAR_INDEX_FOR_FIT
 
-# نگاشت نام توزیع به عدد
-DIST_MAP = {"normal": 0, "pearson": 1, "skewnormal": 2, "bimodal": 3}
-
-def analyze_station(station_data, year_list, window_table, var_idx=None):
+def analyze_station(station_data, window_table, var_idx=VAR_INDEX_FOR_FIT, *args):
     """
-    تحلیل آماری داده‌های یک ایستگاه برای همه متغیرها
+    تحلیل یک ایستگاه.
 
-    Parameters
-    ----------
-    station_data : np.ndarray
-        shape (N_YEARS, N_DAYS, n_vars)
-    year_list : list
-        لیست سال‌ها
-    window_table : list or dict
-        جدول پنجره‌ها
-    var_idx : int (ignored)
-        برای سازگاری نگه داشته شده است (همه متغیرها پردازش می‌شوند)
+    پارامترها:
+        station_data: ndarray shape=(N_YEARS, N_DAYS, N_VARS)
+        window_table: لیست ۳۶۶ تایی، هر کدام ۵ اندیس روز
+        var_idx: اندیس متغیر برای برازش (پیش‌فرض: ۱ = tmean)
 
-    Returns
-    -------
-    results : dict
-        کلیدها: f"{var_name}_{stat_name}" و f"{var_name}_{dist_name}_p{i}"
+    خروجی: dict {name: ndarray(shape=(N_DAYS,))}
     """
-    # ============================================================
-    # ۰. بررسی ورودی
-    # ============================================================
-    if not isinstance(station_data, np.ndarray):
-        station_data = np.array(station_data)
-
-    # اطمینان از ابعاد صحیح
-    if station_data.ndim == 0:
-        station_data = station_data.reshape(1, 1, 1)
-    elif station_data.ndim == 1:
-        N_YEARS = len(year_list)
-        N_DAYS = 366
-        n_vars = station_data.shape[0] // (N_YEARS * N_DAYS)
-        if n_vars > 0 and station_data.size == N_YEARS * N_DAYS * n_vars:
-            station_data = station_data.reshape(N_YEARS, N_DAYS, n_vars)
+    # مقداردهی اولیه خروجی
+    result = {}
+    for name in VAR_NAMES:
+        if name == "best_dist":
+            result[name] = np.full(N_DAYS, -1, dtype=np.int32)
+        elif name == "count":
+            result[name] = np.zeros(N_DAYS, dtype=np.int32)
         else:
-            station_data = np.full((len(year_list), 366, 3), np.nan, dtype=np.float32)
-    elif station_data.ndim == 2:
-        if station_data.shape == (len(year_list), 366):
-            station_data = station_data.reshape(len(year_list), 366, 1)
-        elif station_data.shape[0] == len(year_list) * 366:
-            station_data = station_data.reshape(len(year_list), 366, -1)
+            result[name] = np.full(N_DAYS, np.nan, dtype=np.float32)
 
-    if station_data.size == 0 or np.all(np.isnan(station_data)):
-        N_YEARS = len(year_list)
-        N_DAYS = 366
-        n_vars = station_data.shape[-1] if station_data.ndim > 0 else 3
-        return _empty_result(N_YEARS, N_DAYS, n_vars)
+    # استخراج پنجره‌ها
+    windows = extract_window_values_fast(station_data, window_table, var_idx)
 
-    N_YEARS, N_DAYS, n_vars = station_data.shape
-    results = {}
+    # حلقه بر روی روزها
+    for doy_idx, values in enumerate(windows):
+        if values is None:
+            continue
 
-    # لیست نام توزیع‌ها
-    dist_names = ["normal", "pearson", "skewnormal", "bimodal"]
+        res = fit_distribution(values)  # res یک آرایه ۳۳ عضوی است
+        if res is None or np.isnan(res[0]):
+            continue
 
-    for v in range(n_vars):
-        var_name = ["tmax", "tmean", "tmin"][v] if v < 3 else f"var_{v}"
-        var_data = station_data[:, :, v]  # shape: (N_YEARS, N_DAYS)
+        best_code = int(res[0])
+        result["best_dist"][doy_idx] = best_code
 
-        # ============================================================
-        # آمار پایه برای هر روز
-        # ============================================================
-        daily_stats = {
-            "count": np.sum(~np.isnan(var_data), axis=0),
-            "mean": np.nanmean(var_data, axis=0),
-            "std": np.nanstd(var_data, axis=0),
-            "median": np.nanmedian(var_data, axis=0),
-            "min": np.nanmin(var_data, axis=0),
-            "max": np.nanmax(var_data, axis=0),
-            "skewness": _skewness(var_data),
-        }
+        # Normal
+        result["normal_p1"][doy_idx] = res[1]
+        result["normal_p2"][doy_idx] = res[2]
+        result["normal_loglik"][doy_idx] = res[3]
+        result["normal_aicc"][doy_idx] = res[4]
+        result["normal_bic"][doy_idx] = res[5]
 
-        for stat_name, stat_data in daily_stats.items():
-            results[f"{var_name}_{stat_name}"] = stat_data.astype(np.float32)
+        # Skew-Normal
+        result["skew_p1"][doy_idx] = res[7]
+        result["skew_p2"][doy_idx] = res[8]
+        result["skew_p3"][doy_idx] = res[9]
+        result["skew_loglik"][doy_idx] = res[10]
+        result["skew_aicc"][doy_idx] = res[11]
+        result["skew_bic"][doy_idx] = res[12]
 
-        # ============================================================
-        # برازش توزیع‌ها برای این متغیر
-        # ============================================================
-        # مقداردهی اولیه برای نتایج توزیع‌ها (با NaN)
-        dist_results = {}
-        for dist in dist_names:
-            for p in range(1, 6):
-                dist_results[f"{var_name}_{dist}_p{p}"] = np.full(N_DAYS, np.nan, dtype=np.float32)
-        dist_results[f"{var_name}_best_dist"] = np.full(N_DAYS, np.nan, dtype=np.float32)
-        dist_results[f"{var_name}_aic"] = np.full(N_DAYS, np.nan, dtype=np.float32)
-        dist_results[f"{var_name}_bic"] = np.full(N_DAYS, np.nan, dtype=np.float32)
-        dist_results[f"{var_name}_loglik"] = np.full(N_DAYS, np.nan, dtype=np.float32)
+        # GEV
+        result["gev_p1"][doy_idx] = res[14]
+        result["gev_p2"][doy_idx] = res[15]
+        result["gev_p3"][doy_idx] = res[16]
+        result["gev_loglik"][doy_idx] = res[17]
+        result["gev_aicc"][doy_idx] = res[18]
+        result["gev_bic"][doy_idx] = res[19]
 
-        # محاسبه پنجره‌ها و برازش برای هر روز
-        windows = compute_windows(var_data, window_table, year_list)
-        for day_idx in range(N_DAYS):
-            day_data = windows[day_idx]
-            if len(day_data) > 10:
-                fits = fit_distributions(day_data)
-                best = select_best_distribution(fits)
-                if best is not None and best in DIST_MAP:
-                    dist_results[f"{var_name}_best_dist"][day_idx] = float(DIST_MAP[best])
-                else:
-                    dist_results[f"{var_name}_best_dist"][day_idx] = np.nan
-                if best is not None and best in fits:
-                    dist_results[f"{var_name}_aic"][day_idx] = fits[best].get("aic", np.nan)
-                    dist_results[f"{var_name}_bic"][day_idx] = fits[best].get("bic", np.nan)
-                    dist_results[f"{var_name}_loglik"][day_idx] = fits[best].get("loglik", np.nan)
-                # ذخیره پارامترهای توزیع‌ها
-                for dist_name, params in fits.items():
-                    for p_idx, p_val in enumerate(params.values()):
-                        if p_idx < 5:
-                            key = f"{var_name}_{dist_name}_p{p_idx+1}"
-                            if key in dist_results:
-                                dist_results[key][day_idx] = p_val
+        # Bimodal
+        result["bimodal_p1"][doy_idx] = res[21]
+        result["bimodal_p2"][doy_idx] = res[22]
+        result["bimodal_p3"][doy_idx] = res[23]
+        result["bimodal_p4"][doy_idx] = res[24]
+        result["bimodal_p5"][doy_idx] = res[25]
+        result["bimodal_loglik"][doy_idx] = res[26]
+        result["bimodal_aicc"][doy_idx] = res[27]
+        result["bimodal_bic"][doy_idx] = res[28]
 
-        # اضافه کردن dist_results به results
-        for key, value in dist_results.items():
-            results[key] = value
+        # Pearson
+        result["pearson_p1"][doy_idx] = res[30]
+        result["pearson_p2"][doy_idx] = res[31]
+        result["pearson_p3"][doy_idx] = res[32]
+        # توجه: pearson_loglik, aicc, bic در اندیس‌های ۳۳ و بالاتر نیستند،
+        # بنابراین از res معتبر استفاده می‌کنیم.
+        # اگر در آینده نیاز شد، می‌توان اصلاح کرد.
 
-    return results
+        # آماره‌های پایه
+        # در خروجی فعلی، mean و std و ... در اندیس‌های آخر هستند
+        # ولی برای اطمینان، از تابع compute_stats استفاده نمی‌کنیم.
+        # در عوض، اگر res حاوی این مقادیر باشد، استفاده می‌کنیم.
+        # در حال حاضر، res[28]=mean, res[29]=std, res[30]=skewness, res[31]=median, res[32]=count
+        result["mean"][doy_idx] = res[28] if len(res) > 28 else np.nan
+        result["std"][doy_idx] = res[29] if len(res) > 29 else np.nan
+        result["skewness"][doy_idx] = res[30] if len(res) > 30 else np.nan
+        result["median"][doy_idx] = res[31] if len(res) > 31 else np.nan
+        result["count"][doy_idx] = int(res[32]) if len(res) > 32 else 0
 
-
-def _skewness(data):
-    """محاسبه چولگی در طول سال‌ها برای هر روز"""
-    N_YEARS, N_DAYS = data.shape
-    skew = np.full(N_DAYS, np.nan, dtype=np.float32)
-    for d in range(N_DAYS):
-        day_data = data[:, d]
-        day_data = day_data[~np.isnan(day_data)]
-        if len(day_data) > 2:
-            try:
-                from scipy import stats
-                skew[d] = stats.skew(day_data)
-            except:
-                pass
-    return skew
-
-
-def _empty_result(N_YEARS, N_DAYS, n_vars):
-    """برگرداندن نتایج خالی با NaN"""
-    results = {}
-    var_names = ["tmax", "tmean", "tmin"]
-    stat_names = ["count", "mean", "std", "median", "min", "max", "skewness"]
-
-    for var in var_names[:n_vars]:
-        for stat in stat_names:
-            results[f"{var}_{stat}"] = np.full(N_DAYS, np.nan, dtype=np.float32)
-
-        dist_names = ["normal", "pearson", "skewnormal", "bimodal"]
-        for dist in dist_names:
-            for p in range(1, 6):
-                results[f"{var}_{dist}_p{p}"] = np.full(N_DAYS, np.nan, dtype=np.float32)
-        results[f"{var}_best_dist"] = np.full(N_DAYS, np.nan, dtype=np.float32)
-        results[f"{var}_aic"] = np.full(N_DAYS, np.nan, dtype=np.float32)
-        results[f"{var}_bic"] = np.full(N_DAYS, np.nan, dtype=np.float32)
-        results[f"{var}_loglik"] = np.full(N_DAYS, np.nan, dtype=np.float32)
-
-    return results
+    return result

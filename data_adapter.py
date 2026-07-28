@@ -31,8 +31,8 @@ class DiskCache:
         self.ttl_seconds = ttl_hours * 3600
         os.makedirs(cache_dir, exist_ok=True)
 
-    def _get_cache_key(self, block_start, block_size, year, month, var):
-        key_str = f"{block_start}_{block_size}_{year}_{month}_{var}"
+    def _get_cache_key(self, station_start, station_end, year, month, var):
+        key_str = f"{station_start}_{station_end}_{year}_{month}_{var}"
         return hashlib.md5(key_str.encode()).hexdigest()
 
     def get(self, block_start, block_size, year, month, var):
@@ -250,7 +250,7 @@ class StationDataAdapter(BaseDataAdapter):
         if key not in self.file_map:
             return None
         if self.cache:
-            cached = self.cache.get(block_start, block_size, year_idx, month, var_idx)
+            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, var_idx)
             if cached is not None:
                 return cached
 
@@ -276,7 +276,7 @@ class StationDataAdapter(BaseDataAdapter):
 
         ds.close()
         if self.cache:
-            self.cache.set(block_start, block_size, year_idx, month, var_idx, arr_block)
+            self.cache.set(block_start, block_start + block_size, year_idx, month, var_idx, arr_block)
         return arr_block
 
     def load_block_all_vars(self, block_start, block_size, year_idx, month):
@@ -286,7 +286,7 @@ class StationDataAdapter(BaseDataAdapter):
             return None
 
         if self.cache:
-            cached = self.cache.get(block_start, block_size, year_idx, month, "all_vars")
+            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, "all_vars")
             if cached is not None:
                 return cached
 
@@ -321,7 +321,7 @@ class StationDataAdapter(BaseDataAdapter):
 
         ds.close()
         if self.cache and combined is not None:
-            self.cache.set(block_start, block_size, year_idx, month, "all_vars", combined)
+            self.cache.set(block_start, block_start + block_size, year_idx, month, "all_vars", combined)
         return combined
 
     def get_coords(self):
@@ -406,7 +406,7 @@ class GriddedDataAdapter(BaseDataAdapter):
         if key not in self.file_map:
             return None
         if self.cache:
-            cached = self.cache.get(block_start, block_size, year_idx, month, var_idx)
+            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, var_idx)
             if cached is not None:
                 return cached
 
@@ -429,7 +429,7 @@ class GriddedDataAdapter(BaseDataAdapter):
         arr_block = arr[:, block_start:block_start + block_size]
         ds.close()
         if self.cache:
-            self.cache.set(block_start, block_size, year_idx, month, var_idx, arr_block)
+            self.cache.set(block_start, block_start + block_size, year_idx, month, var_idx, arr_block)
         return arr_block
 
     def load_block_all_vars(self, block_start, block_size, year_idx, month):
@@ -437,7 +437,7 @@ class GriddedDataAdapter(BaseDataAdapter):
         if key not in self.file_map:
             return None
         if self.cache:
-            cached = self.cache.get(block_start, block_size, year_idx, month, "all_vars")
+            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, "all_vars")
             if cached is not None:
                 return cached
 
@@ -469,7 +469,7 @@ class GriddedDataAdapter(BaseDataAdapter):
 
         ds.close()
         if self.cache and combined is not None:
-            self.cache.set(block_start, block_size, year_idx, month, "all_vars", combined)
+            self.cache.set(block_start, block_start + block_size, year_idx, month, "all_vars", combined)
         return combined
 
     def get_coords(self):
