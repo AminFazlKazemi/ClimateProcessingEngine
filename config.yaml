@@ -1,124 +1,75 @@
-
-# ============================================================
-# تنظیمات اصلی (ریشه) – خوانده شده توسط constants.py
-# ============================================================
-
-# فعال‌سازی پردازش موازی (برای استفاده از تمام هسته‌ها)
-use_parallel: true
-
-# تعداد ایستگاه در هر بلوک (بارگذاری یکجا در حافظه)
-# با ۳۲ گیگابایت رم، ۳۰,۰۰۰ ایستگاه حدود ۳-۴ گیگابایت حافظه مصرف می‌کند
-block_size: 30000
-
-# اندازه‌ی هر دسته برای پردازش موازی (هر دسته بین کارگرها تقسیم می‌شود)
+block_size: 5000
+bootstrap:
+  confidence_level: 0.95
+  enabled: true
+  n_iterations: 100
+  random_seed: 42
 chunk_size: 500
-
-# تعداد کارگرهای موازی (۰ = تشخیص خودکار: نصف هسته‌های منطقی)
 cores: 0
-
-# اعتبارسنجی (غیرفعال برای سرعت بیشتر)
+days: 366
+distributions:
+  extreme_mode:
+  - normal
+  - skew
+  - gev
+  - bimodal
+  - pearson
+  normal_mode:
+  - normal
+  - skew
+  - bimodal
+  - pearson
+fit_variable_index: 1
+logging:
+  console_output: true
+  file_output: true
+  level: INFO
+min_valid_years: 10
+n_sample_points: 40000
+output:
+  format: zarr
+  include_metadata: true
+  include_provenance: true
+  overwrite: true
+parallel:
+  backend: multiprocessing
+  chunk_size: 100
+  enabled: true
+  max_workers: 14
+paths:
+  cache_dir: ./cache
+  calendar_file: K:/Temp/needed/calendar.txt
+  checkpoint_file: checkpoint.csv
+  input_zarr_base: K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly
+  log_file: climatology.log
+  output_dir: I:/climatology_366_rolling
+  output_zarr_name: climatology_stationwise_final.zarr
+  zarr_base: K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly
+point_sampling: all
+processing:
+  chunk_size:
+  - 366
+  - 500
+  compression: zstd
+  compression_level: 3
+  max_blocks_in_memory: 3
+  n_points_max: 40000
+  output_precision: float32
+quality:
+  detect_outliers: false
+  min_sample_size: 3
+  outlier_sigma: 4.0
+  threshold_aicc: 1000
+use_parallel: true
 validate_after_load: false
 validate_before_write: false
 validate_every_n_blocks: 10
-
-# نمونه‌برداری (همه نقاط)
-point_sampling: "all"
-n_sample_points: 40000
-
-# تعداد روزهای سال (۳۶۶ روز برای سال‌های کبیسه)
-days: 366
-
-# متغیرهای ورودی (به ترتیب)
-variables: ["tmin", "tmean", "tmax"]
-
-# ایندکس متغیر برای برازش (۱ = tmean)
-fit_variable_index: 1
-
-# ============================================================
-# تنظیمات پنجره (Window)
-# ============================================================
+variables:
+- tmin
+- tmean
+- tmax
 window_days: 2
-window_type: "centered"
-min_valid_years: 10
-
-# ============================================================
-# مسیرها (paths)
-# ============================================================
-paths:
-  input_zarr_base: "K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly"
-  zarr_base: "K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly"
-  output_dir: "I:/climatology_366_rolling"
-  output_zarr_name: "climatology_stationwise_final.zarr"
-  checkpoint_file: "checkpoint.csv"
-  log_file: "climatology.log"
-  cache_dir: "./cache"
-  calendar_file: "K:/Temp/needed/calendar.txt"
-
-# ============================================================
-# سال‌ها
-# ============================================================
+window_type: centered
 years:
-  start: 1369
   end: 1399
-
-# ============================================================
-# تنظیمات پردازش (برای ماژول‌های دیگر)
-# ============================================================
-processing:
-  max_blocks_in_memory: 3
-  chunk_size: [366, 500]
-  compression: "zstd"
-  compression_level: 3
-  output_precision: "float32"
-  n_points_max: 40000
-
-# ============================================================
-# تنظیمات موازی‌سازی (برای ماژول‌های دیگر)
-# ============================================================
-parallel:
-  enabled: true
-  max_workers: 14
-  backend: "multiprocessing"
-  chunk_size: 100
-
-# ============================================================
-# لاگ
-# ============================================================
-logging:
-  level: "INFO"          # برای سرعت بیشتر از "WARNING" استفاده کنید
-  console_output: true
-  file_output: true
-
-# ============================================================
-# کیفیت (Quality)
-# ============================================================
-quality:
-  min_sample_size: 3
-  threshold_aicc: 1000
-  detect_outliers: false    # غیرفعال برای سرعت
-  outlier_sigma: 4.0
-
-# ============================================================
-# بوت‌استرپ (عدم قطعیت)
-# ============================================================
-bootstrap:
-  enabled: true
-  n_iterations: 100
-  confidence_level: 0.95
-  random_seed: 42
-
-# ============================================================
-# خروجی
-# ============================================================
-output:
-  format: "zarr"
-  overwrite: true
-  include_metadata: true
-  include_provenance: true
-
-# ============================================================
-# توزیع‌های آماری فعال
-# ============================================================
-distributions:
-  normal_mode: ["normal", "skew", "bimodal", "pearson"]
-  extreme_mode: ["normal", "skew", "gev", "bimodal", "pearson"]
+  start: 1369

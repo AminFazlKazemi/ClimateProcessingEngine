@@ -1,40 +1,51 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-merge_results.py - ادغام نتایج تحلیل ایستگاه‌ها
+numerical_engine/merge_results.py
+================================================================================
+جمع‌آوری نتایج ایستگاه‌ها در block_result.
+================================================================================
 """
 
-import numpy as np
+from zarr_schema import create_empty_block_result, VAR_NAMES
 
+def merge_station_result(block_result, station_result, local_idx):
+    """ادغام نتیجه یک ایستگاه در block_result"""
+    for name in VAR_NAMES:
+        block_result[name][:, local_idx] = station_result[name]
 
-def merge_results(block_result, station_result, station_idx, block_start):
+def create_and_merge_results(block_data, window_table, var_idx):
     """
-    ادغام نتایج یک ایستگاه در نتایج بلوک
+    پردازش کامل یک بلوک: تحلیل همه ایستگاه‌ها و جمع‌آوری نتایج.
 
-    Parameters
-    ----------
-    block_result : dict
-        دیکشنری نتایج بلوک (کلید: نام متغیر، مقدار: آرایه (N_DAYS, block_size))
-    station_result : dict
-        نتایج ایستگاه (کلید: نام متغیر، مقدار: آرایه (N_DAYS,))
-    station_idx : int
-        ایندکس جهانی ایستگاه
-    block_start : int
-        ایندکس شروع بلوک
+    پارامترها:
+        block_data: ndarray shape=(block_size, N_YEARS, N_DAYS, N_VARS)
+        window_table: لیست پنجره‌ها
+        var_idx: اندیس متغیر برای برازش
+
+    خروجی: dict {name: ndarray(shape=(N_DAYS, block_size))}
     """
-    local_idx = station_idx - block_start
+    from numerical_engine.analyze_station import analyze_station
 
-    for key, value in station_result.items():
-        if key not in block_result:
-            # مقداردهی اولیه با NaN
-            N_DAYS = len(value)
-            block_result[key] = np.full((N_DAYS, block_start + 1), np.nan, dtype=np.float32)
-        # اگر ابعاد ناهماهنگ است، توسعه دهید
-        if block_result[key].shape[1] <= local_idx:
-            # افزایش بعد دوم
-            new_shape = (block_result[key].shape[0], local_idx + 1)
-            new_array = np.full(new_shape, np.nan, dtype=np.float32)
-            new_array[:, :block_result[key].shape[1]] = block_result[key]
-            block_result[key] = new_array
+    block_size = block_data.shape[0]
+    block_result = create_empty_block_result(block_size)
 
-        # قرار دادن داده‌ها در ستون مربوطه
-        block_result[key][:, local_idx] = value
+    for local_idx in range(block_size):
+        station_data = block_data[local_idx]
+        station_result = analyze_station(station_data, window_table, var_idx)
+        merge_station_result(block_result, station_result, local_idx)
+
+    return block_result
+
+# ============================================================================
+# توابع سازگاری با کدهای قدیمی
+# ============================================================================
+
+def merge_results(block_data, window_table, var_idx):
+    """
+    Wrapper برای create_and_merge_results (سازگاری با نسخه‌های قدیمی)
+    """
+    return create_and_merge_results(block_data, window_table, var_idx)
+
+if __name__ == "__main__":
+    print("✅ merge_results.py loaded successfully.")

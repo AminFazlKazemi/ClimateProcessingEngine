@@ -70,7 +70,24 @@ if USE_PARALLEL:
 # تابع اصلی
 # ============================================================================
 
+
+def warmup_numba():
+    """پیش‌کامپایل Numba قبل از شروع پردازش"""
+    try:
+        import numpy as np
+        from numerical_engine.distributions import fit_distribution
+        sample = np.random.randn(200).astype(np.float64)
+        for _ in range(10):
+            fit_distribution(sample)
+        logger.info("   ✅ Numba JIT warmup completed")
+    except Exception as e:
+        logger.warning(f"   ⚠️ Warmup failed: {e}")
+
+
 def main():
+    # Warmup Numba (pre-compile JIT)
+    warmup_numba()
+
     # ===== فقط این خط اضافه شد =====
     logger.setLevel(logging.INFO)
     # ===============================
@@ -149,6 +166,7 @@ def main():
         total_blocks = (n_stations + BLOCK_SIZE - 1) // BLOCK_SIZE
         logger.info(f"   Total blocks: {total_blocks}")
 
+    # Warmup Numba
         for block_idx in range(start_block, total_blocks):
             block_start = block_idx * BLOCK_SIZE
             block_end = min(block_start + BLOCK_SIZE, n_stations)
