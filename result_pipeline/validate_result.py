@@ -4,13 +4,15 @@
 result_pipeline/validate_result.py
 ================================================================================
 اعتبارسنجی نتایج قبل از نوشتن در Zarr.
-فقط گزارش می‌دهد.
 ================================================================================
 """
 
 import numpy as np
 from zarr_schema import VAR_NAMES, VAR_DTYPES
-from constants import N_DAYS, VALID_BEST_DIST
+from constants import N_DAYS
+
+# مقدار معتبر برای best_dist (فقط 0 تا 4)
+VALID_BEST_DIST = set(range(5))
 
 def validate_result(block_result, block_start, block_size, strict=True):
     report = {"valid": True, "errors": [], "warnings": [], "stats": {}}
@@ -26,18 +28,16 @@ def validate_result(block_result, block_start, block_size, strict=True):
         expected_dtype = np.dtype(VAR_DTYPES[name])
         if arr.dtype != expected_dtype:
             report["warnings"].append(f"{name}: dtype {arr.dtype} != {expected_dtype}")
-        if name == "best_dist":
+        if name.endswith("_best_dist"):
             invalid = set(np.unique(arr)) - VALID_BEST_DIST
             if invalid:
                 report["valid"] = False
-                report["errors"].append(f"best_dist contains invalid values: {invalid}")
-        elif name == "count":
+                report["errors"].append(f"{name} contains invalid values: {invalid}")
+        elif name.endswith("_count"):
             if np.any(arr < 0):
                 report["valid"] = False
                 report["errors"].append("count contains negative values")
-            if np.any(arr > 155):
-                report["warnings"].append(f"count > 155 (max={np.max(arr)})")
-        elif name == "std":
+        elif name.endswith("_std"):
             if np.any(arr < 0):
                 report["valid"] = False
                 report["errors"].append("std contains negative values")

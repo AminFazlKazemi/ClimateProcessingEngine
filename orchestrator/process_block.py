@@ -7,14 +7,14 @@ process_block.py - پردازش یک بلوک از ایستگاه‌ها
 import time
 import numpy as np
 import gc
-from tqdm import tqdm  # <-- اضافه شد
+from tqdm import tqdm
 from monitoring.logger import logger
 from monitoring.checkpoint import save_checkpoint
 from io_pipeline.read_month_files import read_month_files
 from io_pipeline.assemble_block import assemble_block
 from io_pipeline.validate_block import validate_block
 from numerical_engine.analyze_station import analyze_station
-from numerical_engine.merge_results import merge_results
+from numerical_engine.merge_results import merge_station_result
 from result_pipeline.validate_result import validate_result
 from result_pipeline.write_block import write_block_safe
 from constants import VARS, VAR_INDEX_FOR_FIT, N_DAYS, INT_DTYPE
@@ -78,7 +78,6 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
             # روش قدیمی (تک‌متغیره) – برای سازگاری
             logger.info("   🐢 Using fallback single-variable loading...")
             n_vars = len(VARS)
-            # محاسبه تعداد کل فایل‌ها
             total_files = sum(1 for year in year_list for month in range(1, 13) if (year, month) in file_map)
             pbar = tqdm(total=total_files, desc="   Loading Zarr files (single-var)", unit="file", position=0, leave=True)
 
@@ -162,7 +161,7 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
 
     t_analyze_start = time.time()
 
-    # progress bar برای تحلیل ایستگاه‌ها (اختیاری)
+    # progress bar برای تحلیل ایستگاه‌ها
     pbar_stations = tqdm(total=block_size, desc="   Analyzing stations", unit="station", position=0, leave=True)
 
     for local_idx in range(block_size):
@@ -197,7 +196,8 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
         try:
             result = analyze_station(station_data, year_list, window_table, var_idx)
             if result is not None:
-                merge_results(block_result, result, station_idx, block_start)
+                # ✅ اصلاح: ارسال station_idx و block_start به جای local_idx
+                merge_station_result(block_result, result, station_idx, block_start)
         except Exception as e:
             logger.warning(f"   ⚠️ Station {station_idx} failed: {e}")
             continue

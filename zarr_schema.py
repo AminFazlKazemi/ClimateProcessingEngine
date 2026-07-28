@@ -11,31 +11,30 @@ from numcodecs import Blosc
 from constants import N_DAYS, FLOAT_DTYPE, INT_DTYPE
 
 # ============================================================
-# تعریف توزیع‌ها
+# تعریف توزیع‌ها (هماهنگ با distributions.py)
 # ============================================================
 DISTRIBUTIONS = {
     0: {"name": "Normal", "params": ["mean", "std"], "n_params": 2},
-    1: {"name": "SkewNormal", "params": ["alpha", "loc", "scale"], "n_params": 3},
-    2: {"name": "Bimodal", "params": ["w1", "mu1", "sigma1", "mu2", "sigma2"], "n_params": 5},
-    3: {"name": "Pearson", "params": ["shape", "scale", "loc"], "n_params": 3},
+    1: {"name": "Skew", "params": ["alpha", "loc", "scale"], "n_params": 3},
+    2: {"name": "GEV", "params": ["shape", "loc", "scale"], "n_params": 3},
+    3: {"name": "Bimodal", "params": ["w1", "mu1", "sigma1", "mu2", "sigma2"], "n_params": 5},
+    4: {"name": "Pearson", "params": ["shape", "scale", "loc"], "n_params": 3},
 }
 
 # ============================================================
-# ساخت لیست کامل متغیرها
+# ساخت لیست کامل متغیرها (۹۳ متغیر)
 # ============================================================
 VAR_NAMES = []
 VAR_DTYPES = {}
 
 for var in ['tmin', 'tmean', 'tmax']:
+    # آماره‌های پایه
     for suffix in ['best_dist', 'mean', 'std', 'skewness', 'median', 'count']:
         name = f"{var}_{suffix}"
         VAR_NAMES.append(name)
-        if suffix in ['best_dist', 'count']:
-            VAR_DTYPES[name] = INT_DTYPE
-        else:
-            VAR_DTYPES[name] = FLOAT_DTYPE
+        VAR_DTYPES[name] = INT_DTYPE if suffix in ['best_dist', 'count'] else FLOAT_DTYPE
 
-for var in ['tmin', 'tmean', 'tmax']:
+    # پارامترها و معیارهای اطلاعاتی هر توزیع
     for dist_info in DISTRIBUTIONS.values():
         dist_name = dist_info["name"].lower()
         for i in range(1, dist_info["n_params"] + 1):
@@ -71,7 +70,6 @@ def create_zarr_store(output_path, n_stations):
         print(f"   🗑️ Removed existing store")
 
     root = zarr.open_group(output_path, mode='w', zarr_format=2)
-
     compressor = Blosc(cname='zstd', clevel=3, shuffle=2)
 
     print(f"   📊 Creating {len(VAR_NAMES)} variables directly on disk...")
@@ -89,7 +87,6 @@ def create_zarr_store(output_path, n_stations):
             compressor=compressor,
             overwrite=True
         )
-        # متادیتای مورد نیاز xarray
         arr.attrs['_ARRAY_DIMENSIONS'] = ['day', 'point']
 
         if (idx + 1) % 10 == 0 or idx == len(VAR_NAMES) - 1:
@@ -100,23 +97,16 @@ def create_zarr_store(output_path, n_stations):
     print(f"   📊 Total variables: {len(VAR_NAMES)}")
     print(f"   📊 Shape: ({N_DAYS}, {n_stations})")
     print(f"   📊 Chunks: ({chunks[0]}, {chunks[1]})")
-
     return root
 
 def get_or_create_zarr_store(output_path, n_stations):
-    """
-    اگر Zarr وجود داشته باشد، آن را باز می‌کند (حالت append).
-    در غیر این صورت، یک Zarr جدید ایجاد می‌کند.
-    """
+    """باز کردن یا ایجاد فروشگاه Zarr با مدیریت missing variables"""
     if os.path.exists(output_path):
         print(f"   📂 Zarr exists, opening it: {output_path}")
         root = zarr.open_group(output_path, mode='a')
-
-        # بررسی متغیرهای موجود
         existing_vars = set(root.array_keys())
         expected_vars = set(VAR_NAMES)
         missing = expected_vars - existing_vars
-
         if missing:
             print(f"   ⚠️ Missing variables: {missing}. Adding them...")
             compressor = Blosc(cname='zstd', clevel=3, shuffle=2)
@@ -135,8 +125,6 @@ def get_or_create_zarr_store(output_path, n_stations):
                 )
                 arr.attrs['_ARRAY_DIMENSIONS'] = ['day', 'point']
                 print(f"      Added missing variable: {name}")
-
-        # بررسی ابعاد
         sample_name = next(iter(existing_vars)) if existing_vars else None
         if sample_name:
             existing_shape = root[sample_name].shape
@@ -145,7 +133,6 @@ def get_or_create_zarr_store(output_path, n_stations):
                 print(f"   ⚠️ Shape mismatch: existing {existing_shape} != expected {expected_shape}")
                 print(f"   🔄 Recreating store with correct shape...")
                 return create_zarr_store(output_path, n_stations)
-
         return root
     else:
         print(f"   🆕 Zarr does not exist, creating new: {output_path}")

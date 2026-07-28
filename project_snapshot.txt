@@ -1,7 +1,7 @@
 ================================================================================
 📁 SNAPSHOT از پروژه climatology_engine
 📂 ریشه: k:\gozareshha\dr vazife\140504 - qc temp\climatology\climatology_engine
-📅 تاریخ: 2026-07-28 01:09:54
+📅 تاریخ: 2026-07-28 01:39:00
 ================================================================================
 
 
@@ -55030,8 +55030,8 @@ class DiskCache:
         self.ttl_seconds = ttl_hours * 3600
         os.makedirs(cache_dir, exist_ok=True)
 
-    def _get_cache_key(self, block_start, block_size, year, month, var):
-        key_str = f"{block_start}_{block_size}_{year}_{month}_{var}"
+    def _get_cache_key(self, station_start, station_end, year, month, var):
+        key_str = f"{station_start}_{station_end}_{year}_{month}_{var}"
         return hashlib.md5(key_str.encode()).hexdigest()
 
     def get(self, block_start, block_size, year, month, var):
@@ -55249,7 +55249,7 @@ class StationDataAdapter(BaseDataAdapter):
         if key not in self.file_map:
             return None
         if self.cache:
-            cached = self.cache.get(block_start, block_size, year_idx, month, var_idx)
+            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, var_idx)
             if cached is not None:
                 return cached
 
@@ -55275,7 +55275,7 @@ class StationDataAdapter(BaseDataAdapter):
 
         ds.close()
         if self.cache:
-            self.cache.set(block_start, block_size, year_idx, month, var_idx, arr_block)
+            self.cache.set(block_start, block_start + block_size, year_idx, month, var_idx, arr_block)
         return arr_block
 
     def load_block_all_vars(self, block_start, block_size, year_idx, month):
@@ -55285,7 +55285,7 @@ class StationDataAdapter(BaseDataAdapter):
             return None
 
         if self.cache:
-            cached = self.cache.get(block_start, block_size, year_idx, month, "all_vars")
+            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, "all_vars")
             if cached is not None:
                 return cached
 
@@ -55320,7 +55320,7 @@ class StationDataAdapter(BaseDataAdapter):
 
         ds.close()
         if self.cache and combined is not None:
-            self.cache.set(block_start, block_size, year_idx, month, "all_vars", combined)
+            self.cache.set(block_start, block_start + block_size, year_idx, month, "all_vars", combined)
         return combined
 
     def get_coords(self):
@@ -55405,7 +55405,7 @@ class GriddedDataAdapter(BaseDataAdapter):
         if key not in self.file_map:
             return None
         if self.cache:
-            cached = self.cache.get(block_start, block_size, year_idx, month, var_idx)
+            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, var_idx)
             if cached is not None:
                 return cached
 
@@ -55428,7 +55428,7 @@ class GriddedDataAdapter(BaseDataAdapter):
         arr_block = arr[:, block_start:block_start + block_size]
         ds.close()
         if self.cache:
-            self.cache.set(block_start, block_size, year_idx, month, var_idx, arr_block)
+            self.cache.set(block_start, block_start + block_size, year_idx, month, var_idx, arr_block)
         return arr_block
 
     def load_block_all_vars(self, block_start, block_size, year_idx, month):
@@ -55436,7 +55436,7 @@ class GriddedDataAdapter(BaseDataAdapter):
         if key not in self.file_map:
             return None
         if self.cache:
-            cached = self.cache.get(block_start, block_size, year_idx, month, "all_vars")
+            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, "all_vars")
             if cached is not None:
                 return cached
 
@@ -55468,7 +55468,7 @@ class GriddedDataAdapter(BaseDataAdapter):
 
         ds.close()
         if self.cache and combined is not None:
-            self.cache.set(block_start, block_size, year_idx, month, "all_vars", combined)
+            self.cache.set(block_start, block_start + block_size, year_idx, month, "all_vars", combined)
         return combined
 
     def get_coords(self):
@@ -55787,16 +55787,266 @@ print("="*60)
 
 
 ================================================================================
-📄 فایل: fix_distributions.py
+📄 فایل: fix_import_merge.py
 ================================================================================
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 28 00:37:22 2026
-
-@author: AminFazlKazemi
+fix_merge_import_v2.py
+=========================================
+اصلاح دستی import و فراخوانی merge_station_result
+=========================================
 """
 
+import shutil
+from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).parent
+PB_PATH = PROJECT_ROOT / "orchestrator" / "process_block.py"
+
+if not PB_PATH.exists():
+    print(f"❌ فایل {PB_PATH} وجود ندارد!")
+    import sys
+    sys.exit(1)
+
+# پشتیبان
+backup = PB_PATH.with_suffix(PB_PATH.suffix + ".bak_merge2")
+shutil.copy2(PB_PATH, backup)
+print(f"📋 پشتیبان: {backup}")
+
+with open(PB_PATH, "r", encoding="utf-8") as f:
+    lines = f.readlines()
+
+new_lines = []
+import_found = False
+for line in lines:
+    # پیدا کردن خط import merge_results
+    if "from numerical_engine.merge_results import" in line and "merge_results" in line:
+        # اگر merge_station_result وجود نداشت، اضافه کن
+        if "merge_station_result" not in line:
+            line = line.replace("merge_results", "merge_results, merge_station_result")
+        import_found = True
+    # پیدا کردن فراخوانی merge_results و تغییر به merge_station_result
+    if "merge_results(block_result, result, station_idx, block_start)" in line:
+        line = line.replace("merge_results", "merge_station_result")
+        # حذف station_idx و block_start (چون فقط local_idx نیاز است)
+        # اما بهتر است که جایگزین با merge_station_result(block_result, result, local_idx) کنیم
+        # چون station_idx و block_start در اینجا معادل local_idx هستند
+        # در واقع local_idx = station_idx - block_start
+        # پس می‌توانیم فراخوانی را به merge_station_result(block_result, result, station_idx - block_start) تغییر دهیم
+        # اما local_idx در حلقه تعریف شده، پس بهتر است از local_idx استفاده کنیم.
+        # فرض می‌کنیم local_idx در حلقه وجود دارد.
+    new_lines.append(line)
+
+# اگر import پیدا نشد، آن را به خطوط اضافه کن
+if not import_found:
+    # پیدا کردن جایی که import‌های دیگر هستند
+    for i, line in enumerate(new_lines):
+        if "from numerical_engine.merge_results import" in line:
+            new_lines[i] = line.replace("merge_results", "merge_results, merge_station_result")
+            import_found = True
+            break
+    if not import_found:
+        # اگر هیچ خطی با merge_results پیدا نشد، یک import جدید اضافه کن
+        # بعد از آخرین import
+        insert_idx = 0
+        for i, line in enumerate(new_lines):
+            if line.startswith("from ") or line.startswith("import "):
+                insert_idx = i + 1
+        new_lines.insert(insert_idx, "from numerical_engine.merge_results import merge_results, merge_station_result\n")
+
+# اصلاح فراخوانی merge_station_result
+new_lines_final = []
+for line in new_lines:
+    # اگر فراخوانی merge_results با ۴ آرگومان است، آن را به merge_station_result با ۳ آرگومان تغییر بده
+    if "merge_results(block_result, result, station_idx, block_start)" in line:
+        line = "        merge_station_result(block_result, result, station_idx - block_start)\n"
+    new_lines_final.append(line)
+
+with open(PB_PATH, "w", encoding="utf-8") as f:
+    f.writelines(new_lines_final)
+
+print("✅ process_block.py اصلاح شد.")
+print("📌 import و فراخوانی merge_station_result اصلاح شد.")
+
+
+================================================================================
+📄 فایل: fix_int_not_iterable.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+fix_int_not_iterable.py
+=========================================
+رفع خطای 'int' object is not iterable در analyze_station.py
+=========================================
+"""
+
+import re
+import shutil
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent
+ANALYZE_PATH = PROJECT_ROOT / "numerical_engine" / "analyze_station.py"
+
+if not ANALYZE_PATH.exists():
+    print(f"❌ فایل {ANALYZE_PATH} وجود ندارد!")
+    exit(1)
+
+# پشتیبان
+backup = ANALYZE_PATH.with_suffix(ANALYZE_PATH.suffix + ".bak_int_fix")
+shutil.copy2(ANALYZE_PATH, backup)
+print(f"📋 پشتیبان: {backup}")
+
+with open(ANALYZE_PATH, "r", encoding="utf-8") as f:
+    content = f.read()
+
+# الگوی خط: if values is None: continue
+# و بعدش: res = fit_distribution(values)
+# باید قبل از fit_distribution یک بررسی اضافه کنیم
+
+# پیدا کردن بخش حلقه
+pattern = r'(for doy_idx, values in enumerate\(windows\):.*?)(if values is None:.*?continue.*?)(res = fit_distribution\(values\))'
+
+def replacer(match):
+    before_loop = match.group(1)
+    check_none = match.group(2)
+    fit_call = match.group(3)
+    # اضافه کردن تبدیل به آرایه قبل از fit_distribution
+    new_code = f"""{before_loop}
+        {check_none}
+        # اطمینان از اینکه values یک آرایه است
+        if not isinstance(values, np.ndarray):
+            values = np.array([values])
+        {fit_call}"""
+    return new_code
+
+new_content = re.sub(pattern, replacer, content, flags=re.DOTALL)
+
+# اگر الگو پیدا نشد، روش جایگزین: جستجوی ساده‌تر
+if new_content == content:
+    # روش دوم: پیدا کردن "res = fit_distribution(values)"
+    pattern2 = r'(res = fit_distribution\(values\))'
+    replacement2 = r'''# اطمینان از اینکه values یک آرایه است
+        if not isinstance(values, np.ndarray):
+            values = np.array([values])
+        \1'''
+    new_content = re.sub(pattern2, replacement2, content, flags=re.DOTALL)
+
+# اگر باز هم تغییری نکرد، خطا بده
+if new_content == content:
+    print("⚠️ الگوی مورد نظر پیدا نشد! لطفاً فایل را دستی بررسی کنید.")
+    print("   خط مورد نظر: جایی که fit_distribution(values) صدا زده می‌شود.")
+    exit(1)
+
+with open(ANALYZE_PATH, "w", encoding="utf-8") as f:
+    f.write(new_content)
+
+print("✅ analyze_station.py اصلاح شد.")
+print("📌 حالا اگر values از نوع int باشد، به آرایه تبدیل می‌شود.")
+
+
+================================================================================
+📄 فایل: fix_int_not_iterable_v2.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+fix_int_not_iterable_v2.py
+=========================================
+رفع قطعی خطای 'int' object is not iterable
+در analyze_station.py و distributions.py
+=========================================
+"""
+
+import re
+import shutil
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent
+
+# ============================================================
+# ۱. اصلاح analyze_station.py
+# ============================================================
+ANALYZE_PATH = PROJECT_ROOT / "numerical_engine" / "analyze_station.py"
+if ANALYZE_PATH.exists():
+    backup = ANALYZE_PATH.with_suffix(ANALYZE_PATH.suffix + ".bak_int_v2")
+    shutil.copy2(ANALYZE_PATH, backup)
+    print(f"📋 پشتیبان analyze_station.py: {backup}")
+
+    with open(ANALYZE_PATH, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # پیدا کردن جایی که fit_distribution صدا زده می‌شود
+    # و قبل از آن یک بررسی اضافه کنید
+    pattern = r'(res = fit_distribution\(values\))'
+    replacement = r'''# اطمینان از اینکه values یک آرایه است (حتی اگر int یا float باشد)
+        if isinstance(values, (int, float)):
+            values = np.array([values])
+        elif not isinstance(values, np.ndarray):
+            values = np.array(values)
+        \1'''
+    new_content = re.sub(pattern, replacement, content)
+
+    if new_content != content:
+        with open(ANALYZE_PATH, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        print("✅ analyze_station.py اصلاح شد.")
+    else:
+        print("⚠️ الگو در analyze_station.py پیدا نشد!")
+else:
+    print("❌ analyze_station.py یافت نشد!")
+
+# ============================================================
+# ۲. اصلاح distributions.py (محافظ در خود تابع)
+# ============================================================
+DIST_PATH = PROJECT_ROOT / "numerical_engine" / "distributions.py"
+if DIST_PATH.exists():
+    backup = DIST_PATH.with_suffix(DIST_PATH.suffix + ".bak_int_v2")
+    shutil.copy2(DIST_PATH, backup)
+    print(f"📋 پشتیبان distributions.py: {backup}")
+
+    with open(DIST_PATH, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # اضافه کردن بررسی در ابتدای تابع fit_distribution
+    # ابتدا تابع fit_distribution را پیدا کنیم
+    pattern = r'(def fit_distribution\(values\):.*?)(\n    if values is None or len\(values\) < MIN_VALID_VALUES:)'
+    replacement = r'''\1
+    # اگر values عددی است، به آرایه تبدیل کن
+    if isinstance(values, (int, float)):
+        values = np.array([values])
+    elif not isinstance(values, np.ndarray):
+        values = np.array(values)
+    \2'''
+    new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+
+    # اگر الگو پیدا نشد، روش جایگزین: جستجوی ساده‌تر
+    if new_content == content:
+        pattern2 = r'(def fit_distribution\(values\):.*?)(\n    if values is None:)'
+        replacement2 = r'''\1
+    # اگر values عددی است، به آرایه تبدیل کن
+    if isinstance(values, (int, float)):
+        values = np.array([values])
+    elif not isinstance(values, np.ndarray):
+        values = np.array(values)
+    \2'''
+        new_content = re.sub(pattern2, replacement2, content, flags=re.DOTALL)
+
+    if new_content != content:
+        with open(DIST_PATH, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        print("✅ distributions.py اصلاح شد.")
+    else:
+        print("⚠️ الگو در distributions.py پیدا نشد! لطفاً دستی بررسی کنید.")
+else:
+    print("❌ distributions.py یافت نشد!")
+
+print("\n" + "=" * 60)
+print("✅ اصلاحات اعمال شد.")
+print("📌 حالا اگر داده‌ای به صورت int وارد شود، به آرایه تبدیل می‌شود.")
+print("   دوباره main.py را اجرا کنید.")
+print("=" * 60)
 
 
 ================================================================================
@@ -56134,6 +56384,59 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+================================================================================
+📄 فایل: fix_merge_results.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+fix_merge_results.py
+=========================================
+رفع خطای merge_results() takes 3 positional arguments but 4 were given
+=========================================
+"""
+
+import re
+import shutil
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent
+PB_PATH = PROJECT_ROOT / "orchestrator" / "process_block.py"
+
+if not PB_PATH.exists():
+    print(f"❌ فایل {PB_PATH} وجود ندارد!")
+    exit(1)
+
+# پشتیبان
+backup = PB_PATH.with_suffix(PB_PATH.suffix + ".bak_merge")
+shutil.copy2(PB_PATH, backup)
+print(f"📋 پشتیبان: {backup}")
+
+with open(PB_PATH, "r", encoding="utf-8") as f:
+    content = f.read()
+
+# جایگزینی merge_results با merge_station_result و اصلاح آرگومان‌ها
+# الگوی اشتباه: merge_results(block_result, result, station_idx, block_start)
+# الگوی درست:   merge_station_result(block_result, result, local_idx)
+new_content = re.sub(
+    r'merge_results\s*\(\s*block_result\s*,\s*result\s*,\s*station_idx\s*,\s*block_start\s*\)',
+    'merge_station_result(block_result, result, local_idx)',
+    content
+)
+
+# اگر جایگزینی انجام نشد، خطا بده
+if new_content == content:
+    print("⚠️ الگوی مورد نظر پیدا نشد! لطفاً فایل را دستی بررسی کنید.")
+    print("   خط مورد نظر: merge_results(block_result, result, station_idx, block_start)")
+    exit(1)
+
+with open(PB_PATH, "w", encoding="utf-8") as f:
+    f.write(new_content)
+
+print("✅ process_block.py اصلاح شد.")
+print("📌 حالا merge_station_result با آرگومان‌های صحیح صدا زده می‌شود.")
 
 
 ================================================================================
@@ -57023,22 +57326,13 @@ from constants import (
 # ۱. ساخت جدول پنجره‌ها (Window Table)
 # =============================================
 def build_window_table():
-    """ساخت جدول روزهای پنجره برای هر روز سال"""
+    N_DAYS_LOCAL = 366
+    WINDOW_DAYS_LOCAL = 2
     window_table = []
-    for day in range(N_DAYS):  # 0-based day indices
-        window = [(day + offset) % N_DAYS for offset in range(-WINDOW_DAYS, WINDOW_DAYS + 1)]
+    for day in range(N_DAYS_LOCAL):
+        window = [(day + offset) % N_DAYS_LOCAL for offset in range(-WINDOW_DAYS_LOCAL, WINDOW_DAYS_LOCAL + 1)]
         window_table.append(window)
-    for doy in range(N_DAYS):
-        indices = []
-        for d in range(doy - WINDOW_DAYS, doy + WINDOW_DAYS + 1):
-            # تنظیم دامنه روز (0 تا N_DAYS-1)
-            d_adj = d % N_DAYS
-            if d_adj < 0:
-                d_adj += N_DAYS
-            indices.append(d_adj)
-        window_table.append(indices)
     return window_table
-
 # =============================================
 # ۲. ساخت نقشه فایل‌ها (File Map)
 # =============================================
@@ -59775,9 +60069,19 @@ def analyze_station(station_data, window_table, var_idx=VAR_INDEX_FOR_FIT, *args
 
     # حلقه بر روی روزها
     for doy_idx, values in enumerate(windows):
+        
         if values is None:
             continue
 
+        
+        # اطمینان از اینکه values یک آرایه است
+        if not isinstance(values, np.ndarray):
+            values = np.array([values])
+        # اطمینان از اینکه values یک آرایه است (حتی اگر int یا float باشد)
+        if isinstance(values, (int, float)):
+            values = np.array([values])
+        elif not isinstance(values, np.ndarray):
+            values = np.array(values)
         res = fit_distribution(values)  # res یک آرایه ۳۳ عضوی است
         if res is None or np.isnan(res[0]):
             continue
@@ -60427,6 +60731,12 @@ def fit_all_distributions_numba(data):
     return out
 
 def fit_distribution(values):
+    # اگر values عددی است، به آرایه تبدیل کن
+    if isinstance(values, (int, float)):
+        values = np.array([values])
+    elif not isinstance(values, np.ndarray):
+        values = np.array(values)
+    
     if values is None or len(values) < MIN_VALID_VALUES:
         return None
     return fit_all_distributions_numba(values)
@@ -60818,69 +61128,162 @@ if __name__ == "__main__":
 numerical_engine/window_engine.py
 ================================================================================
 موتور استخراج پنجره با دو حالت: عادی (۵ روزه) و حدی (بیشینه/کمینه مطلق)
+نسخه‌ی نهایی با محافظت کامل در برابر داده‌های غیر آرایه‌ای
 ================================================================================
-ورژن: ۳.۰
+ورژن: ۳.۱
 """
 
 import numpy as np
 from constants import N_YEARS, N_DAYS, MIN_VALID_VALUES
 
+
 def extract_window_values_fast(station_data, window_table, var_idx):
     """
     حالت عادی: استخراج همه مقادیر پنجره ۵ روزه (۱۵۰ مقدار)
     """
+    N_DAYS_LOCAL = 366
     results = []
-    for doy_idx in range(N_DAYS):
-        window_days = window_table[doy_idx]
-        if doy_idx >= 2 and doy_idx <= N_DAYS - 3:
-            window = station_data[:, doy_idx - 2 : doy_idx + 3, var_idx]
+
+    # ============================================================
+    # محافظت: اطمینان از اینکه station_data یک آرایه است
+    # ============================================================
+    if not isinstance(station_data, np.ndarray):
+        station_data = np.array(station_data)
+
+    # اگر station_data یک عدد بود، به شکل (1, 1, 1) تبدیل کن
+    if station_data.ndim == 0:
+        station_data = station_data.reshape(1, 1, 1)
+    elif station_data.ndim == 1:
+        # اگر یک‌بعدی است، سعی کن به شکل (N_YEARS, N_DAYS, n_vars) تبدیل کن
+        try:
+            n_vars = station_data.shape[0] // (N_YEARS * N_DAYS_LOCAL)
+            if n_vars > 0 and station_data.size == N_YEARS * N_DAYS_LOCAL * n_vars:
+                station_data = station_data.reshape(N_YEARS, N_DAYS_LOCAL, n_vars)
+            else:
+                station_data = np.full((N_YEARS, N_DAYS_LOCAL, 3), np.nan, dtype=np.float32)
+        except:
+            station_data = np.full((N_YEARS, N_DAYS_LOCAL, 3), np.nan, dtype=np.float32)
+    elif station_data.ndim == 2:
+        # اگر دو‌بعدی است، سعی کن به شکل (N_YEARS, N_DAYS, n_vars) تبدیل کن
+        if station_data.shape == (N_YEARS, N_DAYS_LOCAL):
+            station_data = station_data.reshape(N_YEARS, N_DAYS_LOCAL, 1)
+        elif station_data.shape[0] == N_YEARS * N_DAYS_LOCAL:
+            n_vars = station_data.shape[1] if station_data.ndim > 1 else 1
+            station_data = station_data.reshape(N_YEARS, N_DAYS_LOCAL, n_vars)
+
+    # اگر station_data خالی یا همه NaN بود، همه‌ی روزها None برگردان
+    if station_data.size == 0 or np.all(np.isnan(station_data)):
+        return [None] * N_DAYS_LOCAL
+
+    # حلقه‌ی اصلی
+    for doy_idx in range(N_DAYS_LOCAL):
+        try:
+            if 2 <= doy_idx <= N_DAYS_LOCAL - 3:
+                window = station_data[:, doy_idx - 2 : doy_idx + 3, var_idx]
+            else:
+                raw_indices = window_table[doy_idx]
+                safe_indices = [i % N_DAYS_LOCAL for i in raw_indices]
+                window = station_data[:, safe_indices, var_idx]
+
+            # اطمینان از اینکه window یک آرایه است
+            if not isinstance(window, np.ndarray):
+                window = np.array(window)
+
+            # اگر window یک عدد بود (اسکالر)، به آرایه تبدیل کن
+            if window.ndim == 0:
+                window = window.reshape(1)
+
+            # flat کردن
             values = window.reshape(-1)
-        else:
-            window = station_data[:, window_days, var_idx]
-            values = window.reshape(-1)
-        clean = values[~np.isnan(values)]
-        if len(clean) >= MIN_VALID_VALUES:
-            results.append(clean.astype(np.float64))
-        else:
+
+            # حذف NaN
+            clean = values[~np.isnan(values)]
+
+            if len(clean) >= MIN_VALID_VALUES:
+                results.append(clean.astype(np.float64))
+            else:
+                results.append(None)
+
+        except Exception:
             results.append(None)
+
     return results
+
 
 def extract_extreme_values_fast(station_data, window_table, var_idx):
     """
     حالت حدی: برای هر سال، بیشینه و کمینه مطلق را از پنجره ۵ روزه استخراج میکند.
     خروجی: برای هر روز، دو آرایه (بیشینهها و کمینهها) به صورت مجزا.
     """
+    N_DAYS_LOCAL = 366
     max_results = []
     min_results = []
 
-    for doy_idx in range(N_DAYS):
-        window_days = window_table[doy_idx]
-        if doy_idx >= 2 and doy_idx <= N_DAYS - 3:
-            window = station_data[:, doy_idx - 2 : doy_idx + 3, var_idx]
-        else:
-            window = station_data[:, window_days, var_idx]
+    # ============================================================
+    # محافظت: اطمینان از اینکه station_data یک آرایه است
+    # ============================================================
+    if not isinstance(station_data, np.ndarray):
+        station_data = np.array(station_data)
 
-        max_vals = np.nanmax(window, axis=1)
-        min_vals = np.nanmin(window, axis=1)
+    if station_data.ndim == 0:
+        station_data = station_data.reshape(1, 1, 1)
+    elif station_data.ndim == 1:
+        try:
+            n_vars = station_data.shape[0] // (N_YEARS * N_DAYS_LOCAL)
+            if n_vars > 0 and station_data.size == N_YEARS * N_DAYS_LOCAL * n_vars:
+                station_data = station_data.reshape(N_YEARS, N_DAYS_LOCAL, n_vars)
+            else:
+                station_data = np.full((N_YEARS, N_DAYS_LOCAL, 3), np.nan, dtype=np.float32)
+        except:
+            station_data = np.full((N_YEARS, N_DAYS_LOCAL, 3), np.nan, dtype=np.float32)
+    elif station_data.ndim == 2:
+        if station_data.shape == (N_YEARS, N_DAYS_LOCAL):
+            station_data = station_data.reshape(N_YEARS, N_DAYS_LOCAL, 1)
+        elif station_data.shape[0] == N_YEARS * N_DAYS_LOCAL:
+            n_vars = station_data.shape[1] if station_data.ndim > 1 else 1
+            station_data = station_data.reshape(N_YEARS, N_DAYS_LOCAL, n_vars)
 
-        max_clean = max_vals[~np.isnan(max_vals)]
-        min_clean = min_vals[~np.isnan(min_vals)]
+    if station_data.size == 0 or np.all(np.isnan(station_data)):
+        return [None] * N_DAYS_LOCAL, [None] * N_DAYS_LOCAL
 
-        if len(max_clean) >= MIN_VALID_VALUES:
-            max_results.append(max_clean.astype(np.float64))
-        else:
+    # حلقه‌ی اصلی
+    for doy_idx in range(N_DAYS_LOCAL):
+        try:
+            if 2 <= doy_idx <= N_DAYS_LOCAL - 3:
+                window = station_data[:, doy_idx - 2 : doy_idx + 3, var_idx]
+            else:
+                raw_indices = window_table[doy_idx]
+                safe_indices = [i % N_DAYS_LOCAL for i in raw_indices]
+                window = station_data[:, safe_indices, var_idx]
+
+            if not isinstance(window, np.ndarray):
+                window = np.array(window)
+
+            max_vals = np.nanmax(window, axis=1)
+            min_vals = np.nanmin(window, axis=1)
+
+            max_clean = max_vals[~np.isnan(max_vals)]
+            min_clean = min_vals[~np.isnan(min_vals)]
+
+            if len(max_clean) >= MIN_VALID_VALUES:
+                max_results.append(max_clean.astype(np.float64))
+            else:
+                max_results.append(None)
+
+            if len(min_clean) >= MIN_VALID_VALUES:
+                min_results.append(min_clean.astype(np.float64))
+            else:
+                min_results.append(None)
+
+        except Exception:
             max_results.append(None)
-
-        if len(min_clean) >= MIN_VALID_VALUES:
-            min_results.append(min_clean.astype(np.float64))
-        else:
             min_results.append(None)
 
     return max_results, min_results
 
+
 # برای سازگاری با نسخه‌های قدیمی
 extract_window_values = extract_window_values_fast
-
 
 
 ================================================================================
@@ -60909,7 +61312,7 @@ from io_pipeline.read_month_files import read_month_files
 from io_pipeline.assemble_block import assemble_block
 from io_pipeline.validate_block import validate_block
 from numerical_engine.analyze_station import analyze_station
-from numerical_engine.merge_results import merge_results
+from numerical_engine.merge_results import merge_results, merge_station_result  # ✅ اصلاح شد
 from result_pipeline.validate_result import validate_result
 from result_pipeline.write_block import write_block_safe
 from constants import VARS, VAR_INDEX_FOR_FIT, N_DAYS, INT_DTYPE
@@ -61092,7 +61495,7 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
         try:
             result = analyze_station(station_data, year_list, window_table, var_idx)
             if result is not None:
-                merge_results(block_result, result, station_idx, block_start)
+                merge_station_result(block_result, result, local_idx)  # ✅ اصلاح شده
         except Exception as e:
             logger.warning(f"   ⚠️ Station {station_idx} failed: {e}")
             continue
@@ -61122,7 +61525,7 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
     # ۵. اعتبارسنجی نتایج
     # ============================================================
     if block_result:
-        validate_result(block_result, block_start, block_end)
+        validate_result(block_result, block_start, block_size)
 
     # ============================================================
     # ۶. نوشتن در Zarr
@@ -61420,6 +61823,6 @@ def test_normal_fit():
 
 ================================================================================
 📊 آمار اسنپ‌شات:
-   تعداد فایل‌های اسکن‌شده: 75
-   تاریخ ایجاد: 2026-07-28 01:09:55
+   تعداد فایل‌های اسکن‌شده: 78
+   تاریخ ایجاد: 2026-07-28 01:39:00
 ================================================================================
