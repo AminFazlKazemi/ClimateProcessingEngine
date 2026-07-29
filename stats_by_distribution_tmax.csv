@@ -1,0 +1,4 @@
+,mean,mean,std,std,skew,skew,elev,elev
+,mean,std,mean,std,mean,std,mean,std
+Normal,161.67,70.13,42.99,6.79,-0.11,0.47,1259.73,716.77
+Pearson,173.87,52.87,46.17,8.64,-0.25,0.31,1099.29,863.1

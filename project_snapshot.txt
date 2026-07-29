@@ -1,7 +1,7 @@
 ================================================================================
 📁 SNAPSHOT از پروژه climatology_engine
 📂 ریشه: k:\gozareshha\dr vazife\140504 - qc temp\climatology\climatology_engine
-📅 تاریخ: 2026-07-28 01:39:00
+📅 تاریخ: 2026-07-29 02:13:49
 ================================================================================
 
 
@@ -2273,6 +2273,229 @@ Last updated: July 27, 2026
 ================================================================================
 # climatology_engine v2.0 - Final
 
+
+
+================================================================================
+📄 فایل: add_gev.py
+================================================================================
+# -*- coding: utf-8 -*-
+"""
+add_gev.py - اضافه کردن توزیع GEV به مجموعه توزیع‌ها (5 توزیع)
+"""
+
+import re
+from pathlib import Path
+
+BASE_DIR = Path(__file__).parent
+
+
+def add_gev_to_distributions():
+    """افزودن تابع fit_gev و به‌روزرسانی fit_distributions"""
+    file_path = BASE_DIR / "numerical_engine" / "distributions.py"
+    if not file_path.exists():
+        print(f"⚠️ فایل {file_path} یافت نشد.")
+        return False
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # اگر GEV قبلاً اضافه شده، خروج
+    if "fit_gev" in content and "gev" in content:
+        print("ℹ️ GEV قبلاً در distributions.py اضافه شده است.")
+        return True
+
+    # اضافه کردن تابع fit_gev
+    gev_func = '''
+
+def fit_gev(data):
+    """
+    برازش توزیع مقادیر حدی تعمیم‌یافته (GEV)
+    پارامترها: (c, loc, scale) که c = shape, loc = location, scale = scale
+    """
+    data = data[~np.isnan(data)]
+    if len(data) < 5:
+        return {"p1": np.nan, "p2": np.nan, "p3": np.nan,
+                "aic": np.nan, "bic": np.nan, "loglik": np.nan}
+    try:
+        params = stats.genextreme.fit(data)
+        c, loc, scale = params[0], params[1], params[2]
+        loglik = np.sum(stats.genextreme.logpdf(data, c, loc, scale))
+        n = len(data)
+        k = 3
+        aic = 2 * k - 2 * loglik
+        bic = k * np.log(n) - 2 * loglik
+        return {"p1": loc, "p2": scale, "p3": c,
+                "aic": aic, "bic": bic, "loglik": loglik}
+    except Exception:
+        return {"p1": np.nan, "p2": np.nan, "p3": np.nan,
+                "aic": np.nan, "bic": np.nan, "loglik": np.nan}
+'''
+
+    # پیدا کردن محل درج (بعد از fit_bimodal یا قبل از fit_distributions)
+    if "def fit_distributions" in content:
+        # درج قبل از fit_distributions
+        pattern = r'(def fit_distributions\(data\):)'
+        replacement = gev_func + '\n\n' + r'\1'
+        content = re.sub(pattern, replacement, content, count=1)
+    else:
+        # اگر fit_distributions پیدا نشد، در انتها اضافه کن
+        content += '\n' + gev_func
+
+    # به‌روزرسانی fit_distributions برای اضافه کردن "gev"
+    pattern = r'(fits\s*=\s*\{[\s\S]*?)(\})'
+    def add_gev_to_fits(match):
+        body = match.group(1)
+        if '"gev":' not in body:
+            # اضافه کردن GEV به دیکشنری
+            # پیدا کردن آخرین آیتم قبل از }
+            body = body.rstrip()
+            if body.endswith(','):
+                body += '\n        "gev": fit_gev(data)'
+            else:
+                body += ',\n        "gev": fit_gev(data)'
+        return body + '\n    }'
+
+    content = re.sub(pattern, add_gev_to_fits, content, flags=re.DOTALL)
+
+    # اضافه کردن import stats.genextreme اگر وجود ندارد
+    if "from scipy.stats import genextreme" not in content:
+        # بعد از import های موجود اضافه کن
+        content = content.replace(
+            "from scipy import stats",
+            "from scipy import stats\nfrom scipy.stats import genextreme"
+        )
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print("✅ distributions.py به‌روز شد (GEV اضافه شد).")
+    return True
+
+
+def add_gev_to_analyze_station():
+    """به‌روزرسانی analyze_station.py برای پشتیبانی از GEV"""
+    file_path = BASE_DIR / "numerical_engine" / "analyze_station.py"
+    if not file_path.exists():
+        print(f"⚠️ فایل {file_path} یافت نشد.")
+        return False
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # اضافه کردن DIST_MAP اگر وجود ندارد
+    if "DIST_MAP" not in content:
+        # اضافه کردن قبل از تابع analyze_station
+        dist_map = '''
+# نگاشت نام توزیع به عدد
+DIST_MAP = {"normal": 0, "pearson": 1, "skewnormal": 2, "bimodal": 3, "gev": 4}
+'''
+        # درج بعد از import ها
+        import_pattern = r'(import numpy as np.*?from numerical_engine\.window_engine import compute_windows)'
+        if re.search(import_pattern, content, re.DOTALL):
+            content = re.sub(import_pattern, r'\1\n' + dist_map, content, flags=re.DOTALL)
+        else:
+            # اگر الگو پیدا نشد، در ابتدای فایل اضافه کن
+            content = dist_map + content
+    else:
+        # به‌روزرسانی DIST_MAP
+        if "gev" not in content:
+            content = content.replace(
+                'DIST_MAP = {"normal": 0, "pearson": 1, "skewnormal": 2, "bimodal": 3}',
+                'DIST_MAP = {"normal": 0, "pearson": 1, "skewnormal": 2, "bimodal": 3, "gev": 4}'
+            )
+
+    # به‌روزرسانی dist_names در analyze_station
+    if "dist_names = [" in content:
+        pattern = r'dist_names\s*=\s*\[.*?\]'
+        if '"gev"' not in content:
+            new_names = 'dist_names = ["normal", "pearson", "skewnormal", "bimodal", "gev"]'
+            content = re.sub(pattern, new_names, content)
+
+    # به‌روزرسانی _empty_result
+    if "_empty_result" in content:
+        pattern = r'(dist_names\s*=\s*\[.*?\])'
+        if '"gev"' not in re.search(pattern, content).group(0):
+            content = re.sub(
+                pattern,
+                'dist_names = ["normal", "pearson", "skewnormal", "bimodal", "gev"]',
+                content
+            )
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print("✅ analyze_station.py به‌روز شد (GEV اضافه شد).")
+    return True
+
+
+def add_gev_to_write_block():
+    """به‌روزرسانی write_block.py برای ساخت VAR_NAMES داینامیک با GEV"""
+    file_path = BASE_DIR / "result_pipeline" / "write_block.py"
+    if not file_path.exists():
+        print(f"⚠️ فایل {file_path} یافت نشد.")
+        return False
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # اگر VAR_NAMES به‌صورت لیست ثابت تعریف شده، آن را با نسخه داینامیک جایگزین کن
+    if "VAR_NAMES = [" in content:
+        # پیدا کردن محل تعریف VAR_NAMES
+        if "dist_names" not in content:
+            new_var_names = '''
+# لیست نام توزیع‌ها (برای ساخت داینامیک VAR_NAMES)
+dist_names = ["normal", "pearson", "skewnormal", "bimodal", "gev"]
+
+# ساخت VAR_NAMES به‌صورت داینامیک
+VAR_NAMES = []
+for var in ["tmax", "tmean", "tmin"]:
+    # آمار پایه
+    for stat in ["count", "mean", "std", "median", "min", "max", "skewness"]:
+        VAR_NAMES.append(f"{var}_{stat}")
+    # پارامترهای توزیع‌ها
+    for dist in dist_names:
+        for p in range(1, 6):
+            VAR_NAMES.append(f"{var}_{dist}_p{p}")
+    # معیارهای انتخاب توزیع
+    VAR_NAMES.append(f"{var}_best_dist")
+    VAR_NAMES.append(f"{var}_aic")
+    VAR_NAMES.append(f"{var}_bic")
+    VAR_NAMES.append(f"{var}_loglik")
+'''
+            # جایگزینی کل بخش VAR_NAMES
+            pattern = r'VAR_NAMES\s*=\s*\[.*?\]'
+            match = re.search(pattern, content, re.DOTALL)
+            if match:
+                content = content.replace(match.group(0), new_var_names.strip())
+            else:
+                # اگر VAR_NAMES پیدا نشد، در انتهای فایل اضافه کن
+                content += '\n' + new_var_names
+        else:
+            # اگر dist_names قبلاً وجود دارد، فقط "gev" را اضافه کن
+            if "gev" not in content:
+                content = content.replace(
+                    'dist_names = ["normal", "pearson", "skewnormal", "bimodal"]',
+                    'dist_names = ["normal", "pearson", "skewnormal", "bimodal", "gev"]'
+                )
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print("✅ write_block.py به‌روز شد (VAR_NAMES با GEV به‌روز شد).")
+    return True
+
+
+def main():
+    print("🚀 اضافه کردن توزیع GEV به پروژه...")
+    ok1 = add_gev_to_distributions()
+    ok2 = add_gev_to_analyze_station()
+    ok3 = add_gev_to_write_block()
+    if ok1 and ok2 and ok3:
+        print("✅ تمام تغییرات با موفقیت اعمال شدند.")
+        print("📊 اکنون 5 توزیع (Normal, Pearson, Skew-Normal, Bimodal, GEV) در دسترس هستند.")
+    else:
+        print("⚠️ برخی تغییرات اعمال نشدند. لطفاً خطاها را بررسی کنید.")
+
+
+if __name__ == "__main__":
+    main()
 
 
 ================================================================================
@@ -54758,7 +54981,11 @@ window_type: centered
 years:
   end: 1399
   start: 1369
-
+# تولید نقشه‌های صدک
+generate_percentile_maps: false
+percentiles: [0.9, 0.95, 0.99]
+map_days: [1, 91, 181, 271]  # روزهای خاص برای نقشه (خالی = همه روزها)
+map_output_dir: "I:/climatology_366_rolling/percentile_maps"
 
 
 ================================================================================
@@ -55503,6 +55730,159 @@ def create_adapter(zarr_base, year_list, data_format="auto", cache_enabled=True,
 
 
 ================================================================================
+📄 فایل: debug_analyze_station.py
+================================================================================
+# -*- coding: utf-8 -*-
+"""
+debug_analyze_station.py - دیباگ و رفع خطای تعداد آرگومان‌های analyze_station
+"""
+
+import re
+import inspect
+from pathlib import Path
+
+BASE_DIR = Path(__file__).parent
+
+
+def analyze_function_signature(file_path, func_name):
+    """تحلیل امضای تابع از فایل"""
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # جستجوی تعریف تابع
+    pattern = rf'def\s+{func_name}\s*\(([^)]*)\):'
+    match = re.search(pattern, content)
+    if not match:
+        return None, None
+    
+    params = match.group(1).strip()
+    # استخراج نام پارامترها
+    param_list = [p.strip().split(':')[0].split('=')[0].strip() 
+                  for p in params.split(',') if p.strip()]
+    return param_list, content
+
+
+def fix_analyze_station_signature():
+    """اصلاح امضای analyze_station و فراخوانی آن"""
+    
+    # 1. بررسی فایل analyze_station.py
+    ana_path = BASE_DIR / "numerical_engine" / "analyze_station.py"
+    if not ana_path.exists():
+        print(f"❌ فایل {ana_path} یافت نشد!")
+        return False
+    
+    params, content = analyze_function_signature(ana_path, "analyze_station")
+    print(f"📄 analyze_station.py امضای فعلی: analyze_station({', '.join(params) if params else '...'})")
+    
+    # 2. بررسی فایل process_block.py
+    proc_path = BASE_DIR / "orchestrator" / "process_block.py"
+    if not proc_path.exists():
+        print(f"❌ فایل {proc_path} یافت نشد!")
+        return False
+    
+    with open(proc_path, 'r', encoding='utf-8') as f:
+        proc_content = f.read()
+    
+    # جستجوی فراخوانی analyze_station
+    call_pattern = r'analyze_station\s*\(([^)]*)\)'
+    calls = re.findall(call_pattern, proc_content)
+    if calls:
+        print(f"📄 process_block.py فراخوانی‌های analyze_station:")
+        for i, call in enumerate(calls):
+            args = [a.strip() for a in call.split(',')]
+            print(f"   فراخوانی {i+1}: analyze_station({', '.join(args)})")
+    
+    # 3. تشخیص مشکل
+    if params is None:
+        print("❌ تابع analyze_station در فایل پیدا نشد!")
+        return False
+    
+    # اگر تعداد پارامترها ۳ باشد (بدون window_table)
+    if len(params) == 3 and 'window_table' not in params:
+        print("⚠️ تابع analyze_station فقط ۳ پارامتر دارد (بدون window_table)")
+        print("   اما در process_block با ۴ آرگومان فراخوانی شده است.")
+        
+        # اصلاح: اضافه کردن window_table به امضای تابع
+        print("🔧 در حال اصلاح analyze_station.py برای پذیرش window_table...")
+        
+        # یافتن خط def
+        def_pattern = r'(def analyze_station\([^)]*\):)'
+        new_def = 'def analyze_station(station_data, year_list, window_table, var_idx):'
+        content = re.sub(def_pattern, new_def, content, count=1)
+        
+        # همچنین باید در بدنه تابع، از window_table استفاده شود
+        # اگر window_table در بدنه استفاده نشده، آن را به عنوان پارامتر اضافی نادیده می‌گیریم
+        # اما برای اطمینان، یک کامنت اضافه می‌کنیم
+        if 'window_table' not in content:
+            # اضافه کردن یک خط که window_table را نادیده می‌گیرد (برای جلوگیری از خطای استفاده نشده)
+            content = content.replace(
+                'def analyze_station(station_data, year_list, window_table, var_idx):',
+                'def analyze_station(station_data, year_list, window_table, var_idx):\n    # window_table برای استفاده‌های آینده نگهداری می‌شود'
+            )
+        
+        with open(ana_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print("✅ analyze_station.py اصلاح شد (window_table اضافه شد).")
+        return True
+    
+    # اگر تعداد پارامترها ۴ باشد اما نام‌ها متفاوت است
+    elif len(params) == 4:
+        print("✅ analyze_station دارای ۴ پارامتر است، اما ممکن است ترتیب یا نام‌ها متفاوت باشد.")
+        # بررسی فراخوانی در process_block
+        if calls:
+            call_args = [a.strip() for a in calls[0].split(',') if a.strip()]
+            if len(call_args) == 4:
+                print("✅ فراخوانی با ۴ آرگومان انجام شده است.")
+                # بررسی تطابق نام‌ها
+                if set(params) == set(['station_data', 'year_list', 'window_table', 'var_idx']):
+                    print("✅ نام پارامترها با فراخوانی مطابقت دارد.")
+                    return True
+                else:
+                    print("⚠️ نام پارامترها با فراخوانی مطابقت ندارد.")
+                    print(f"   پارامترهای تابع: {params}")
+                    print(f"   آرگومان‌های فراخوانی: {call_args}")
+                    # اصلاح: تغییر نام پارامترها در تابع
+                    # این کار پیچیده است، بهتر است فراخوانی را اصلاح کنیم
+                    # اما برای سادگی، فراخوانی را به ترتیب درست می‌کنیم
+                    # ابتدا بررسی کنیم که آیا window_table در فراخوانی وجود دارد؟
+                    if 'window_table' in call_args:
+                        # فراخوانی درست است، فقط ترتیب را اصلاح می‌کنیم
+                        # اما اگر نام‌ها متفاوت است، بهتر است تابع را اصلاح کنیم
+                        # برای سادگی، فراخوانی را با نام‌های کلیدی بازنویسی می‌کنیم
+                        new_call = "analyze_station(station_data=station_data, year_list=year_list, window_table=window_table, var_idx=var_idx)"
+                        proc_content = proc_content.replace(calls[0], new_call)
+                        with open(proc_path, 'w', encoding='utf-8') as f:
+                            f.write(proc_content)
+                        print("✅ process_block.py اصلاح شد (فراخوانی با نام‌های کلیدی).")
+                        return True
+    else:
+        print(f"⚠️ تعداد پارامترهای analyze_station: {len(params)} (غیرمنتظره)")
+        print("   نیاز به بررسی دستی دارد.")
+        return False
+
+
+def main():
+    print("=" * 60)
+    print("🔍 دیباگ خطای analyze_station")
+    print("=" * 60)
+    
+    if fix_analyze_station_signature():
+        print("\n✅ اصلاحات با موفقیت اعمال شد.")
+        print("🔄 لطفاً دوباره main.py را اجرا کنید.")
+    else:
+        print("\n⚠️ اصلاحات انجام نشد. لطفاً دستی اقدام کنید:")
+        print("   1. فایل numerical_engine/analyze_station.py را باز کنید.")
+        print("   2. امضای تابع را به شکل زیر تغییر دهید:")
+        print("      def analyze_station(station_data, year_list, window_table, var_idx):")
+        print("   3. در orchestrator/process_block.py، فراخوانی را به شکل زیر اصلاح کنید:")
+        print("      result = analyze_station(station_data, year_list, window_table, var_idx)")
+
+
+if __name__ == "__main__":
+    main()
+
+
+================================================================================
 📄 فایل: debug_reader.py
 ================================================================================
 #!/usr/bin/env python3
@@ -55784,269 +56164,6 @@ print("")
 print("   The first block will load data, scale it (÷10), and cache it.")
 print("   Subsequent blocks will load from cache with correct scaling.")
 print("="*60)
-
-
-================================================================================
-📄 فایل: fix_import_merge.py
-================================================================================
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-fix_merge_import_v2.py
-=========================================
-اصلاح دستی import و فراخوانی merge_station_result
-=========================================
-"""
-
-import shutil
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).parent
-PB_PATH = PROJECT_ROOT / "orchestrator" / "process_block.py"
-
-if not PB_PATH.exists():
-    print(f"❌ فایل {PB_PATH} وجود ندارد!")
-    import sys
-    sys.exit(1)
-
-# پشتیبان
-backup = PB_PATH.with_suffix(PB_PATH.suffix + ".bak_merge2")
-shutil.copy2(PB_PATH, backup)
-print(f"📋 پشتیبان: {backup}")
-
-with open(PB_PATH, "r", encoding="utf-8") as f:
-    lines = f.readlines()
-
-new_lines = []
-import_found = False
-for line in lines:
-    # پیدا کردن خط import merge_results
-    if "from numerical_engine.merge_results import" in line and "merge_results" in line:
-        # اگر merge_station_result وجود نداشت، اضافه کن
-        if "merge_station_result" not in line:
-            line = line.replace("merge_results", "merge_results, merge_station_result")
-        import_found = True
-    # پیدا کردن فراخوانی merge_results و تغییر به merge_station_result
-    if "merge_results(block_result, result, station_idx, block_start)" in line:
-        line = line.replace("merge_results", "merge_station_result")
-        # حذف station_idx و block_start (چون فقط local_idx نیاز است)
-        # اما بهتر است که جایگزین با merge_station_result(block_result, result, local_idx) کنیم
-        # چون station_idx و block_start در اینجا معادل local_idx هستند
-        # در واقع local_idx = station_idx - block_start
-        # پس می‌توانیم فراخوانی را به merge_station_result(block_result, result, station_idx - block_start) تغییر دهیم
-        # اما local_idx در حلقه تعریف شده، پس بهتر است از local_idx استفاده کنیم.
-        # فرض می‌کنیم local_idx در حلقه وجود دارد.
-    new_lines.append(line)
-
-# اگر import پیدا نشد، آن را به خطوط اضافه کن
-if not import_found:
-    # پیدا کردن جایی که import‌های دیگر هستند
-    for i, line in enumerate(new_lines):
-        if "from numerical_engine.merge_results import" in line:
-            new_lines[i] = line.replace("merge_results", "merge_results, merge_station_result")
-            import_found = True
-            break
-    if not import_found:
-        # اگر هیچ خطی با merge_results پیدا نشد، یک import جدید اضافه کن
-        # بعد از آخرین import
-        insert_idx = 0
-        for i, line in enumerate(new_lines):
-            if line.startswith("from ") or line.startswith("import "):
-                insert_idx = i + 1
-        new_lines.insert(insert_idx, "from numerical_engine.merge_results import merge_results, merge_station_result\n")
-
-# اصلاح فراخوانی merge_station_result
-new_lines_final = []
-for line in new_lines:
-    # اگر فراخوانی merge_results با ۴ آرگومان است، آن را به merge_station_result با ۳ آرگومان تغییر بده
-    if "merge_results(block_result, result, station_idx, block_start)" in line:
-        line = "        merge_station_result(block_result, result, station_idx - block_start)\n"
-    new_lines_final.append(line)
-
-with open(PB_PATH, "w", encoding="utf-8") as f:
-    f.writelines(new_lines_final)
-
-print("✅ process_block.py اصلاح شد.")
-print("📌 import و فراخوانی merge_station_result اصلاح شد.")
-
-
-================================================================================
-📄 فایل: fix_int_not_iterable.py
-================================================================================
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-fix_int_not_iterable.py
-=========================================
-رفع خطای 'int' object is not iterable در analyze_station.py
-=========================================
-"""
-
-import re
-import shutil
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).parent
-ANALYZE_PATH = PROJECT_ROOT / "numerical_engine" / "analyze_station.py"
-
-if not ANALYZE_PATH.exists():
-    print(f"❌ فایل {ANALYZE_PATH} وجود ندارد!")
-    exit(1)
-
-# پشتیبان
-backup = ANALYZE_PATH.with_suffix(ANALYZE_PATH.suffix + ".bak_int_fix")
-shutil.copy2(ANALYZE_PATH, backup)
-print(f"📋 پشتیبان: {backup}")
-
-with open(ANALYZE_PATH, "r", encoding="utf-8") as f:
-    content = f.read()
-
-# الگوی خط: if values is None: continue
-# و بعدش: res = fit_distribution(values)
-# باید قبل از fit_distribution یک بررسی اضافه کنیم
-
-# پیدا کردن بخش حلقه
-pattern = r'(for doy_idx, values in enumerate\(windows\):.*?)(if values is None:.*?continue.*?)(res = fit_distribution\(values\))'
-
-def replacer(match):
-    before_loop = match.group(1)
-    check_none = match.group(2)
-    fit_call = match.group(3)
-    # اضافه کردن تبدیل به آرایه قبل از fit_distribution
-    new_code = f"""{before_loop}
-        {check_none}
-        # اطمینان از اینکه values یک آرایه است
-        if not isinstance(values, np.ndarray):
-            values = np.array([values])
-        {fit_call}"""
-    return new_code
-
-new_content = re.sub(pattern, replacer, content, flags=re.DOTALL)
-
-# اگر الگو پیدا نشد، روش جایگزین: جستجوی ساده‌تر
-if new_content == content:
-    # روش دوم: پیدا کردن "res = fit_distribution(values)"
-    pattern2 = r'(res = fit_distribution\(values\))'
-    replacement2 = r'''# اطمینان از اینکه values یک آرایه است
-        if not isinstance(values, np.ndarray):
-            values = np.array([values])
-        \1'''
-    new_content = re.sub(pattern2, replacement2, content, flags=re.DOTALL)
-
-# اگر باز هم تغییری نکرد، خطا بده
-if new_content == content:
-    print("⚠️ الگوی مورد نظر پیدا نشد! لطفاً فایل را دستی بررسی کنید.")
-    print("   خط مورد نظر: جایی که fit_distribution(values) صدا زده می‌شود.")
-    exit(1)
-
-with open(ANALYZE_PATH, "w", encoding="utf-8") as f:
-    f.write(new_content)
-
-print("✅ analyze_station.py اصلاح شد.")
-print("📌 حالا اگر values از نوع int باشد، به آرایه تبدیل می‌شود.")
-
-
-================================================================================
-📄 فایل: fix_int_not_iterable_v2.py
-================================================================================
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-fix_int_not_iterable_v2.py
-=========================================
-رفع قطعی خطای 'int' object is not iterable
-در analyze_station.py و distributions.py
-=========================================
-"""
-
-import re
-import shutil
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).parent
-
-# ============================================================
-# ۱. اصلاح analyze_station.py
-# ============================================================
-ANALYZE_PATH = PROJECT_ROOT / "numerical_engine" / "analyze_station.py"
-if ANALYZE_PATH.exists():
-    backup = ANALYZE_PATH.with_suffix(ANALYZE_PATH.suffix + ".bak_int_v2")
-    shutil.copy2(ANALYZE_PATH, backup)
-    print(f"📋 پشتیبان analyze_station.py: {backup}")
-
-    with open(ANALYZE_PATH, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    # پیدا کردن جایی که fit_distribution صدا زده می‌شود
-    # و قبل از آن یک بررسی اضافه کنید
-    pattern = r'(res = fit_distribution\(values\))'
-    replacement = r'''# اطمینان از اینکه values یک آرایه است (حتی اگر int یا float باشد)
-        if isinstance(values, (int, float)):
-            values = np.array([values])
-        elif not isinstance(values, np.ndarray):
-            values = np.array(values)
-        \1'''
-    new_content = re.sub(pattern, replacement, content)
-
-    if new_content != content:
-        with open(ANALYZE_PATH, "w", encoding="utf-8") as f:
-            f.write(new_content)
-        print("✅ analyze_station.py اصلاح شد.")
-    else:
-        print("⚠️ الگو در analyze_station.py پیدا نشد!")
-else:
-    print("❌ analyze_station.py یافت نشد!")
-
-# ============================================================
-# ۲. اصلاح distributions.py (محافظ در خود تابع)
-# ============================================================
-DIST_PATH = PROJECT_ROOT / "numerical_engine" / "distributions.py"
-if DIST_PATH.exists():
-    backup = DIST_PATH.with_suffix(DIST_PATH.suffix + ".bak_int_v2")
-    shutil.copy2(DIST_PATH, backup)
-    print(f"📋 پشتیبان distributions.py: {backup}")
-
-    with open(DIST_PATH, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    # اضافه کردن بررسی در ابتدای تابع fit_distribution
-    # ابتدا تابع fit_distribution را پیدا کنیم
-    pattern = r'(def fit_distribution\(values\):.*?)(\n    if values is None or len\(values\) < MIN_VALID_VALUES:)'
-    replacement = r'''\1
-    # اگر values عددی است، به آرایه تبدیل کن
-    if isinstance(values, (int, float)):
-        values = np.array([values])
-    elif not isinstance(values, np.ndarray):
-        values = np.array(values)
-    \2'''
-    new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
-
-    # اگر الگو پیدا نشد، روش جایگزین: جستجوی ساده‌تر
-    if new_content == content:
-        pattern2 = r'(def fit_distribution\(values\):.*?)(\n    if values is None:)'
-        replacement2 = r'''\1
-    # اگر values عددی است، به آرایه تبدیل کن
-    if isinstance(values, (int, float)):
-        values = np.array([values])
-    elif not isinstance(values, np.ndarray):
-        values = np.array(values)
-    \2'''
-        new_content = re.sub(pattern2, replacement2, content, flags=re.DOTALL)
-
-    if new_content != content:
-        with open(DIST_PATH, "w", encoding="utf-8") as f:
-            f.write(new_content)
-        print("✅ distributions.py اصلاح شد.")
-    else:
-        print("⚠️ الگو در distributions.py پیدا نشد! لطفاً دستی بررسی کنید.")
-else:
-    print("❌ distributions.py یافت نشد!")
-
-print("\n" + "=" * 60)
-print("✅ اصلاحات اعمال شد.")
-print("📌 حالا اگر داده‌ای به صورت int وارد شود، به آرایه تبدیل می‌شود.")
-print("   دوباره main.py را اجرا کنید.")
-print("=" * 60)
 
 
 ================================================================================
@@ -56387,56 +56504,231 @@ if __name__ == "__main__":
 
 
 ================================================================================
-📄 فایل: fix_merge_results.py
+📄 فایل: generate_percentile_maps.py
 ================================================================================
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-fix_merge_results.py
-=========================================
-رفع خطای merge_results() takes 3 positional arguments but 4 were given
-=========================================
+generate_percentile_maps.py - نسخه بهینه‌شده با Dask و محاسبات برداری
+================================================================================
+تولید نقشه‌های صدک از خروجی Zarr بر اساس بهترین توزیع برازش‌شده.
+استفاده از Dask برای پردازش موازی و کاهش چشمگیر زمان.
+================================================================================
 """
 
-import re
-import shutil
-from pathlib import Path
+import os
+import numpy as np
+import xarray as xr
+import dask.array as da
+from scipy.stats import norm, skewnorm, genextreme, pearson3
+from tqdm import tqdm
+import warnings
+warnings.filterwarnings("ignore")
 
-PROJECT_ROOT = Path(__file__).parent
-PB_PATH = PROJECT_ROOT / "orchestrator" / "process_block.py"
+# ============================================================
+# تنظیمات
+# ============================================================
+ZARR_PATH = r"I:/climatology_366_rolling/climatology_stationwise_final.zarr"
+OUTPUT_DIR = r"I:/climatology_366_rolling/percentile_maps"
+PERCENTILES = [0.9, 0.95, 0.99]
+DAYS_TO_PLOT = [1, 91, 181, 271]  # روزهای خاص (۱-بیس)
 
-if not PB_PATH.exists():
-    print(f"❌ فایل {PB_PATH} وجود ندارد!")
-    exit(1)
+# ============================================================
+# توابع ppf برداری برای هر توزیع
+# ============================================================
+def ppf_normal(p, params):
+    """ppf برای توزیع نرمال (p1=mean, p2=std) - کاملاً برداری"""
+    mu, sigma = params[..., 0], params[..., 1]
+    with np.errstate(invalid='ignore'):
+        return np.where(sigma > 0, norm.ppf(p, loc=mu, scale=sigma), np.nan)
 
-# پشتیبان
-backup = PB_PATH.with_suffix(PB_PATH.suffix + ".bak_merge")
-shutil.copy2(PB_PATH, backup)
-print(f"📋 پشتیبان: {backup}")
+def ppf_skew(p, params):
+    """ppf برای skew-normal (p1=alpha, p2=loc, p3=scale) - برداری"""
+    alpha, loc, scale = params[..., 0], params[..., 1], params[..., 2]
+    with np.errstate(invalid='ignore'):
+        return np.where(scale > 0, skewnorm.ppf(p, alpha, loc=loc, scale=scale), np.nan)
 
-with open(PB_PATH, "r", encoding="utf-8") as f:
-    content = f.read()
+def ppf_gev(p, params):
+    """ppf برای GEV (p1=shape, p2=loc, p3=scale) - برداری"""
+    shape, loc, scale = params[..., 0], params[..., 1], params[..., 2]
+    with np.errstate(invalid='ignore'):
+        return np.where(scale > 0, genextreme.ppf(p, shape, loc=loc, scale=scale), np.nan)
 
-# جایگزینی merge_results با merge_station_result و اصلاح آرگومان‌ها
-# الگوی اشتباه: merge_results(block_result, result, station_idx, block_start)
-# الگوی درست:   merge_station_result(block_result, result, local_idx)
-new_content = re.sub(
-    r'merge_results\s*\(\s*block_result\s*,\s*result\s*,\s*station_idx\s*,\s*block_start\s*\)',
-    'merge_station_result(block_result, result, local_idx)',
-    content
-)
+def ppf_pearson(p, params):
+    """ppf برای پیرسون نوع III (p1=shape, p2=scale, p3=loc) - برداری"""
+    shape, scale, loc = params[..., 0], params[..., 1], params[..., 2]
+    with np.errstate(invalid='ignore'):
+        return np.where((scale > 0) & (shape > 0), pearson3.ppf(p, shape, loc=loc, scale=scale), np.nan)
 
-# اگر جایگزینی انجام نشد، خطا بده
-if new_content == content:
-    print("⚠️ الگوی مورد نظر پیدا نشد! لطفاً فایل را دستی بررسی کنید.")
-    print("   خط مورد نظر: merge_results(block_result, result, station_idx, block_start)")
-    exit(1)
+def ppf_bimodal_vectorized(p, params):
+    """
+    ppf برای توزیع دوگانه (مخلوط دو نرمال) - با استفاده از جستجوی دودویی برداری
+    params: (w1, mu1, sigma1, mu2, sigma2)
+    """
+    w1, mu1, sigma1, mu2, sigma2 = params[..., 0], params[..., 1], params[..., 2], params[..., 3], params[..., 4]
+    
+    # تابع CDF دوگانه
+    def cdf_bimodal(x, w1, mu1, sigma1, mu2, sigma2):
+        return w1 * norm.cdf(x, mu1, sigma1) + (1 - w1) * norm.cdf(x, mu2, sigma2)
+    
+    # جستجوی دودویی با استفاده از جستجوی برداری (برای هر نقطه به صورت مجزا)
+    # این بخش همچنان نیاز به حلقه دارد، اما تعداد نقاط با توزیع دوگانه معمولاً کم است.
+    # برای تعداد زیاد، می‌توان از روش تقریبی یا نمونه‌برداری استفاده کرد.
+    # در اینجا از یک حلقه ساده استفاده می‌کنیم که برای تعداد کم قابل قبول است.
+    low = np.minimum(mu1 - 5*sigma1, mu2 - 5*sigma2)
+    high = np.maximum(mu1 + 5*sigma1, mu2 + 5*sigma2)
+    # برای مواردی که محدوده خیلی کوچک است، گسترش دهید
+    low = np.where(high - low < 1e-6, mu1 - 10, low)
+    high = np.where(high - low < 1e-6, mu1 + 10, high)
+    
+    # مقداردهی اولیه
+    x = (low + high) / 2
+    for _ in range(80):  # ۸۰ تکرار کافی است
+        cdf_val = cdf_bimodal(x, w1, mu1, sigma1, mu2, sigma2)
+        low = np.where(cdf_val < p, x, low)
+        high = np.where(cdf_val >= p, x, high)
+        x = (low + high) / 2
+    return x
 
-with open(PB_PATH, "w", encoding="utf-8") as f:
-    f.write(new_content)
+# نگاشت کد توزیع به تابع ppf و تعداد پارامترها
+PPF_FUNCS = {
+    0: (ppf_normal, 2),
+    1: (ppf_skew, 3),
+    2: (ppf_gev, 3),
+    3: (ppf_bimodal_vectorized, 5),
+    4: (ppf_pearson, 3),
+}
 
-print("✅ process_block.py اصلاح شد.")
-print("📌 حالا merge_station_result با آرگومان‌های صحیح صدا زده می‌شود.")
+# ============================================================
+# تابع اصلی با استفاده از Dask و xarray
+# ============================================================
+def compute_percentile_maps_fast(zarr_path, percentiles, output_dir, days=None):
+    """
+    محاسبه صدک‌ها با استفاده از Dask و xarray.apply_ufunc
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # باز کردن Zarr با chunks مناسب برای Dask
+    print(f"📂 Reading Zarr store: {zarr_path}")
+    ds = xr.open_zarr(zarr_path, consolidated=False, chunks={'day': 10, 'point': 5000})
+    
+    # استخراج مختصات
+    n_days = ds.dims['day']
+    n_points = ds.dims['point']
+    lons = ds['lon'].values
+    lats = ds['lat'].values
+    
+    var_names = ['tmin', 'tmean', 'tmax']
+    if days is None:
+        days = list(range(n_days))
+    
+    print(f"📊 Processing {len(days)} days for {len(var_names)} variables and {len(percentiles)} percentiles...")
+    
+    # نام توزیع‌ها برای دسترسی به پارامترها
+    dist_names = {0: 'normal', 1: 'skew', 2: 'gev', 3: 'bimodal', 4: 'pearson'}
+    
+    for var_name in var_names:
+        print(f"\n🔍 Processing variable: {var_name}")
+        
+        best_dist_key = f"{var_name}_best_dist"
+        if best_dist_key not in ds:
+            print(f"⚠️ {best_dist_key} not found. Skipping {var_name}")
+            continue
+        
+        # بارگذاری best_dist به عنوان dask array
+        best_dist = ds[best_dist_key].values  # این هنوز dask array است
+        
+        # برای هر صدک
+        for p in percentiles:
+            print(f"   📈 Computing percentile {p*100:.0f}%...")
+            
+            # ایجاد آرایه خالی برای نتایج (با استفاده از dask)
+            percentile_data = np.full((len(days), n_points), np.nan, dtype=np.float32)
+            
+            # برای هر روز به صورت جداگانه محاسبه می‌کنیم (چون ppf به روز وابسته است)
+            for idx, day_idx in enumerate(tqdm(days, desc=f"      Days for {var_name} p{p*100:.0f}")):
+                # استخراج کد توزیع برای این روز
+                dist_codes = best_dist[day_idx, :].compute()  # تبدیل به numpy برای این روز
+                
+                # ایجاد آرایه پارامترها برای این روز (به صورت دیکشنری)
+                params_dict = {}
+                for dist_code, (_, n_params) in PPF_FUNCS.items():
+                    dist_name = dist_names[dist_code]
+                    params_list = []
+                    for i in range(1, n_params + 1):
+                        key = f"{var_name}_{dist_name}_p{i}"
+                        if key in ds:
+                            # استخراج داده برای این روز و تبدیل به numpy
+                            params_list.append(ds[key].isel(day=day_idx).values.compute())
+                        else:
+                            params_list.append(np.full(n_points, np.nan))
+                    params_dict[dist_code] = np.stack(params_list, axis=-1)  # shape: (n_points, n_params)
+                
+                # محاسبه ppf برای هر نقطه بر اساس کد توزیع
+                result = np.full(n_points, np.nan, dtype=np.float32)
+                
+                # برای هر توزیع، نقاط مربوطه را پیدا کرده و محاسبه کن
+                for dist_code, (ppf_func, n_params) in PPF_FUNCS.items():
+                    mask = (dist_codes == dist_code)
+                    if not np.any(mask):
+                        continue
+                    params = params_dict[dist_code][mask]  # shape: (n_points_masked, n_params)
+                    # محاسبه ppf برای این نقاط
+                    try:
+                        vals = ppf_func(p, params)
+                        result[mask] = vals
+                    except Exception as e:
+                        print(f"      ⚠️ Error in ppf for dist {dist_code}: {e}")
+                        continue
+                
+                # ذخیره نتیجه برای این روز
+                percentile_data[idx, :] = result
+            
+            # ذخیره نتایج به صورت NetCDF
+            ds_out = xr.Dataset(
+                {f"percentile_{int(p*100)}": (["day", "point"], percentile_data)},
+                coords={
+                    "day": days,
+                    "point": np.arange(n_points),
+                    "lon": ("point", lons),
+                    "lat": ("point", lats)
+                }
+            )
+            nc_file = os.path.join(output_dir, f"{var_name}_percentile_{int(p*100)}.nc")
+            ds_out.to_netcdf(nc_file)
+            print(f"      💾 Saved NetCDF: {nc_file}")
+            
+            # (اختیاری) ذخیره به صورت GeoTIFF برای هر روز
+            try:
+                import rioxarray
+                for day_idx in days:
+                    day_data = ds_out.isel(day=day_idx)
+                    # بازآرایی به (lat, lon)
+                    day_reshaped = day_data[f"percentile_{int(p*100)}"].values.reshape((len(lats), len(lons)))
+                    day_ds = xr.Dataset(
+                        {"value": (["lat", "lon"], day_reshaped)},
+                        coords={"lat": lats, "lon": lons}
+                    )
+                    tif_file = os.path.join(output_dir, f"{var_name}_p{int(p*100)}_day{day_idx}.tif")
+                    day_ds.rio.to_raster(tif_file)
+                print(f"      💾 Saved GeoTIFFs for each day.")
+            except ImportError:
+                pass  # rioxarray not installed
+    
+    print("\n✅ نقشه‌های صدک با موفقیت تولید شدند.")
+    print(f"   📁 خروجی در: {output_dir}")
+
+
+# ============================================================
+# اجرای اصلی
+# ============================================================
+if __name__ == "__main__":
+    compute_percentile_maps_fast(
+        zarr_path=ZARR_PATH,
+        percentiles=PERCENTILES,
+        output_dir=OUTPUT_DIR,
+        days=DAYS_TO_PLOT if DAYS_TO_PLOT else None
+    )
 
 
 ================================================================================
@@ -56564,7 +56856,7 @@ print("\nDONE ✅")
 # -*- coding: utf-8 -*-
 """
 main.py - نقطه ورود اصلی با Data Adapter و Checkpoint صحیح
-نسخه ۳.۰
+نسخه ۳.۱ - همراه با تولید نقشه‌های صدک
 """
 
 import os
@@ -56575,7 +56867,7 @@ import yaml
 import gc
 import numpy as np
 import xarray as xr
-import logging  # <-- اضافه شد
+import logging
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -56615,6 +56907,12 @@ LAT_MAX = CONFIG.get("lat_max", None)
 LON_MIN = CONFIG.get("lon_min", None)
 LON_MAX = CONFIG.get("lon_max", None)
 
+# تنظیمات تولید نقشه‌های صدک (از config.yaml خوانده می‌شود)
+GENERATE_MAPS = CONFIG.get("generate_percentile_maps", True)
+PERCENTILES = CONFIG.get("percentiles", [0.9, 0.95, 0.99])
+MAP_DAYS = CONFIG.get("map_days", [1, 91, 181, 271])  # روزهای نمونه
+MAP_OUTPUT_DIR = CONFIG.get("map_output_dir", os.path.join(OUTPUT_DIR, "percentile_maps"))
+
 # ============================================================================
 # تنظیمات Dask
 # ============================================================================
@@ -56632,7 +56930,6 @@ if USE_PARALLEL:
 # تابع اصلی
 # ============================================================================
 
-
 def warmup_numba():
     """پیش‌کامپایل Numba قبل از شروع پردازش"""
     try:
@@ -56646,22 +56943,47 @@ def warmup_numba():
         logger.warning(f"   ⚠️ Warmup failed: {e}")
 
 
+def generate_percentile_maps(zarr_path, output_dir, percentiles, days=None):
+    """
+    تولید نقشه‌های صدک از خروجی Zarr
+    """
+    try:
+        from generate_percentile_maps import compute_percentile_map
+        logger.info("🗺️ Generating percentile maps...")
+        compute_percentile_map(
+            zarr_path=zarr_path,
+            percentiles=percentiles,
+            output_dir=output_dir,
+            days=days
+        )
+        logger.info("✅ Percentile maps generated successfully.")
+    except ImportError as e:
+        logger.warning(f"⚠️ Could not import generate_percentile_maps: {e}")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to generate percentile maps: {e}")
+
+
 def main():
     # Warmup Numba (pre-compile JIT)
     warmup_numba()
 
-    # ===== فقط این خط اضافه شد =====
     logger.setLevel(logging.INFO)
-    # ===============================
     
     logger.info("=" * 80)
-    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v3.0")
+    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v3.1")
     logger.info(f"   Years: {YEAR_START}–{YEAR_END} ({N_YEARS} years)")
     logger.info(f"   Days: {N_DAYS}")
     logger.info(f"   Output: {OUTPUT_ZARR}")
     logger.info(f"   Block Size: {BLOCK_SIZE}")
     logger.info(f"   Max Points: {N_POINTS_MAX}")
     logger.info(f"   Data Format: {DATA_FORMAT}")
+    if GENERATE_MAPS:
+        logger.info(f"   🗺️  Percentile maps: enabled")
+        logger.info(f"      Percentiles: {PERCENTILES}")
+        logger.info(f"      Days: {MAP_DAYS}")
+        logger.info(f"      Output: {MAP_OUTPUT_DIR}")
+    else:
+        logger.info(f"   🗺️  Percentile maps: disabled")
     logger.info("=" * 80)
 
     try:
@@ -56708,6 +57030,7 @@ def main():
         else:
             import zarr
             root = zarr.open(OUTPUT_ZARR, mode="a")
+            logger.info(f"   📂 Existing Zarr opened: {OUTPUT_ZARR}")
 
         # ============================================================
         # ۴. Checkpoint
@@ -56728,7 +57051,6 @@ def main():
         total_blocks = (n_stations + BLOCK_SIZE - 1) // BLOCK_SIZE
         logger.info(f"   Total blocks: {total_blocks}")
 
-    # Warmup Numba
         for block_idx in range(start_block, total_blocks):
             block_start = block_idx * BLOCK_SIZE
             block_end = min(block_start + BLOCK_SIZE, n_stations)
@@ -56763,19 +57085,30 @@ def main():
                 raise
 
         # ============================================================
-        # ۶. نهاییسازی
+        # ۶. نهایی‌سازی
         # ============================================================
         logger.info("Finalizing Zarr...")
         ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
         ds = add_coords_and_metadata(ds, station_ids, lons, lats, elevs)
         ds.attrs["source"] = f"Years {YEAR_START}-{YEAR_END}"
-        ds.attrs["version"] = "3.0"
+        ds.attrs["version"] = "3.1"
         ds.attrs["data_format"] = DATA_FORMAT
         ds.to_zarr(OUTPUT_ZARR, mode="a", consolidated=False)
         ds.close()
 
         delete_checkpoint()
         logger.info("✅ PROCESSING COMPLETED SUCCESSFULLY")
+
+        # ============================================================
+        # ۷. تولید نقشه‌های صدک (اختیاری)
+        # ============================================================
+        if GENERATE_MAPS:
+            generate_percentile_maps(
+                zarr_path=OUTPUT_ZARR,
+                output_dir=MAP_OUTPUT_DIR,
+                percentiles=PERCENTILES,
+                days=MAP_DAYS if MAP_DAYS else None
+            )
 
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
@@ -59012,31 +59345,30 @@ from numcodecs import Blosc
 from constants import N_DAYS, FLOAT_DTYPE, INT_DTYPE
 
 # ============================================================
-# تعریف توزیع‌ها
+# تعریف توزیع‌ها (هماهنگ با distributions.py)
 # ============================================================
 DISTRIBUTIONS = {
     0: {"name": "Normal", "params": ["mean", "std"], "n_params": 2},
-    1: {"name": "SkewNormal", "params": ["alpha", "loc", "scale"], "n_params": 3},
-    2: {"name": "Bimodal", "params": ["w1", "mu1", "sigma1", "mu2", "sigma2"], "n_params": 5},
-    3: {"name": "Pearson", "params": ["shape", "scale", "loc"], "n_params": 3},
+    1: {"name": "Skew", "params": ["alpha", "loc", "scale"], "n_params": 3},
+    2: {"name": "GEV", "params": ["shape", "loc", "scale"], "n_params": 3},
+    3: {"name": "Bimodal", "params": ["w1", "mu1", "sigma1", "mu2", "sigma2"], "n_params": 5},
+    4: {"name": "Pearson", "params": ["shape", "scale", "loc"], "n_params": 3},
 }
 
 # ============================================================
-# ساخت لیست کامل متغیرها
+# ساخت لیست کامل متغیرها (۹۳ متغیر)
 # ============================================================
 VAR_NAMES = []
 VAR_DTYPES = {}
 
 for var in ['tmin', 'tmean', 'tmax']:
+    # آماره‌های پایه
     for suffix in ['best_dist', 'mean', 'std', 'skewness', 'median', 'count']:
         name = f"{var}_{suffix}"
         VAR_NAMES.append(name)
-        if suffix in ['best_dist', 'count']:
-            VAR_DTYPES[name] = INT_DTYPE
-        else:
-            VAR_DTYPES[name] = FLOAT_DTYPE
+        VAR_DTYPES[name] = INT_DTYPE if suffix in ['best_dist', 'count'] else FLOAT_DTYPE
 
-for var in ['tmin', 'tmean', 'tmax']:
+    # پارامترها و معیارهای اطلاعاتی هر توزیع
     for dist_info in DISTRIBUTIONS.values():
         dist_name = dist_info["name"].lower()
         for i in range(1, dist_info["n_params"] + 1):
@@ -59072,7 +59404,6 @@ def create_zarr_store(output_path, n_stations):
         print(f"   🗑️ Removed existing store")
 
     root = zarr.open_group(output_path, mode='w', zarr_format=2)
-
     compressor = Blosc(cname='zstd', clevel=3, shuffle=2)
 
     print(f"   📊 Creating {len(VAR_NAMES)} variables directly on disk...")
@@ -59090,7 +59421,6 @@ def create_zarr_store(output_path, n_stations):
             compressor=compressor,
             overwrite=True
         )
-        # متادیتای مورد نیاز xarray
         arr.attrs['_ARRAY_DIMENSIONS'] = ['day', 'point']
 
         if (idx + 1) % 10 == 0 or idx == len(VAR_NAMES) - 1:
@@ -59101,23 +59431,16 @@ def create_zarr_store(output_path, n_stations):
     print(f"   📊 Total variables: {len(VAR_NAMES)}")
     print(f"   📊 Shape: ({N_DAYS}, {n_stations})")
     print(f"   📊 Chunks: ({chunks[0]}, {chunks[1]})")
-
     return root
 
 def get_or_create_zarr_store(output_path, n_stations):
-    """
-    اگر Zarr وجود داشته باشد، آن را باز می‌کند (حالت append).
-    در غیر این صورت، یک Zarr جدید ایجاد می‌کند.
-    """
+    """باز کردن یا ایجاد فروشگاه Zarr با مدیریت missing variables"""
     if os.path.exists(output_path):
         print(f"   📂 Zarr exists, opening it: {output_path}")
         root = zarr.open_group(output_path, mode='a')
-
-        # بررسی متغیرهای موجود
         existing_vars = set(root.array_keys())
         expected_vars = set(VAR_NAMES)
         missing = expected_vars - existing_vars
-
         if missing:
             print(f"   ⚠️ Missing variables: {missing}. Adding them...")
             compressor = Blosc(cname='zstd', clevel=3, shuffle=2)
@@ -59136,8 +59459,6 @@ def get_or_create_zarr_store(output_path, n_stations):
                 )
                 arr.attrs['_ARRAY_DIMENSIONS'] = ['day', 'point']
                 print(f"      Added missing variable: {name}")
-
-        # بررسی ابعاد
         sample_name = next(iter(existing_vars)) if existing_vars else None
         if sample_name:
             existing_shape = root[sample_name].shape
@@ -59146,7 +59467,6 @@ def get_or_create_zarr_store(output_path, n_stations):
                 print(f"   ⚠️ Shape mismatch: existing {existing_shape} != expected {expected_shape}")
                 print(f"   🔄 Recreating store with correct shape...")
                 return create_zarr_store(output_path, n_stations)
-
         return root
     else:
         print(f"   🆕 Zarr does not exist, creating new: {output_path}")
@@ -60007,16 +60327,6 @@ logger = setup_logger()
 
 
 ================================================================================
-📄 فایل: nature_output\checkpoint.json
-================================================================================
-block=116
-station=116999
-timestamp=1785061174
-version=1
-
-
-
-================================================================================
 📄 فایل: numerical_engine\__init__.py
 ================================================================================
 # climatology_engine v2.0 - Final
@@ -60032,117 +60342,93 @@ version=1
 numerical_engine/analyze_station.py
 ================================================================================
 تحلیل یک ایستگاه کامل.
-ورودی: (N_YEARS, N_DAYS, N_VARS) → خروجی: ۳۳ آرایه (N_DAYS,)
-این تابع کاملاً مستقل از فایل و I/O است.
+ورودی: (N_YEARS, N_DAYS, N_VARS) → خروجی: دیکشنری با کلیدهای دقیق VAR_NAMES
 ================================================================================
 """
 
 import numpy as np
 from numerical_engine.window_engine import extract_window_values_fast
 from numerical_engine.distributions import fit_distribution
-from zarr_schema import VAR_NAMES
-from constants import N_DAYS, VAR_INDEX_FOR_FIT
+from zarr_schema import VAR_NAMES, DISTRIBUTIONS
+from constants import N_DAYS, VARS
 
-def analyze_station(station_data, window_table, var_idx=VAR_INDEX_FOR_FIT, *args):
+# نگاشت کد توزیع به نام
+DIST_CODE_TO_NAME = {code: info["name"].lower() for code, info in DISTRIBUTIONS.items()}
+
+def analyze_station(station_data, year_list, window_table, var_idx=None):
     """
-    تحلیل یک ایستگاه.
-
-    پارامترها:
-        station_data: ndarray shape=(N_YEARS, N_DAYS, N_VARS)
-        window_table: لیست ۳۶۶ تایی، هر کدام ۵ اندیس روز
-        var_idx: اندیس متغیر برای برازش (پیش‌فرض: ۱ = tmean)
-
-    خروجی: dict {name: ndarray(shape=(N_DAYS,))}
+    تحلیل یک ایستگاه برای همه متغیرها.
     """
-    # مقداردهی اولیه خروجی
+    # مقداردهی اولیه خروجی با کلیدهای VAR_NAMES
     result = {}
     for name in VAR_NAMES:
-        if name == "best_dist":
-            result[name] = np.full(N_DAYS, -1, dtype=np.int32)
-        elif name == "count":
-            result[name] = np.zeros(N_DAYS, dtype=np.int32)
+        if 'best_dist' in name or 'count' in name:
+            result[name] = np.full(N_DAYS, -1 if 'best_dist' in name else 0, dtype=np.int32)
         else:
             result[name] = np.full(N_DAYS, np.nan, dtype=np.float32)
 
-    # استخراج پنجره‌ها
-    windows = extract_window_values_fast(station_data, window_table, var_idx)
+    try:
+        # پردازش هر متغیر
+        for v_idx, var_name in enumerate(VARS):
+            windows = extract_window_values_fast(station_data, window_table, v_idx)
 
-    # حلقه بر روی روزها
-    for doy_idx, values in enumerate(windows):
-        
-        if values is None:
-            continue
+            for doy_idx, values in enumerate(windows):
+                if values is None or len(values) < 5:
+                    continue
 
-        
-        # اطمینان از اینکه values یک آرایه است
-        if not isinstance(values, np.ndarray):
-            values = np.array([values])
-        # اطمینان از اینکه values یک آرایه است (حتی اگر int یا float باشد)
-        if isinstance(values, (int, float)):
-            values = np.array([values])
-        elif not isinstance(values, np.ndarray):
-            values = np.array(values)
-        res = fit_distribution(values)  # res یک آرایه ۳۳ عضوی است
-        if res is None or np.isnan(res[0]):
-            continue
+                res = fit_distribution(values)  # آرایه ۳۸ عضوی
+                if res is None or np.isnan(res[0]):
+                    continue
 
-        best_code = int(res[0])
-        result["best_dist"][doy_idx] = best_code
+                best_code = int(res[0])
+                result[f"{var_name}_best_dist"][doy_idx] = best_code
 
-        # Normal
-        result["normal_p1"][doy_idx] = res[1]
-        result["normal_p2"][doy_idx] = res[2]
-        result["normal_loglik"][doy_idx] = res[3]
-        result["normal_aicc"][doy_idx] = res[4]
-        result["normal_bic"][doy_idx] = res[5]
+                # آماره‌های پایه (اندیس‌های ۳۳–۳۷)
+                result[f"{var_name}_mean"][doy_idx] = res[33]
+                result[f"{var_name}_std"][doy_idx] = res[34]
+                result[f"{var_name}_skewness"][doy_idx] = res[35]
+                result[f"{var_name}_median"][doy_idx] = res[36]
+                result[f"{var_name}_count"][doy_idx] = int(res[37]) if not np.isnan(res[37]) else 0
 
-        # Skew-Normal
-        result["skew_p1"][doy_idx] = res[7]
-        result["skew_p2"][doy_idx] = res[8]
-        result["skew_p3"][doy_idx] = res[9]
-        result["skew_loglik"][doy_idx] = res[10]
-        result["skew_aicc"][doy_idx] = res[11]
-        result["skew_bic"][doy_idx] = res[12]
+                # پارامترها و معیارهای اطلاعاتی برای هر توزیع
+                offsets = {
+                    'normal': 1,
+                    'skew': 7,
+                    'gev': 14,
+                    'bimodal': 21,
+                    'pearson': 30,
+                }
+                info_indices = {
+                    'normal': (3, 4, 5),
+                    'skew': (10, 11, 12),
+                    'gev': (17, 18, 19),
+                    'bimodal': (26, 27, 28),
+                    'pearson': (None, None, None),
+                }
+                n_params = {
+                    'normal': 2,
+                    'skew': 3,
+                    'gev': 3,
+                    'bimodal': 5,
+                    'pearson': 3,
+                }
 
-        # GEV
-        result["gev_p1"][doy_idx] = res[14]
-        result["gev_p2"][doy_idx] = res[15]
-        result["gev_p3"][doy_idx] = res[16]
-        result["gev_loglik"][doy_idx] = res[17]
-        result["gev_aicc"][doy_idx] = res[18]
-        result["gev_bic"][doy_idx] = res[19]
+                for dist_name, offset in offsets.items():
+                    prefix = f"{var_name}_{dist_name}"
+                    for i in range(n_params[dist_name]):
+                        idx = offset + i
+                        if idx < len(res) and not np.isnan(res[idx]):
+                            result[f"{prefix}_p{i+1}"][doy_idx] = res[idx]
+                    loglik_idx, aicc_idx, bic_idx = info_indices[dist_name]
+                    if loglik_idx is not None and loglik_idx < len(res):
+                        result[f"{prefix}_loglik"][doy_idx] = res[loglik_idx]
+                        result[f"{prefix}_aicc"][doy_idx] = res[aicc_idx]
+                        result[f"{prefix}_bic"][doy_idx] = res[bic_idx]
 
-        # Bimodal
-        result["bimodal_p1"][doy_idx] = res[21]
-        result["bimodal_p2"][doy_idx] = res[22]
-        result["bimodal_p3"][doy_idx] = res[23]
-        result["bimodal_p4"][doy_idx] = res[24]
-        result["bimodal_p5"][doy_idx] = res[25]
-        result["bimodal_loglik"][doy_idx] = res[26]
-        result["bimodal_aicc"][doy_idx] = res[27]
-        result["bimodal_bic"][doy_idx] = res[28]
-
-        # Pearson
-        result["pearson_p1"][doy_idx] = res[30]
-        result["pearson_p2"][doy_idx] = res[31]
-        result["pearson_p3"][doy_idx] = res[32]
-        # توجه: pearson_loglik, aicc, bic در اندیس‌های ۳۳ و بالاتر نیستند،
-        # بنابراین از res معتبر استفاده می‌کنیم.
-        # اگر در آینده نیاز شد، می‌توان اصلاح کرد.
-
-        # آماره‌های پایه
-        # در خروجی فعلی، mean و std و ... در اندیس‌های آخر هستند
-        # ولی برای اطمینان، از تابع compute_stats استفاده نمی‌کنیم.
-        # در عوض، اگر res حاوی این مقادیر باشد، استفاده می‌کنیم.
-        # در حال حاضر، res[28]=mean, res[29]=std, res[30]=skewness, res[31]=median, res[32]=count
-        result["mean"][doy_idx] = res[28] if len(res) > 28 else np.nan
-        result["std"][doy_idx] = res[29] if len(res) > 29 else np.nan
-        result["skewness"][doy_idx] = res[30] if len(res) > 30 else np.nan
-        result["median"][doy_idx] = res[31] if len(res) > 31 else np.nan
-        result["count"][doy_idx] = int(res[32]) if len(res) > 32 else 0
+    except Exception as e:
+        print(f"⚠️ analyze_station error: {e}")
 
     return result
-
 
 
 ================================================================================
@@ -60156,8 +60442,9 @@ numerical_engine/distributions.py
 توابع برازش ۵ توزیع آماری: Normal, Skew-Normal, GEV, Bimodal, Pearson
 با Numba و fastmath برای سرعت بالا.
 همه توزیع‌ها حفظ شده‌اند.
+خروجی: آرایه ۳۸ عضوی (۰=best_code, ۱–۲۷ پارامترها و معیارها, ۲۸–۳۲ ذخیره‌های کمکی, ۳۳=mean, ۳۴=std, ۳۵=skewness, ۳۶=median, ۳۷=count)
 ================================================================================
-ورژن: 3.0 - بهینه (fastmath)
+ورژن: 3.1 - خروجی توسعه‌یافته
 """
 
 import numpy as np
@@ -60166,7 +60453,7 @@ import math
 from constants import MIN_VALID_VALUES
 
 # ============================================================================
-# توابع کمکی
+# توابع کمکی (بدون تغییر)
 # ============================================================================
 @njit(fastmath=True)
 def compute_stats_numba(data):
@@ -60192,7 +60479,7 @@ def compute_bic_numba(loglik, k, n):
     return k * np.log(n) - 2 * loglik
 
 # ============================================================================
-# توزیع نرمال
+# توابع برازش هر توزیع (بدون تغییر)
 # ============================================================================
 @njit(fastmath=True)
 def logpdf_normal_numba(x, mu, sigma):
@@ -60210,9 +60497,6 @@ def fit_normal_full_numba(data):
     bic = compute_bic_numba(loglik, 2, n)
     return mean, std, loglik, aicc, bic, 2
 
-# ============================================================================
-# توزیع Skew-normal
-# ============================================================================
 @njit(fastmath=True)
 def skewness_to_alpha(skew):
     if abs(skew) < 0.1:
@@ -60259,9 +60543,6 @@ def fit_skewnorm_full_numba(data):
     bic = compute_bic_numba(loglik, 3, n)
     return alpha, loc, scale, loglik, aicc, bic, 3
 
-# ============================================================================
-# توزیع GEV
-# ============================================================================
 @njit(fastmath=True)
 def gev_skewness_func(kisi):
     if abs(kisi) < 1e-8:
@@ -60391,23 +60672,17 @@ def fit_gev_full_numba(data):
     bic = compute_bic_numba(loglik, 3, n)
     return kisi, loc, scale, loglik, aicc, bic, 3
 
-# ============================================================================
-# توزیع Bimodal Normal (روش گشتاورها)
-# ============================================================================
 @njit(fastmath=True)
 def fit_bimodal_full_numba(data):
     n = len(data)
     if n < 10:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 5
-
     mean = np.mean(data)
     std = np.std(data)
     if std == 0:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 5
-
     skew = np.mean(((data - mean) / std) ** 3)
     kurt = np.mean(((data - mean) / std) ** 4) - 3
-
     if abs(skew) < 0.1:
         w1 = 0.5
         w2 = 0.5
@@ -60436,7 +60711,6 @@ def fit_bimodal_full_numba(data):
             mu2 = mean - w1 * delta
         sigma1 = np.sqrt(max(0.1, std**2 - w1 * w2 * delta**2))
         sigma2 = sigma1
-
     if w1 < 0.01:
         w1 = 0.01
     elif w1 > 0.99:
@@ -60446,7 +60720,6 @@ def fit_bimodal_full_numba(data):
         sigma1 = 0.1
     if sigma2 < 0.1:
         sigma2 = 0.1
-
     loglik = 0.0
     inv_sqrt_2pi = 1.0 / math.sqrt(2 * math.pi)
     for x in data:
@@ -60457,14 +60730,10 @@ def fit_bimodal_full_numba(data):
             loglik += math.log(pdf)
         else:
             loglik += -1e6
-
     aicc = compute_aicc_numba(loglik, 5, n)
     bic = compute_bic_numba(loglik, 5, n)
     return w1, mu1, sigma1, mu2, sigma2, loglik, aicc, bic, 5
 
-# ============================================================================
-# توزیع Pearson III
-# ============================================================================
 @njit(fastmath=True)
 def _norm_ppf_approx(p):
     if p <= 0:
@@ -60541,62 +60810,50 @@ def fit_pearson3_full_numba(data):
     n = len(data)
     if n < 5:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
-
     MEAN_ = np.mean(data)
     STD_ = np.std(data)
     if STD_ == 0:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
-
     sumy1 = np.sum(data)
     sumy2 = np.sum(data**2)
     sumy3 = np.sum(data**3)
     SKEW_ = (sumy3 - 3*MEAN_*sumy2 + 3*MEAN_**2*sumy1 - MEAN_**3*n) * n / (n-1) / (n-2) / (STD_**3)
-
     if SKEW_ > 2.999:
         SKEW = 2.999
     elif SKEW_ < -2.999:
         SKEW = -2.999
     else:
         SKEW = SKEW_
-
     INVERTED = False
     if SKEW_ < 0:
         DATA_111 = -data.copy()
         INVERTED = True
     else:
         DATA_111 = data.copy()
-
     minim = np.min(DATA_111)
     DATA_111 = DATA_111 - minim
     DATA_111 = np.where(DATA_111 == 0.0, 0.1, DATA_111)
-
     XBAR = np.mean(DATA_111)
     STD = np.std(DATA_111)
     lnX_BAR = np.mean(np.log(DATA_111))
     A = np.log(XBAR) - lnX_BAR
     if A <= 0:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
-
     shape1 = 1/(4*A) * (1 + np.sqrt(1 + 4*A/3))
     scale1 = XBAR / shape1
-
     q = np.sum(DATA_111 == 0.1) / (n + 0.3*abs(SKEW) + 0.05)
     beg = _gamma_ppf_approx(q, shape1, scale1)
     DATA_111 += beg
-
     XBAR = np.mean(DATA_111)
     STD = np.std(DATA_111)
     lnX_BAR = np.mean(np.log(DATA_111))
     A = np.log(XBAR) - lnX_BAR
     if A <= 0:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
-
     shape = 1/(4*A) * (1 + np.sqrt(1 + 4*A/3))
     scale = XBAR / shape
-
     ranks = _rankdata_max(DATA_111)
     q_ = (ranks - 0.42) / (n + 0.3*SKEW + 0.05)
-
     CDF = np.zeros(n, dtype=np.float64)
     for i in range(n):
         x = DATA_111[i]
@@ -60612,10 +60869,8 @@ def fit_pearson3_full_numba(data):
             CDF[i] = min(max(cdf_val, 0.0), 1.0)
         else:
             CDF[i] = 0.0
-
     if INVERTED:
         CDF = 1.0 - CDF
-
     loglik = 0.0
     for i in range(n):
         x = DATA_111[i]
@@ -60623,26 +60878,22 @@ def fit_pearson3_full_numba(data):
             loglik = np.nan
             break
         loglik += (shape - 1)*math.log(x) - x/scale - shape*math.log(scale) - math.lgamma(shape)
-
     if np.isnan(loglik):
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
-
     aicc = compute_aicc_numba(loglik, 3, n)
     bic = compute_bic_numba(loglik, 3, n)
-
     if INVERTED:
         loc_main = -minim
     else:
         loc_main = minim
-
     return shape, scale, loc_main, loglik, aicc, bic, 3
 
 # ============================================================================
-# تابع اصلی برازش (همه توزیع‌ها)
+# تابع اصلی برازش (همه توزیع‌ها) – خروجی ۳۸ عضوی
 # ============================================================================
 @njit(fastmath=True)
 def fit_all_distributions_numba(data):
-    out = np.full(33, np.nan, dtype=np.float64)
+    out = np.full(38, np.nan, dtype=np.float64)
     n = len(data)
     if n < MIN_VALID_VALUES:
         out[0] = -1
@@ -60652,21 +60903,21 @@ def fit_all_distributions_numba(data):
     n_clean = len(data_clean)
     if n_clean < MIN_VALID_VALUES:
         out[0] = -1
-        out[28] = np.nanmean(data)
-        out[29] = np.nanstd(data)
-        out[30] = 0.0
-        out[31] = np.nanmedian(data)
-        out[32] = n_clean
+        out[33] = np.nanmean(data)
+        out[34] = np.nanstd(data)
+        out[35] = 0.0
+        out[36] = np.nanmedian(data)
+        out[37] = n_clean
         return out
 
     mean, std, skew, median, count = compute_stats_numba(data_clean)
     if std < 1e-10:
         out[0] = -1
-        out[28] = mean
-        out[29] = std
-        out[30] = skew
-        out[31] = median
-        out[32] = count
+        out[33] = mean
+        out[34] = std
+        out[35] = skew
+        out[36] = median
+        out[37] = count
         return out
 
     # برازش همه ۵ توزیع
@@ -60727,41 +60978,34 @@ def fit_all_distributions_numba(data):
     out[30] = p_p1
     out[31] = p_p2
     out[32] = p_p3
-    # میانگین، انحراف معیار و ... در جای دیگری ذخیره می‌شوند
+    # اندیس‌های ۳۳ تا ۳۷: mean, std, skewness, median, count
+    out[33] = mean
+    out[34] = std
+    out[35] = skew
+    out[36] = median
+    out[37] = count
+
     return out
 
 def fit_distribution(values):
-    # اگر values عددی است، به آرایه تبدیل کن
     if isinstance(values, (int, float)):
         values = np.array([values])
     elif not isinstance(values, np.ndarray):
         values = np.array(values)
-    
     if values is None or len(values) < MIN_VALID_VALUES:
         return None
     return fit_all_distributions_numba(values)
 
-
 # ============================================================================
-# Alias برای سازگاری با کدهای قدیمی
+# توابع سازگاری با کدهای قدیمی
 # ============================================================================
 def fit_distributions(values):
-    """Alias برای fit_distribution (سازگاری با نسخه‌های قدیمی)"""
     return fit_distribution(values)
 
-# همچنین select_best_distribution را هم اضافه می‌کنیم
 def select_best_distribution(values):
-    """برازش و انتخاب بهترین توزیع (سازگاری با نسخه‌های قدیمی)"""
     result = fit_distribution(values)
     if result is None:
         return None
-    # result یک آرایه ۳۳ عنصری است
-    # [0] = best_code
-    # [4] = normal_aicc
-    # [11] = skew_aicc
-    # [18] = gev_aicc
-    # [27] = bimodal_aicc
-    # [30] = pearson_aicc
     best_code = int(result[0])
     dist_names = {0: 'normal', 1: 'skew', 2: 'gev', 3: 'bimodal', 4: 'pearson'}
     return {
@@ -60772,19 +61016,17 @@ def select_best_distribution(values):
         'gev_aicc': result[18],
         'bimodal_aicc': result[27],
         'pearson_aicc': result[30],
-        'mean': result[28],
-        'std': result[29],
-        'skewness': result[30],
-        'median': result[31],
-        'count': result[32],
+        'mean': result[33],
+        'std': result[34],
+        'skewness': result[35],
+        'median': result[36],
+        'count': result[37],
     }
-
 
 if __name__ == "__main__":
     sample = np.random.randn(200).astype(np.float64)
     _ = fit_all_distributions_numba(sample)
     print("✅ Numba distributions compiled successfully.")
-
 
 
 ================================================================================
@@ -61070,53 +61312,34 @@ print("=" * 70)
 """
 numerical_engine/merge_results.py
 ================================================================================
-جمع‌آوری نتایج ایستگاه‌ها در block_result.
+ادغام نتایج یک ایستگاه در نتایج بلوک
 ================================================================================
 """
 
-from zarr_schema import create_empty_block_result, VAR_NAMES
+import numpy as np
 
-def merge_station_result(block_result, station_result, local_idx):
-    """ادغام نتیجه یک ایستگاه در block_result"""
-    for name in VAR_NAMES:
-        block_result[name][:, local_idx] = station_result[name]
-
-def create_and_merge_results(block_data, window_table, var_idx):
+def merge_results(block_result, station_result, station_idx, block_start):
     """
-    پردازش کامل یک بلوک: تحلیل همه ایستگاه‌ها و جمع‌آوری نتایج.
-
-    پارامترها:
-        block_data: ndarray shape=(block_size, N_YEARS, N_DAYS, N_VARS)
-        window_table: لیست پنجره‌ها
-        var_idx: اندیس متغیر برای برازش
-
-    خروجی: dict {name: ndarray(shape=(N_DAYS, block_size))}
+    ادغام نتایج یک ایستگاه در نتایج بلوک (نسخه قدیمی - برای سازگاری)
     """
-    from numerical_engine.analyze_station import analyze_station
+    merge_station_result(block_result, station_result, station_idx, block_start)
 
-    block_size = block_data.shape[0]
-    block_result = create_empty_block_result(block_size)
-
-    for local_idx in range(block_size):
-        station_data = block_data[local_idx]
-        station_result = analyze_station(station_data, window_table, var_idx)
-        merge_station_result(block_result, station_result, local_idx)
-
-    return block_result
-
-# ============================================================================
-# توابع سازگاری با کدهای قدیمی
-# ============================================================================
-
-def merge_results(block_data, window_table, var_idx):
+def merge_station_result(block_result, station_result, station_idx, block_start):
     """
-    Wrapper برای create_and_merge_results (سازگاری با نسخه‌های قدیمی)
+    ادغام نتایج یک ایستگاه در نتایج بلوک
+    فرض می‌کند block_result از قبل با تمام کلیدها و ابعاد صحیح مقداردهی شده است.
+    اگر کلیدی وجود نداشت، هشدار داده می‌شود (اما نباید رخ دهد).
     """
-    return create_and_merge_results(block_data, window_table, var_idx)
+    local_idx = station_idx - block_start
 
-if __name__ == "__main__":
-    print("✅ merge_results.py loaded successfully.")
-
+    for key, value in station_result.items():
+        if key not in block_result:
+            # اگر کلید در block_result وجود ندارد (نباید رخ دهد)، آن را با ابعاد صحیح ایجاد کن
+            # اما block_size را نمی‌دانیم، بنابراین فقط هشدار می‌دهیم و از آن صرف‌نظر می‌کنیم
+            print(f"⚠️ Warning: key '{key}' not found in block_result. Skipping.")
+            continue
+        # قرار دادن داده‌ها در ستون مربوطه
+        block_result[key][:, local_idx] = value
 
 
 ================================================================================
@@ -61305,18 +61528,18 @@ process_block.py - پردازش یک بلوک از ایستگاه‌ها
 import time
 import numpy as np
 import gc
-from tqdm import tqdm  # <-- اضافه شد
+from tqdm import tqdm
 from monitoring.logger import logger
 from monitoring.checkpoint import save_checkpoint
 from io_pipeline.read_month_files import read_month_files
 from io_pipeline.assemble_block import assemble_block
 from io_pipeline.validate_block import validate_block
 from numerical_engine.analyze_station import analyze_station
-from numerical_engine.merge_results import merge_results, merge_station_result  # ✅ اصلاح شد
+from numerical_engine.merge_results import merge_station_result
 from result_pipeline.validate_result import validate_result
 from result_pipeline.write_block import write_block_safe
 from constants import VARS, VAR_INDEX_FOR_FIT, N_DAYS, INT_DTYPE
-from zarr_schema import VAR_NAMES, VAR_DTYPES
+from zarr_schema import VAR_NAMES, VAR_DTYPES, create_empty_block_result
 
 
 def process_block(block_start, block_end, block_idx, file_map, doy_table, window_table,
@@ -61376,7 +61599,6 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
             # روش قدیمی (تک‌متغیره) – برای سازگاری
             logger.info("   🐢 Using fallback single-variable loading...")
             n_vars = len(VARS)
-            # محاسبه تعداد کل فایل‌ها
             total_files = sum(1 for year in year_list for month in range(1, 13) if (year, month) in file_map)
             pbar = tqdm(total=total_files, desc="   Loading Zarr files (single-var)", unit="file", position=0, leave=True)
 
@@ -61448,7 +61670,10 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
     # ۴. تحلیل آماری هر ایستگاه
     # ============================================================
     logger.info("   ⚙️ Analyzing...")
-    block_result = {}
+    
+    # ✅ ایجاد block_result با ابعاد صحیح (N_DAYS, block_size)
+    block_result = create_empty_block_result(block_size)
+    
     N_YEARS = len(year_list)
     N_DAYS_LOCAL = 366
     n_vars = len(VARS)
@@ -61460,7 +61685,7 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
 
     t_analyze_start = time.time()
 
-    # progress bar برای تحلیل ایستگاه‌ها (اختیاری)
+    # progress bar برای تحلیل ایستگاه‌ها
     pbar_stations = tqdm(total=block_size, desc="   Analyzing stations", unit="station", position=0, leave=True)
 
     for local_idx in range(block_size):
@@ -61495,7 +61720,8 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
         try:
             result = analyze_station(station_data, year_list, window_table, var_idx)
             if result is not None:
-                merge_station_result(block_result, result, local_idx)  # ✅ اصلاح شده
+                # ✅ merge_station_result فقط مقداردهی می‌کند (آرایه‌ها از قبل وجود دارند)
+                merge_station_result(block_result, result, station_idx, block_start)
         except Exception as e:
             logger.warning(f"   ⚠️ Station {station_idx} failed: {e}")
             continue
@@ -61508,18 +61734,6 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
 
     pbar_stations.close()
     times["analyze"] = time.time() - t_analyze_start
-
-    # ============================================================
-    # ۴.۵. پر کردن کلیدهای گم‌شده در block_result
-    # ============================================================
-    logger.info("   🔧 Ensuring all expected keys exist in block_result...")
-    for name in VAR_NAMES:
-        if name not in block_result:
-            dtype = VAR_DTYPES[name]
-            if dtype == INT_DTYPE:
-                block_result[name] = np.full((N_DAYS, block_size), -1, dtype=dtype)
-            else:
-                block_result[name] = np.full((N_DAYS, block_size), np.nan, dtype=dtype)
 
     # ============================================================
     # ۵. اعتبارسنجی نتایج
@@ -61702,13 +61916,15 @@ class SkewNormalDistribution(DistributionPlugin):
 result_pipeline/validate_result.py
 ================================================================================
 اعتبارسنجی نتایج قبل از نوشتن در Zarr.
-فقط گزارش می‌دهد.
 ================================================================================
 """
 
 import numpy as np
 from zarr_schema import VAR_NAMES, VAR_DTYPES
-from constants import N_DAYS, VALID_BEST_DIST
+from constants import N_DAYS
+
+# مقدار معتبر برای best_dist (فقط 0 تا 4)
+VALID_BEST_DIST = set(range(5))
 
 def validate_result(block_result, block_start, block_size, strict=True):
     report = {"valid": True, "errors": [], "warnings": [], "stats": {}}
@@ -61724,18 +61940,16 @@ def validate_result(block_result, block_start, block_size, strict=True):
         expected_dtype = np.dtype(VAR_DTYPES[name])
         if arr.dtype != expected_dtype:
             report["warnings"].append(f"{name}: dtype {arr.dtype} != {expected_dtype}")
-        if name == "best_dist":
+        if name.endswith("_best_dist"):
             invalid = set(np.unique(arr)) - VALID_BEST_DIST
             if invalid:
                 report["valid"] = False
-                report["errors"].append(f"best_dist contains invalid values: {invalid}")
-        elif name == "count":
+                report["errors"].append(f"{name} contains invalid values: {invalid}")
+        elif name.endswith("_count"):
             if np.any(arr < 0):
                 report["valid"] = False
                 report["errors"].append("count contains negative values")
-            if np.any(arr > 155):
-                report["warnings"].append(f"count > 155 (max={np.max(arr)})")
-        elif name == "std":
+        elif name.endswith("_std"):
             if np.any(arr < 0):
                 report["valid"] = False
                 report["errors"].append("std contains negative values")
@@ -61797,7 +62011,6 @@ def write_block_safe(root, block_result, block_start, block_end, validate=True):
     write_block(root, block_result, block_start, block_end)
 
 
-
 ================================================================================
 📄 فایل: tests\test_distributions.py
 ================================================================================
@@ -61823,6 +62036,6 @@ def test_normal_fit():
 
 ================================================================================
 📊 آمار اسنپ‌شات:
-   تعداد فایل‌های اسکن‌شده: 78
-   تاریخ ایجاد: 2026-07-28 01:39:00
+   تعداد فایل‌های اسکن‌شده: 76
+   تاریخ ایجاد: 2026-07-29 02:13:51
 ================================================================================

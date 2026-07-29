@@ -1,4 +1,4 @@
-block_size: 5000
+block_size: 2000
 bootstrap:
   confidence_level: 0.95
   enabled: true
@@ -25,7 +25,7 @@ logging:
   file_output: true
   level: INFO
 min_valid_years: 10
-n_sample_points: 40000
+n_sample_points: 338627
 output:
   format: zarr
   include_metadata: true
@@ -35,7 +35,7 @@ parallel:
   backend: multiprocessing
   chunk_size: 100
   enabled: true
-  max_workers: 14
+  max_workers: 6
 paths:
   cache_dir: ./cache
   calendar_file: K:/Temp/needed/calendar.txt
@@ -52,8 +52,8 @@ processing:
   - 500
   compression: zstd
   compression_level: 3
-  max_blocks_in_memory: 3
-  n_points_max: 40000
+  max_blocks_in_memory: 2
+  n_points_max: 338627
   output_precision: float32
 quality:
   detect_outliers: false
@@ -74,7 +74,7 @@ years:
   end: 1399
   start: 1369
 # تولید نقشه‌های صدک
-generate_percentile_maps: true
+generate_percentile_maps: false
 percentiles: [0.9, 0.95, 0.99]
-map_days: [1, 91, 181, 271]  # روزهای خاص برای نقشه (خالی = همه روزها)
+map_days: [1, 91, 181, 271]
 map_output_dir: "I:/climatology_366_rolling/percentile_maps"

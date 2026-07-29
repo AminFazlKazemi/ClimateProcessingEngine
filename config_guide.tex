@@ -1,0 +1,914 @@
+\documentclass[12pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage{tabu}
+\makeatletter
+\def\input@path{{J:/software/noto_fonts/tabu/tabu/}}
+\makeatother
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{geometry}
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{amsmath}
+\usepackage{fontspec}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{parskip}
+\usepackage{array}
+\usepackage{tabu}
+\usepackage{colortbl}
+\usepackage{graphicx}
+\usepackage{float}
+
+% --- Set monospaced font (with Persian support) ---
+\setmonofont{DejaVu Sans Mono}[
+    Path = J:/software/noto_fonts/dejavu-sans-mono/ttf/,
+    Extension = .ttf,
+    UprightFont = DejaVuSansMono,
+    BoldFont = DejaVuSansMono-Bold,
+    ItalicFont = DejaVuSansMono-Oblique,
+    BoldItalicFont = DejaVuSansMono-BoldOblique,
+]
+
+% --- Define YAML language for listings ---
+\lstdefinelanguage{yaml}{
+    keywords={true,false,null,y,n,on,off,yes,no},
+    keywordstyle=\color{blue}\bfseries,
+    comment=[l]{\#},
+    commentstyle=\color{gray}\itshape,
+    string=[b]{"},
+    stringstyle=\color{red},
+    morestring=[b]{'},
+    morestring=[b]{|},
+    morecomment=[s]{---}{...},
+    sensitive=true,
+    % moredelim حذف شد تا از تداخل با کاراکترهای خاص جلوگیری شود
+}
+
+\lstdefinestyle{yamlstyle}{
+    language=yaml,
+    basicstyle=\ttfamily\small,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=5pt,
+    tabsize=2,
+    breaklines=true,
+    frame=single,
+    captionpos=b,
+    backgroundcolor=\color{gray!10},
+}
+
+% --- Section formatting ---
+\titleformat{\section}{\large\bfseries\color{blue}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{blue!70}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{blue!50}}{\thesubsubsection}{1em}{}
+
+% --- Document metadata ---
+\title{
+    \vspace{1.5cm}
+    \Huge\textbf{Complete Configuration Guide} \\
+    \Large for \texttt{config.yaml} in ClimateProcessingEngine \\
+    \vspace{0.3cm}
+    \large (Version 5.2 – Ultimate Edition)
+    \vspace{0.5cm}
+}
+\author{Amin Fazl Kazemi \\ \texttt{aminfazlkazemi@gmail.com}}
+\date{Last updated: \today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ============================================================================
+% INTRODUCTION
+% ============================================================================
+\section{Introduction}
+
+The \texttt{config.yaml} file is the central configuration hub for the \textbf{ClimateProcessingEngine}. It controls all aspects of the processing pipeline: data paths, parallel execution, memory management, statistical fitting, quality control, and output generation.
+
+This document provides a \emph{complete} reference for every parameter currently supported in the engine, as well as optional parameters that can be added for advanced use cases. It also includes performance tuning recommendations, troubleshooting tips, and a full example configuration.
+
+\subsection{How the Configuration Works}
+The engine loads this file using Python's \texttt{yaml} library. The \texttt{constants.py} module reads the YAML structure and exports values as global constants. Changes to this file require restarting \texttt{main.py}.
+
+\subsection{Structure of This Guide}
+\begin{itemize}
+    \item \textbf{Section 2:} Current parameters (grouped by logical sections).
+    \item \textbf{Section 3:} Optional / potential parameters not yet in the default config but available in the codebase.
+    \item \textbf{Section 4:} Future extension parameters (for planned features).
+    \item \textbf{Section 5:} Complete example configuration.
+    \item \textbf{Section 6:} Performance tuning by hardware.
+    \item \textbf{Section 7:} Advanced tuning tips.
+    \item \textbf{Section 8:} Frequently Asked Questions (FAQ).
+    \item \textbf{Section 9:} Troubleshooting.
+    \item \textbf{Section 10:} Best Practices and Recommendations.
+    \item \textbf{Section 11:} Security Considerations.
+    \item \textbf{Section 12:} Backup and Recovery.
+\end{itemize}
+
+% ============================================================================
+% CURRENT PARAMETERS
+% ============================================================================
+\section{Current Configuration Parameters}
+
+These parameters are present in the current \texttt{config.yaml} and are actively used by the engine.
+
+\subsection{Top-Level Parameters}
+
+\subsubsection{\texttt{block\_size}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{5000}
+    \item \textbf{Description:} Number of stations processed in one block. Memory consumption scales linearly.
+    \item \textbf{Formula:} \(\text{RAM per block} \approx \text{block\_size} \times 31 \times 366 \times 3 \times 4\) bytes.
+    \item \textbf{Impact on Performance:}
+        \begin{itemize}
+            \item Larger values reduce I/O overhead (fewer blocks) but increase RAM usage.
+            \item Smaller values reduce RAM usage but increase I/O overhead and number of checkpoints.
+        \end{itemize}
+    \item \textbf{Recommendation:}
+        \begin{itemize}
+            \item 16 GB RAM: \texttt{1000}
+            \item 32 GB RAM: \texttt{2000}
+            \item 64 GB RAM: \texttt{5000}
+            \item 128+ GB RAM: \texttt{10000}
+        \end{itemize}
+    \item \textbf{Warning:} If \texttt{max\_workers} is high, total memory = \texttt{block\_size} \(\times\) \texttt{max\_workers} \(\times\) 136 kB. Ensure this fits within available RAM.
+\end{itemize}
+
+\subsubsection{\texttt{chunk\_size}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{500}
+    \item \textbf{Description:} Number of stations per parallel task for Dask/multiprocessing.
+    \item \textbf{Impact:} Smaller values improve load balancing but increase scheduling overhead.
+    \item \textbf{Recommendation:} Keep the default unless you experience task overhead.
+\end{itemize}
+
+\subsubsection{\texttt{cores}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{0}
+    \item \textbf{Description:} Number of CPU cores. \texttt{0} = auto-detect all available cores.
+    \item \textbf{Recommendation:} Leave as \texttt{0} for optimal resource utilization.
+\end{itemize}
+
+\subsubsection{\texttt{days}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{366}
+    \item \textbf{Description:} Climatological year length (leap-year safe).
+    \item \textbf{Note:} Do not change unless your data uses a different day count.
+\end{itemize}
+
+\subsubsection{\texttt{use\_parallel}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Boolean
+    \item \textbf{Default:} \texttt{true}
+    \item \textbf{Description:} Master switch for parallel execution.
+    \item \textbf{Impact:} Disabling forces sequential processing (useful for debugging).
+\end{itemize}
+
+\subsubsection{\texttt{min\_valid\_years}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{10}
+    \item \textbf{Description:} Minimum years required for a valid statistical fit.
+    \item \textbf{Impact:} Lower values increase risk of poor estimates; higher values reduce coverage.
+\end{itemize}
+
+\subsubsection{\texttt{n\_sample\_points}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{40000}
+    \item \textbf{Description:} Number of stations sampled for visualization/maps. Does \textbf{not} affect processing.
+    \item \textbf{Recommendation:} Set to total points for full coverage; keep smaller for faster map generation.
+\end{itemize}
+
+\subsubsection{\texttt{point\_sampling}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} String (\texttt{all} or \texttt{random})
+    \item \textbf{Default:} \texttt{all}
+    \item \textbf{Description:} Sampling strategy for in-memory loading.
+    \item \textbf{Note:} \texttt{random} is useful for testing large datasets.
+\end{itemize}
+
+\subsubsection{\texttt{fit\_variable\_index}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{1}
+    \item \textbf{Description:} Index of the variable used for primary fitting: \texttt{0=tmin}, \texttt{1=tmean}, \texttt{2=tmax}.
+\end{itemize}
+
+\subsubsection{\texttt{window\_days}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{2}
+    \item \textbf{Description:} Rolling window half-width. Total window = \texttt{2 * window\_days + 1}.
+    \item \textbf{Impact:} Larger windows include more data but smooth out extremes.
+\end{itemize}
+
+\subsubsection{\texttt{window\_type}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} String (\texttt{centered} or \texttt{left})
+    \item \textbf{Default:} \texttt{centered}
+    \item \textbf{Description:} Window alignment; always use \texttt{centered} for symmetry.
+\end{itemize}
+
+\subsection{\texttt{years} Section}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Dictionary with \texttt{start} and \texttt{end} keys.
+    \item \textbf{Example:} \texttt{start: 1369}, \texttt{end: 1399}
+    \item \textbf{Description:} Persian calendar year range (inclusive). Input Zarr files must exist for each year.
+    \item \textbf{Impact:} More years increase data volume and processing time but improve statistical reliability.
+\end{itemize}
+
+\subsection{\texttt{variables} Section}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} List of strings
+    \item \textbf{Default:} \texttt{['tmin', 'tmean', 'tmax']}
+    \item \textbf{Description:} Variables to process. Order matters for indexing.
+\end{itemize}
+
+\subsection{\texttt{parallel} Section}
+\subsubsection{\texttt{enabled}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Boolean
+    \item \textbf{Default:} \texttt{true}
+    \item \textbf{Description:} Overrides \texttt{use\_parallel} if set differently.
+\end{itemize}
+\subsubsection{\texttt{backend}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} String (\texttt{multiprocessing}, \texttt{dask}, or \texttt{ray})
+    \item \textbf{Default:} \texttt{multiprocessing}
+    \item \textbf{Description:} Parallelization framework. \texttt{multiprocessing} is most stable.
+\end{itemize}
+\subsubsection{\texttt{chunk\_size}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{100}
+    \item \textbf{Description:} Number of stations per parallel task.
+\end{itemize}
+\subsubsection{\texttt{max\_workers}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{14}
+    \item \textbf{Critical:} Total RAM = \texttt{max\_workers} \(\times\) RAM per block. Reduce to \texttt{4--6} for 32 GB RAM.
+\end{itemize}
+
+\subsection{\texttt{paths} Section}
+\begin{longtable}{p{0.25\linewidth} p{0.65\linewidth}}
+    \toprule
+    \textbf{Parameter} & \textbf{Description} \\
+    \midrule
+    \texttt{input\_zarr\_base} & Directory containing input Zarr files (\texttt{YYYY\_MM.zarr}). \\
+    \texttt{zarr\_base} & Alias for \texttt{input\_zarr\_base}. \\
+    \texttt{output\_dir} & Directory for output Zarr and logs. \\
+    \texttt{output\_zarr\_name} & Filename of the output Zarr store. \\
+    \texttt{calendar\_file} & Path to \texttt{calendar.txt} (Persian to Julian mapping). \\
+    \texttt{cache\_dir} & Directory for disk caching of loaded data. \\
+    \texttt{checkpoint\_file} & Checkpoint file for resuming after interruption. \\
+    \texttt{log\_file} & Log file name. \\
+    \bottomrule
+\end{longtable}
+
+\subsection{\texttt{processing} Section}
+\subsubsection{\texttt{chunk\_size} (Zarr storage)}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} List \texttt{[days, stations]}
+    \item \textbf{Default:} \texttt{[366, 500]}
+    \item \textbf{Description:} Chunking dimensions for output arrays.
+    \item \textbf{Impact:} Larger chunks reduce I/O but increase memory during read/write.
+\end{itemize}
+\subsubsection{\texttt{compression} and \texttt{compression\_level}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} String and Integer
+    \item \textbf{Default:} \texttt{zstd}, \texttt{3}
+    \item \textbf{Description:} Compression algorithm and level for Zarr.
+    \item \textbf{Options:} \texttt{zstd} (fast, good ratio), \texttt{blosc} (very fast), \texttt{gzip} (slow, high ratio).
+\end{itemize}
+\subsubsection{\texttt{max\_blocks\_in\_memory}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{3}
+    \item \textbf{Description:} Number of blocks cached before flushing to disk.
+    \item \textbf{Recommendation:} Set to \texttt{2} if memory is limited.
+\end{itemize}
+\subsubsection{\texttt{n\_points\_max}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{40000}
+    \item \textbf{Description:} \emph{Critical}. Maximum number of stations to process. Set to total available points for full coverage.
+\end{itemize}
+\subsubsection{\texttt{output\_precision}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} String (\texttt{float32} or \texttt{float64})
+    \item \textbf{Default:} \texttt{float32}
+    \item \textbf{Description:} Numeric precision. \texttt{float32} halves memory/disk usage with negligible accuracy loss.
+\end{itemize}
+
+\subsection{\texttt{quality} Section}
+\subsubsection{\texttt{min\_sample\_size}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{3}
+    \item \textbf{Description:} Minimum data points for a fit.
+\end{itemize}
+\subsubsection{\texttt{threshold\_aicc}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Float
+    \item \textbf{Default:} \texttt{1000}
+    \item \textbf{Description:} AICc threshold for flagging poor fits.
+\end{itemize}
+\subsubsection{\texttt{detect\_outliers}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Boolean
+    \item \textbf{Default:} \texttt{false}
+    \item \textbf{Description:} Enables outlier detection.
+\end{itemize}
+\subsubsection{\texttt{outlier\_sigma}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Float
+    \item \textbf{Default:} \texttt{4.0}
+    \item \textbf{Description:} Sigma threshold for outlier detection.
+\end{itemize}
+
+\subsection{\texttt{bootstrap} Section}
+\subsubsection{\texttt{enabled}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Boolean
+    \item \textbf{Default:} \texttt{true}
+\end{itemize}
+\subsubsection{\texttt{n\_iterations}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{100}
+    \item \textbf{Description:} Number of bootstrap samples. Higher values improve stability but slow down processing.
+    \item \textbf{Recommendation:} 100 for quick analysis, 1000 for publication-quality results.
+\end{itemize}
+\subsubsection{\texttt{confidence\_level}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Float
+    \item \textbf{Default:} \texttt{0.95}
+\end{itemize}
+\subsubsection{\texttt{random\_seed}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Integer
+    \item \textbf{Default:} \texttt{42}
+    \item \textbf{Description:} Fixed seed ensures reproducibility.
+\end{itemize}
+
+\subsection{\texttt{output} Section}
+\subsubsection{\texttt{format}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} String
+    \item \textbf{Default:} \texttt{zarr}
+    \item \textbf{Description:} Output format. Currently only Zarr is fully supported.
+\end{itemize}
+\subsubsection{\texttt{overwrite}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Boolean
+    \item \textbf{Default:} \texttt{true}
+\end{itemize}
+\subsubsection{\texttt{include\_metadata} and \texttt{include\_provenance}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Boolean
+    \item \textbf{Default:} \texttt{true}
+    \item \textbf{Description:} Include station coordinates and processing metadata in output.
+\end{itemize}
+
+\subsection{\texttt{distributions} Section}
+\subsubsection{\texttt{normal\_mode}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} List
+    \item \textbf{Default:} \texttt{['normal', 'skew', 'bimodal', 'pearson']}
+\end{itemize}
+\subsubsection{\texttt{extreme\_mode}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} List
+    \item \textbf{Default:} \texttt{['normal', 'skew', 'gev', 'bimodal', 'pearson']}
+\end{itemize}
+\subsubsection*{Distribution Codes}
+\begin{table}[h!]
+\centering
+\begin{tabular}{|c|c|c|}
+\hline
+\textbf{Code} & \textbf{Distribution} & \textbf{Parameters} \\
+\hline
+0 & Normal & 2 \\
+1 & Skew-Normal & 3 \\
+2 & GEV & 3 \\
+3 & Bimodal & 5 \\
+4 & Pearson III & 3 \\
+\hline
+\end{tabular}
+\caption{Distribution Codes and Parameter Counts}
+\end{table}
+
+\subsection{\texttt{map\_generation} (Optional) Section}
+\subsubsection{\texttt{generate\_percentile\_maps}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Boolean
+    \item \textbf{Default:} \texttt{false}
+\end{itemize}
+\subsubsection{\texttt{percentiles}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} List of floats
+    \item \textbf{Default:} \texttt{[0.9, 0.95, 0.99]}
+\end{itemize}
+\subsubsection{\texttt{map\_days}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} List of integers
+    \item \textbf{Default:} \texttt{[1, 91, 181, 271]}
+\end{itemize}
+\subsubsection{\texttt{map\_output\_dir}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} String
+    \item \textbf{Default:} \texttt{"I:/climatology\_366\_rolling/percentile\_maps"}
+\end{itemize}
+
+% ============================================================================
+% OPTIONAL PARAMETERS (CODE-READY)
+% ============================================================================
+\section{Optional Parameters Ready in Code}
+
+These parameters are defined in the codebase but are not present in the default \texttt{config.yaml}. Adding them enables additional features.
+
+\subsection{\texttt{logging.timestamps}}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Boolean
+    \item \textbf{Default:} \texttt{true} (defined in \texttt{constants.py})
+    \item \textbf{Description:} Show timestamps in log output. Set to \texttt{false} for cleaner logs.
+\end{itemize}
+
+\subsection{\texttt{cache} Section (Extended)}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Dictionary with \texttt{enabled}, \texttt{max\_size\_gb}, \texttt{ttl\_hours}, \texttt{cache\_path}
+    \item \textbf{Default:} \texttt{enabled: true}, \texttt{max\_size\_gb: 10}, \texttt{ttl\_hours: 24}
+    \item \textbf{Description:} Control disk cache limits. Useful for systems with limited storage.
+\end{itemize}
+
+\subsection{\texttt{visualization} Section}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Dictionary with \texttt{enabled}, \texttt{output\_dir}, \texttt{format}, \texttt{interactive}, \texttt{map\_projection}, \texttt{dpi}
+    \item \textbf{Default:} \texttt{enabled: true}, \texttt{output\_dir: "./visualizations"}, \texttt{format: ["png","pdf"]}, \texttt{interactive: true}, \texttt{map\_projection: "PlateCarree"}, \texttt{dpi: 300}
+    \item \textbf{Description:} Enables automatic generation of plots and maps after processing.
+\end{itemize}
+
+\subsection{\texttt{validate} Section}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Type:} Dictionary with \texttt{after\_load}, \texttt{before\_write}, \texttt{every\_n\_blocks}
+    \item \textbf{Description:} Controls validation behavior. Disable for production to improve speed.
+\end{itemize}
+
+% ============================================================================
+% FUTURE EXTENSIONS
+% ============================================================================
+\section{Future Extension Parameters}
+
+These parameters are not yet implemented but are planned for upcoming versions. They can be added to \texttt{config.yaml} now (they will be ignored by current code) to prepare for future upgrades.
+
+\subsection{\texttt{project} Section}
+\begin{verbatim}
+project:
+  name: "Climatology Engine"
+  version: "4.0.0"
+  description: "Climate data distribution fitting"
+\end{verbatim}
+
+\subsection{\texttt{benchmark} Section}
+\begin{verbatim}
+benchmark:
+  enabled: false
+  test_sizes: [100, 500, 1000, 5000]
+  output_dir: "./benchmark_results"
+\end{verbatim}
+
+\subsection{\texttt{notifications} Section}
+\begin{verbatim}
+notifications:
+  enabled: false
+  email:
+    to: "user@example.com"
+    smtp_server: "smtp.gmail.com"
+\end{verbatim}
+
+\subsection{\texttt{data\_validation} Section}
+\begin{verbatim}
+data_validation:
+  check_missing_values: true
+  check_outliers: true
+  outlier_method: "iqr"
+  min_valid_ratio: 0.5
+\end{verbatim}
+
+\subsection{\texttt{testing} Section}
+\begin{verbatim}
+testing:
+  use_sample_data: false
+  sample_size: 100
+  validate_output: true
+\end{verbatim}
+
+% ============================================================================
+% COMPLETE EXAMPLE
+% ============================================================================
+\section{Complete Example Configuration}
+
+The following is a full \texttt{config.yaml} that includes all current and optional parameters, optimized for a 32 GB RAM system processing 338,627 stations.
+
+\subsection*{Full config.yaml with all optional sections}
+
+\begin{lstlisting}[style=yamlstyle]
+# ============================================================
+# ClimateProcessingEngine - Full Configuration
+# ============================================================
+
+# --- Top-level ---
+block_size: 2000
+chunk_size: 500
+cores: 0
+days: 366
+use_parallel: true
+min_valid_years: 10
+n_sample_points: 338627
+point_sampling: all
+fit_variable_index: 1
+window_days: 2
+window_type: centered
+
+# --- Years ---
+years:
+  start: 1369
+  end: 1399
+
+# --- Variables ---
+variables:
+  - tmin
+  - tmean
+  - tmax
+
+# --- Parallel processing ---
+parallel:
+  enabled: true
+  backend: multiprocessing
+  chunk_size: 100
+  max_workers: 6
+
+# --- Paths ---
+paths:
+  input_zarr_base: K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly
+  zarr_base: K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly
+  output_dir: I:/climatology_366_rolling
+  output_zarr_name: climatology_stationwise_final.zarr
+  calendar_file: K:/Temp/needed/calendar.txt
+  cache_dir: ./cache
+  checkpoint_file: checkpoint.csv
+  log_file: climatology.log
+
+# --- Processing engine ---
+processing:
+  chunk_size: [366, 500]
+  compression: zstd
+  compression_level: 3
+  max_blocks_in_memory: 2
+  n_points_max: 338627
+  output_precision: float32
+
+# --- Quality control ---
+quality:
+  min_sample_size: 3
+  threshold_aicc: 1000
+  detect_outliers: false
+  outlier_sigma: 4.0
+
+# --- Bootstrap uncertainty ---
+bootstrap:
+  enabled: true
+  n_iterations: 100
+  confidence_level: 0.95
+  random_seed: 42
+
+# --- Output settings ---
+output:
+  format: zarr
+  overwrite: true
+  include_metadata: true
+  include_provenance: true
+
+# --- Distribution modes ---
+distributions:
+  normal_mode:
+    - normal
+    - skew
+    - bimodal
+    - pearson
+  extreme_mode:
+    - normal
+    - skew
+    - gev
+    - bimodal
+    - pearson
+
+# --- Map generation (optional) ---
+generate_percentile_maps: false
+percentiles: [0.9, 0.95, 0.99]
+map_days: [1, 91, 181, 271]
+map_output_dir: "I:/climatology_366_rolling/percentile_maps"
+
+# --- Optional sections (code-ready) ---
+logging:
+  level: INFO
+  console_output: true
+  file_output: true
+  timestamps: true
+
+cache:
+  enabled: true
+  max_size_gb: 10
+  ttl_hours: 24
+  cache_path: ./cache
+
+visualization:
+  enabled: true
+  output_dir: "./visualizations"
+  format: ["png", "pdf"]
+  interactive: true
+  map_projection: "PlateCarree"
+  dpi: 300
+
+validate:
+  after_load: false
+  before_write: false
+  every_n_blocks: 10
+
+# --- Future extensions (not yet implemented) ---
+project:
+  name: "Climatology Engine"
+  version: "4.0.0"
+  description: "Climate data distribution fitting and analysis"
+
+benchmark:
+  enabled: false
+  test_sizes: [100, 500, 1000, 5000]
+  output_dir: "./benchmark_results"
+
+notifications:
+  enabled: false
+  email:
+    to: "user@example.com"
+    smtp_server: "smtp.gmail.com"
+
+data_validation:
+  check_missing_values: true
+  check_outliers: true
+  outlier_method: "iqr"
+  min_valid_ratio: 0.5
+
+testing:
+  use_sample_data: false
+  sample_size: 100
+  validate_output: true
+\end{lstlisting}
+
+% ============================================================================
+% PERFORMANCE TUNING
+% ============================================================================
+\section{Performance Tuning by Hardware}
+
+\subsection{Memory Formula}
+\[
+\text{Total RAM needed} = \text{max\_workers} \times \left( \text{block\_size} \times 136 \, \text{kB} \right) + 4\,\text{GB (system)}
+\]
+
+\subsection{Recommended Configurations}
+\begin{table}[h!]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{RAM} & \textbf{block\_size} & \textbf{max\_workers} & \textbf{Estimated RAM} \\
+\hline
+16 GB & 1000 & 4 & $\approx$ 4.5 GB \\
+32 GB & 2000 & 6 & $\approx$ 7.6 GB \\
+64 GB & 5000 & 8 & $\approx$ 17 GB \\
+128 GB & 5000 & 14 & $\approx$ 27 GB \\
+\hline
+\end{tabular}
+\caption{Recommended settings for different RAM sizes}
+\end{table}
+
+\subsection{Speeding Up Processing}
+\begin{itemize}
+    \item Increase \texttt{block\_size} (if RAM allows).
+    \item Increase \texttt{max\_workers} (if CPU cores available).
+    \item Enable disk cache (\texttt{cache.enabled: true}).
+    \item Use \texttt{float32} output precision.
+    \item Disable validation (\texttt{validate.after\_load: false}, \texttt{validate.before\_write: false}) for production runs.
+    \item Use \texttt{zstd} compression (fast and efficient).
+\end{itemize}
+
+\subsection{Reducing Memory Usage}
+\begin{itemize}
+    \item Reduce \texttt{block\_size} (e.g., to 1000).
+    \item Reduce \texttt{max\_workers} (e.g., to 4).
+    \item Reduce \texttt{max\_blocks\_in\_memory} (e.g., to 2).
+    \item Use \texttt{point\_sampling: random} with a smaller \texttt{n\_sample\_points} for testing.
+\end{itemize}
+
+% ============================================================================
+% ADVANCED TUNING TIPS
+% ============================================================================
+\section{Advanced Tuning Tips}
+
+\subsection{When to Use Extreme Mode}
+\begin{itemize}
+    \item Use \texttt{extreme\_mode} when analyzing annual maxima (e.g., hottest day) or minima (e.g., coldest night).
+    \item Enable GEV distribution in \texttt{extreme\_mode} for return period analysis.
+    \item Disable GEV in \texttt{normal\_mode} to reduce unnecessary computation.
+\end{itemize}
+
+\subsection{Choosing the Right Compression}
+\begin{itemize}
+    \item \texttt{zstd}: Best balance (default). Level 3 is recommended.
+    \item \texttt{blosc}: Faster, slightly lower compression ratio.
+    \item \texttt{gzip}: Higher compression ratio but slower. Use only if disk space is critical.
+\end{itemize}
+
+\subsection{Bootstrap Iterations}
+\begin{itemize}
+    \item 100 iterations: Fast, good for preliminary analysis.
+    \item 500 iterations: Balanced.
+    \item 1000 iterations: Publication-quality but significantly slower.
+\end{itemize}
+
+% ============================================================================
+% FREQUENTLY ASKED QUESTIONS
+% ============================================================================
+\section{Frequently Asked Questions (FAQ)}
+
+\subsection{Why are only 40,000 points processed when I have more?}
+\textbf{Answer:} The parameter \texttt{n\_points\_max} in the \texttt{processing} section limits the number of stations. Set it to the total number of available points (e.g., 338,627) to process all stations.
+
+\subsection{How do I resume processing after interruption?}
+\textbf{Answer:} The engine saves checkpoints to \texttt{checkpoint\_file}. If processing is interrupted, simply re-run \texttt{main.py}. The engine will automatically resume from the last checkpoint.
+
+\subsection{What is the difference between \texttt{use\_parallel} and \texttt{parallel.enabled}?}
+\textbf{Answer:} \texttt{use\_parallel} is the global master switch. \texttt{parallel.enabled} overrides it if set. For simplicity, use only \texttt{use\_parallel}.
+
+\subsection{Why is my output Zarr file so large?}
+\textbf{Answer:} You may be using \texttt{float64} precision. Switch to \texttt{float32} to halve the file size. Also check your compression settings.
+
+\subsection{How can I reduce processing time?}
+\textbf{Answer:} Increase \texttt{block\_size} (if RAM allows), increase \texttt{max\_workers}, disable validation, and enable disk cache.
+
+\subsection{What does the \texttt{fit\_variable\_index} do?}
+\textbf{Answer:} It selects which variable (tmin, tmean, or tmax) is used for the primary statistical fitting. The default is 1 (tmean). Other variables are still processed but not used for model selection.
+
+\subsection{Can I process only one variable?}
+\textbf{Answer:} Yes. Set the \texttt{variables} list to a single variable, e.g., \texttt{['tmax']}. The engine will process only that variable.
+
+% ============================================================================
+% TROUBLESHOOTING
+% ============================================================================
+\section{Troubleshooting Common Issues}
+
+\subsection{MemoryError}
+\textbf{Cause:} \texttt{max\_workers} \(\times\) \texttt{block\_size} exceeds available RAM. \\
+\textbf{Solution:} Reduce \texttt{block\_size} or \texttt{max\_workers}. If using 32 GB RAM, set \texttt{block\_size: 2000} and \texttt{max\_workers: 6}.
+
+\subsection{ValueError: .zmetadata}
+\textbf{Cause:} Zarr store was not consolidated. \\
+\textbf{Solution:} In \texttt{main.py}, change \texttt{consolidated=True} to \texttt{consolidated=False} in \texttt{xr.open\_zarr}. Or run \texttt{zarr.consolidate\_metadata(store)} once.
+
+\subsection{KeyError for Variable}
+\textbf{Cause:} \texttt{variables} list does not match input Zarr variable names. \\
+\textbf{Solution:} List variables in \texttt{variables} exactly as they appear in the input Zarr files.
+
+\subsection{No Valid Fits (best\_dist = -1)}
+\textbf{Cause:} Insufficient valid data (\texttt{min\_valid\_years} too high) or data quality issues. \\
+\textbf{Solution:} Reduce \texttt{min\_valid\_years} or check input data for excessive missing values.
+
+\subsection{Checkpoint Not Working}
+\textbf{Cause:} Write permissions or path issues. \\
+\textbf{Solution:} Ensure \texttt{checkpoint\_file} path is writable. Delete old checkpoint files if corrupted.
+
+\subsection{Dask Timeout}
+\textbf{Cause:} Large \texttt{chunk\_size} or network issues. \\
+\textbf{Solution:} Reduce \texttt{parallel.chunk\_size} or switch to \texttt{multiprocessing} backend.
+
+\subsection{Slow Performance}
+\textbf{Cause:} Validation enabled, high \texttt{chunk\_size}, or insufficient workers. \\
+\textbf{Solution:} Disable validation, reduce \texttt{chunk\_size}, or increase \texttt{max\_workers} (if RAM allows).
+
+% ============================================================================
+% BEST PRACTICES
+% ============================================================================
+\section{Best Practices and Recommendations}
+
+\subsection{For Production Runs}
+\begin{itemize}
+    \item Disable validation (\texttt{validate.after\_load: false}, \texttt{validate.before\_write: false}) for speed.
+    \item Use \texttt{float32} precision.
+    \item Enable disk cache.
+    \item Use \texttt{zstd} compression.
+    \item Set \texttt{block\_size} based on available RAM.
+\end{itemize}
+
+\subsection{For Debugging}
+\begin{itemize}
+    \item Enable validation.
+    \item Use a small \texttt{n\_points\_max} (e.g., 100).
+    \item Set \texttt{use\_parallel: false} to simplify error tracing.
+    \item Increase logging level to \texttt{DEBUG}.
+\end{itemize}
+
+\subsection{For Scientific Publication}
+\begin{itemize}
+    \item Use \texttt{float64} precision if required by reviewers (though \texttt{float32} is usually sufficient).
+    \item Increase bootstrap iterations to 1000.
+    \item Include provenance metadata (\texttt{include\_provenance: true}).
+    \item Save the exact \texttt{config.yaml} used for reproducibility.
+\end{itemize}
+
+% ============================================================================
+% SECURITY CONSIDERATIONS
+% ============================================================================
+\section{Security Considerations}
+
+\subsection{Path Security}
+\begin{itemize}
+    \item Use absolute paths to avoid ambiguity.
+    \item Ensure write permissions for output and cache directories.
+    \item Avoid using network drives for checkpoint files (can cause corruption).
+\end{itemize}
+
+\subsection{Data Integrity}
+\begin{itemize}
+    \item Regularly validate input Zarr files.
+    \item Keep backups of original data.
+    \item Use checksums to verify data integrity after transfer.
+\end{itemize}
+
+\subsection{Access Control}
+\begin{itemize}
+    \item Restrict write access to configuration files.
+    \item Use environment variables for sensitive paths (e.g., database credentials in future versions).
+\end{itemize}
+
+% ============================================================================
+% BACKUP AND RECOVERY
+% ============================================================================
+\section{Backup and Recovery}
+
+\subsection{Checkpoint Recovery}
+The engine automatically saves checkpoints. To recover:
+\begin{enumerate}
+    \item Ensure \texttt{checkpoint\_file} exists and is readable.
+    \item Re-run \texttt{main.py}. The engine will detect the checkpoint and resume.
+    \item If you want to start from scratch, delete the checkpoint file.
+\end{enumerate}
+
+\subsection{Backup Configuration}
+\begin{itemize}
+    \item Always keep a backup of your working \texttt{config.yaml}.
+    \item Store the configuration alongside the output Zarr for provenance.
+    \item Use version control (e.g., Git) to track changes to \texttt{config.yaml}.
+\end{itemize}
+
+\subsection{Disaster Recovery}
+\begin{itemize}
+    \item If the output Zarr becomes corrupted, restart with \texttt{overwrite: true}.
+    \item Use the checkpoint to resume from the last successful block.
+    \item If disk space runs out, free space and re-run. The engine will continue from the last checkpoint.
+\end{itemize}
+
+% ============================================================================
+% CONCLUSION
+% ============================================================================
+\section{Conclusion}
+
+The \texttt{config.yaml} file is the key to unlocking the full power of the ClimateProcessingEngine. By understanding each parameter and tuning it to your hardware and dataset, you can achieve efficient, reliable, and scientifically sound climatological analysis.
+
+This guide will be updated as new features are added. For the latest information, refer to the project's GitHub repository or contact the author.
+
+\subsection*{Final Checklist Before Running}
+\begin{itemize}
+    \item \texttt{n\_points\_max} is set correctly.
+    \item \texttt{block\_size} and \texttt{max\_workers} are tuned for your RAM.
+    \item Input Zarr files exist for the specified years.
+    \item \texttt{calendar\_file} path is correct.
+    \item Output directory has sufficient disk space.
+    \item Checkpoint file is either absent or intentionally present.
+\end{itemize}
+
+\end{document}
