@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 main.py - نقطه ورود اصلی با Data Adapter و Checkpoint صحیح
-نسخه ۳.۱ - همراه با تولید نقشه‌های صدک
+نسخه ۳.۳ - استفاده از checkpoint_manager با تشخیص خودکار
 """
 
 import os
@@ -26,19 +26,36 @@ with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     CONFIG = yaml.safe_load(f)
 
 from constants import (
-    YEAR_START, YEAR_END, N_YEARS, N_DAYS, VARS, N_VARS, VAR_INDEX_FOR_FIT,
-    OUTPUT_DIR, OUTPUT_ZARR, CHECKPOINT_FILE, ZARR_BASE,
-    BLOCK_SIZE, USE_PARALLEL, CORES,
-    VALIDATE_AFTER_LOAD, VALIDATE_BEFORE_WRITE, VALIDATE_EVERY_N_BLOCKS,
-    FLOAT_DTYPE, INT_DTYPE
+    YEAR_START,
+    YEAR_END,
+    N_YEARS,
+    N_DAYS,
+    VARS,
+    N_VARS,
+    VAR_INDEX_FOR_FIT,
+    OUTPUT_DIR,
+    OUTPUT_ZARR,
+    ZARR_BASE,
+    BLOCK_SIZE,
+    USE_PARALLEL,
+    CORES,
+    VALIDATE_AFTER_LOAD,
+    VALIDATE_BEFORE_WRITE,
+    VALIDATE_EVERY_N_BLOCKS,
+    FLOAT_DTYPE,
+    INT_DTYPE
 )
 
 from calendar_tables import build_doy_table_from_config
 from runtime_tables import build_runtime_tables
-from zarr_schema import create_zarr_store, add_coords_and_metadata
+from zarr_schema import get_or_create_zarr_store, add_coords_and_metadata
 from orchestrator.process_block import process_block
-from monitoring.checkpoint import load_checkpoint, save_checkpoint, delete_checkpoint
 from monitoring.logger import logger
+
+# ============================================================================
+# ✅ استفاده از checkpoint_manager با تشخیص خودکار
+# ============================================================================
+from checkpoint_manager import ensure_checkpoint, save_checkpoint, delete_checkpoint
 
 # ============================================================================
 # استفاده از Data Adapter
@@ -116,7 +133,7 @@ def main():
     logger.setLevel(logging.INFO)
     
     logger.info("=" * 80)
-    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v3.1")
+    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v3.3")
     logger.info(f"   Years: {YEAR_START}–{YEAR_END} ({N_YEARS} years)")
     logger.info(f"   Days: {N_DAYS}")
     logger.info(f"   Output: {OUTPUT_ZARR}")
@@ -169,27 +186,18 @@ def main():
         logger.info("   ✅ Tables built")
 
         # ============================================================
-        # ۳. ایجاد Zarr
+        # ۳. ایجاد/دریافت Zarr (با مدیریت خودکار resize)
         # ============================================================
-        if not os.path.exists(OUTPUT_ZARR):
-            root = create_zarr_store(OUTPUT_ZARR, n_stations)
-        else:
-            import zarr
-            root = zarr.open(OUTPUT_ZARR, mode="a")
-            logger.info(f"   📂 Existing Zarr opened: {OUTPUT_ZARR}")
+        root = get_or_create_zarr_store(OUTPUT_ZARR, n_stations)
+        logger.info(f"   📂 Zarr store ready: {OUTPUT_ZARR}")
 
         # ============================================================
-        # ۴. Checkpoint
+        # ۴. ✅ استفاده از checkpoint_manager با تشخیص خودکار
         # ============================================================
-        checkpoint = load_checkpoint()
-        start_block = 0
-        start_station = 0
-        if checkpoint:
-            start_block = int(checkpoint.get("block", 0))
-            start_station = int(checkpoint.get("station", 0))
-            logger.info(f"   ⏩ Resuming from block {start_block}, station {start_station}")
-        else:
-            logger.info("   🆕 Starting from beginning")
+        checkpoint = ensure_checkpoint(auto_detect=True)
+        start_block = checkpoint.get("block", 0)
+        start_station = checkpoint.get("station", 0)
+        logger.info(f"   ⏩ Resuming from block {start_block}, station {start_station}")
 
         # ============================================================
         # ۵. حلقه پردازش
@@ -237,7 +245,7 @@ def main():
         ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
         ds = add_coords_and_metadata(ds, station_ids, lons, lats, elevs)
         ds.attrs["source"] = f"Years {YEAR_START}-{YEAR_END}"
-        ds.attrs["version"] = "3.1"
+        ds.attrs["version"] = "3.3"
         ds.attrs["data_format"] = DATA_FORMAT
         ds.to_zarr(OUTPUT_ZARR, mode="a", consolidated=False)
         ds.close()

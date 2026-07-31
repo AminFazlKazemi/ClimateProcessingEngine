@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """
 constants.py – automatically generated with safe defaults.
@@ -44,17 +43,39 @@ WINDOW_TYPE = CONFIG.get("window_type", "centered")
 MIN_VALID_YEARS = CONFIG.get("min_valid_years", 10)
 
 # =============================================
-# ۴. تنظیمات مسیرها (Paths)
+# ۴. تنظیمات مسیرها (Paths) – با اولویت config.yaml
 # =============================================
 PATHS = CONFIG.get("paths", {})
 
+INPUT_ZARR_BASE = PATHS.get("input_zarr_base", r"K:\gozareshha\dr vazife\140504 - qc temp\zarr_yearly_monthly")
+ZARR_BASE = PATHS.get("zarr_base", INPUT_ZARR_BASE)
+
+OUTPUT_DIR = PATHS.get("output_dir", r"./nature_output")
+OUTPUT_ZARR_NAME = PATHS.get("output_zarr_name", r"climatology_stationwise_final.zarr")
+OUTPUT_ZARR = os.path.join(OUTPUT_DIR, OUTPUT_ZARR_NAME)
+
+# ============================================================
+# ✅ اصلاح مهم: مسیر مطلق checkpoint
+# ============================================================
+CHECKPOINT_FILE = PATHS.get("checkpoint_file", "checkpoint.csv")
+# اگر مسیر نسبی است، آن را به OUTPUT_DIR متصل کن
+if not os.path.isabs(CHECKPOINT_FILE):
+    CHECKPOINT_FILE = os.path.join(OUTPUT_DIR, CHECKPOINT_FILE)
+CHECKPOINT_PATH = CHECKPOINT_FILE  # برای سازگاری
+
+# بقیه‌ی مسیرها
+LOG_FILE = PATHS.get("log_file", r"climatology.log")
+CACHE_DIR = PATHS.get("cache_dir", r"./cache")
+SAMPLE_DATA_DIR = PATHS.get("sample_data_dir", r"./sample_data")
+CALENDAR_FILE = PATHS.get("calendar_file", r"K:/Temp/needed/calendar.txt")
+
 # =============================================
-# ۵. تنظیمات پردازش (به‌روز شده با خودکار)
+# ۵. تنظیمات پردازش
 # =============================================
-USE_PARALLEL = CONFIG.get("use_parallel", True)          # پیش‌فرض: فعال
-BLOCK_SIZE = CONFIG.get("block_size", 30000)              # پیش‌فرض: ۳۰,۰۰۰
-CHUNK_SIZE = CONFIG.get("chunk_size", 500)                # پیش‌فرض: ۵۰۰
-CORES = CONFIG.get("cores", 0)                            # ۰ = تشخیص خودکار (نصف هسته‌ها)
+USE_PARALLEL = CONFIG.get("use_parallel", True)
+BLOCK_SIZE = CONFIG.get("block_size", 30000)
+CHUNK_SIZE = CONFIG.get("chunk_size", 500)
+CORES = CONFIG.get("cores", 0)
 
 MAX_BLOCKS_IN_MEMORY = CONFIG.get("processing", {}).get("max_blocks_in_memory", 5)
 CHUNK_SIZE_ZARR = CONFIG.get("processing", {}).get("chunk_size", [366, 500])
@@ -127,31 +148,20 @@ VIZ_INTERACTIVE = CONFIG.get("visualization", {}).get("interactive", True)
 VIZ_MAP_PROJECTION = CONFIG.get("visualization", {}).get("map_projection", "PlateCarree")
 VIZ_DPI = CONFIG.get("visualization", {}).get("dpi", 300)
 
-
 LOG_TIMESTAMPS = True
 
 # =============================================
 # توزیع‌های معتبر
 # =============================================
-VALID_BEST_DIST = {-1, 0, 1, 2, 3}   # -1: failed, 0: Normal, 1: Skew-Normal, 2: Bimodal, 3: Pearson
+VALID_BEST_DIST = {-1, 0, 1, 2, 3, 4}   # ۴ = GEV
 
 # =============================================
 # پارامترهای محاسباتی
 # =============================================
-MAX_VALUES_PER_FIT = N_YEARS * WINDOW_SIZE   # حداکثر تعداد مقادیر برای هر برازش
-MIN_VALID_VALUES = 5                         # حداقل تعداد مقادیر معتبر مورد نیاز
+MAX_VALUES_PER_FIT = N_YEARS * WINDOW_SIZE
+MIN_VALID_VALUES = 5
 
-# Zarr paths (read from config.yaml)
-INPUT_ZARR_BASE = PATHS.get("input_zarr_base", r"K:\gozareshha\dr vazife\140504 - qc temp\zarr_yearly_monthly")
-ZARR_BASE = PATHS.get("zarr_base", PATHS.get("input_zarr_base", r"K:\gozareshha\dr vazife\140504 - qc temp\zarr_yearly_monthly"))
-
-# Output paths (read from config.yaml)
-OUTPUT_DIR = PATHS.get("output_dir", r"./nature_output")
-OUTPUT_ZARR_NAME = PATHS.get("output_zarr_name", r"climatology_stationwise_final.zarr")
-OUTPUT_ZARR = os.path.join(OUTPUT_DIR, OUTPUT_ZARR_NAME)
-CHECKPOINT_FILE = PATHS.get("checkpoint_file", r"checkpoint.csv")
-CHECKPOINT_PATH = os.path.join(OUTPUT_DIR, CHECKPOINT_FILE)
-LOG_FILE = PATHS.get("log_file", r"climatology.log")
-CACHE_DIR = PATHS.get("cache_dir", r"./cache")
-SAMPLE_DATA_DIR = PATHS.get("sample_data_dir", r"./sample_data")
-CALENDAR_FILE = PATHS.get("calendar_file", r"K:/Temp/needed/calendar.txt")
+# =============================================
+# برای سازگاری با کدهای قدیمی
+# =============================================
+CHECKPOINT_PATH = CHECKPOINT_FILE

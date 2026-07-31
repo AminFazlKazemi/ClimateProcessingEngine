@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 process_block.py - پردازش یک بلوک از ایستگاه‌ها
-(نسخه‌ی سازگار با Data Adapter و tqdm)
+نسخه‌ی به‌روز با نوشتن همزمان (بدون Async) برای جلوگیری از خطای shutdown
 """
 
 import time
@@ -17,19 +17,34 @@ from numerical_engine.analyze_station import analyze_station
 from numerical_engine.merge_results import merge_station_result
 from result_pipeline.validate_result import validate_result
 from result_pipeline.write_block import write_block_safe
-from constants import VARS, VAR_INDEX_FOR_FIT, N_DAYS, INT_DTYPE
+from constants import VARS, VAR_INDEX_FOR_FIT, N_DAYS
 from zarr_schema import VAR_NAMES, VAR_DTYPES, create_empty_block_result
 
 
 def process_block(block_start, block_end, block_idx, file_map, doy_table, window_table,
                   year_list, root, var_idx, last_checkpoint_station=0, adapter=None):
     """
-    پردازش یک بلوک از ایستگاه‌ها
+    پردازش یک بلوک از ایستگاه‌ها.
 
-    Parameters
-    ----------
-    adapter : object, optional
-        DataAdapter instance. اگر وجود داشته باشد، برای بارگذاری داده‌ها استفاده می‌شود.
+    پارامترها:
+        block_start: اندیس شروع ایستگاه‌ها در بلوک
+        block_end: اندیس پایان ایستگاه‌ها (اختصاصی)
+        block_idx: شماره بلوک
+        file_map: دیکشنری نگاشت (سال, ماه) → مسیر فایل Zarr
+        doy_table: جدول روزهای سال (سال‌ها × ۳۶۶)
+        window_table: جدول پنجره‌های ۵ روزه برای هر روز سال
+        year_list: لیست سال‌ها
+        root: گروه Zarr برای نوشتن
+        var_idx: اندیس متغیر اصلی برای برازش (معمولاً ۱ = tmean)
+        last_checkpoint_station: آخرین ایستگاه پردازش‌شده از checkpoint (برای ادامه)
+        adapter: (اختیاری) نمونه‌ای از DataAdapter برای بارگذاری داده
+
+    بازگشت:
+        True در صورت موفقیت، None در صورت عدم وجود داده
+
+    استثناها:
+        IOError: در صورت خطا در نوشتن
+        ValueError: در صورت نامعتبر بودن داده
     """
     block_size = block_end - block_start
     logger.info(f"📦 Block {block_idx}: stations {block_start} - {block_end} ({block_size} stations)")
@@ -97,6 +112,7 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
                             var_idx=v
                         )
                         if var_data is not None:
+                            # اطمینان از شکل صحیح
                             if var_data.ndim == 2 and var_data.shape[0] == block_size:
                                 var_data = var_data.T
                             elif var_data.ndim == 1:
@@ -150,7 +166,7 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
     # ============================================================
     logger.info("   ⚙️ Analyzing...")
     
-    # ✅ ایجاد block_result با ابعاد صحیح (N_DAYS, block_size)
+    # ایجاد block_result با ابعاد صحیح (N_DAYS, block_size)
     block_result = create_empty_block_result(block_size)
     
     N_YEARS = len(year_list)
@@ -199,13 +215,12 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
         try:
             result = analyze_station(station_data, year_list, window_table, var_idx)
             if result is not None:
-                # ✅ merge_station_result فقط مقداردهی می‌کند (آرایه‌ها از قبل وجود دارند)
                 merge_station_result(block_result, result, station_idx, block_start)
         except Exception as e:
             logger.warning(f"   ⚠️ Station {station_idx} failed: {e}")
             continue
 
-        # ذخیره checkpoint پس از هر ایستگاه
+        # ذخیره checkpoint پس از هر ۱۰۰ ایستگاه یا در انتهای بلوک
         if (station_idx - block_start + 1) % 100 == 0 or station_idx == block_end - 1:
             save_checkpoint(block_idx, station_idx + 1)
 
@@ -221,16 +236,20 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
         validate_result(block_result, block_start, block_size)
 
     # ============================================================
-    # ۶. نوشتن در Zarr
+    # ۶. نوشتن در Zarr (همزمان – بدون Async)
     # ============================================================
     t0 = time.time()
     try:
-        write_block_safe(root, block_result, block_start, block_end, validate=False)
+        # نوشتن همزمان با async_mode=False
+        write_block_safe(root, block_result, block_start, block_end, validate=False, async_mode=False)
         times["write"] = time.time() - t0
     except Exception as e:
         logger.error(f"   ❌ Write failed: {e}")
         save_checkpoint(block_idx, block_start)
         raise IOError(f"Write failed: {e}")
+
+    # ذخیره‌ی چک‌پوینت (بعد از اطمینان از نوشته شدن)
+    save_checkpoint(block_idx, block_end - 1)
 
     # ============================================================
     # ۷. گزارش زمان

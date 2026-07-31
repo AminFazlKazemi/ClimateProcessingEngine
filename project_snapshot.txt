@@ -1,7 +1,7 @@
 ================================================================================
 📁 SNAPSHOT از پروژه climatology_engine
 📂 ریشه: k:\gozareshha\dr vazife\140504 - qc temp\climatology\climatology_engine
-📅 تاریخ: 2026-07-29 02:13:49
+📅 تاریخ: 2026-07-31 16:23:34
 ================================================================================
 
 
@@ -2499,6 +2499,699 @@ if __name__ == "__main__":
 
 
 ================================================================================
+📄 فایل: analyze_distributions.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+analyze_distributions_final.py
+================================================================================
+تحلیل جامع توزیع‌های برازش‌شده (خروجی ۲۹ متغیری) – نسخه نهایی
+================================================================================
+- خواندن فایل Zarr اقلیم‌شناسی (خروجی نهایی پروژه)
+- استفاده از ۵ توزیع: Normal, Skew-Normal, GEV, Bimodal, Pearson
+- تحلیل روزانه، فصلی، ارتفاعی و مکانی
+- بررسی پارامترهای هر توزیع (GEV, Skew‑Normal, Bimodal)
+- خوشه‌بندی ایستگاه‌ها بر اساس ویژگی‌ها
+- خروجی نمودارها، نقشه‌ها و جداول جامع
+"""
+
+import os
+import sys
+import numpy as np
+import xarray as xr
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+import warnings
+warnings.filterwarnings("ignore")
+
+plt.rcParams['font.family'] = 'DejaVu Sans'
+plt.rcParams['font.size'] = 10
+sns.set_style("whitegrid")
+
+# ============================================================================
+# ۰. انتخاب متغیر مورد نظر (tmax / tmean / tmin)
+# ============================================================================
+VAR = 'tmax'   # ← این را به 'tmean' یا 'tmin' تغییر دهید
+
+# ============================================================================
+# ۱. تنظیمات و بارگذاری داده‌ها
+# ============================================================================
+ZARR_PATH = r"I:/climatology_366_rolling/climatology_stationwise_final.zarr"
+
+print("=" * 80)
+print(f"📊 تحلیل جامع توزیع‌های برازش‌شده (متغیر: {VAR})")
+print("=" * 80)
+
+if not os.path.exists(ZARR_PATH):
+    print(f"❌ فایل Zarr یافت نشد: {ZARR_PATH}")
+    sys.exit()
+
+# ============================================================
+# نکته مهم: consolidated=False چون فایل با متادیتای یکپارچه ذخیره نشده
+# ============================================================
+ds = xr.open_zarr(ZARR_PATH, consolidated=False)
+print(f"✅ فایل بارگذاری شد. ابعاد: {list(ds.dims)}")
+print(f"   متغیرها: {list(ds.data_vars)}")
+
+# تشخیص ابعاد
+day_dim = None
+point_dim = None
+for d in list(ds.dims):
+    if ds.dims[d] in [365, 366]:
+        day_dim = d
+    else:
+        point_dim = d
+
+if day_dim is None or point_dim is None:
+    raise ValueError("ابعاد روز و نقطه شناسایی نشد.")
+
+n_days = ds.dims[day_dim]
+n_points = ds.dims[point_dim]
+print(f"   بعد روز: {day_dim} ({n_days})")
+print(f"   بعد نقطه: {point_dim} ({n_points})")
+
+# ============================================================================
+# ۲. استخراج داده‌های اصلی با پیشوند VAR
+# ============================================================================
+
+best_dist = ds[f'{VAR}_best_dist'].values
+if best_dist.ndim == 2:
+    if best_dist.shape[0] != n_days or best_dist.shape[1] != n_points:
+        if best_dist.shape[0] == n_points and best_dist.shape[1] == n_days:
+            best_dist = best_dist.T
+        else:
+            best_dist = best_dist.reshape(n_days, n_points)
+
+# کدهای توزیع (۵ توزیع)
+dist_codes = [0, 1, 2, 3, 4]
+dist_labels = ['Normal', 'Skew-Normal', 'GEV', 'Bimodal', 'Pearson']
+dist_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+
+# آماره‌های توصیفی
+mean_vals = ds[f'{VAR}_mean'].values
+std_vals = ds[f'{VAR}_std'].values
+skew_vals = ds[f'{VAR}_skewness'].values
+count_vals = ds[f'{VAR}_count'].values
+
+# تبدیل به شکل (day, point) در صورت لزوم
+for arr in [mean_vals, std_vals, skew_vals, count_vals]:
+    if arr.ndim == 1:
+        if arr.size == n_points:
+            arr = np.tile(arr, (n_days, 1))
+        elif arr.size == n_days:
+            arr = np.tile(arr, (n_points, 1)).T
+    elif arr.ndim == 2:
+        if arr.shape[0] != n_days or arr.shape[1] != n_points:
+            if arr.shape[0] == n_points and arr.shape[1] == n_days:
+                arr = arr.T
+
+# مختصات
+elev = ds['elev'].values
+if elev.ndim > 1:
+    elev = elev.flatten()
+lat = ds['lat'].values
+if lat.ndim > 1:
+    lat = lat.flatten()
+lon = ds['lon'].values
+if lon.ndim > 1:
+    lon = lon.flatten()
+
+# ============================================================================
+# ۳. توابع کمکی
+# ============================================================================
+
+def get_season(day_idx):
+    day = day_idx + 1
+    if day <= 90:
+        return 'زمستان'
+    elif day <= 181:
+        return 'بهار'
+    elif day <= 273:
+        return 'تابستان'
+    elif day <= 365:
+        return 'پاییز'
+    else:
+        return 'زمستان'
+
+def to_1d(arr, length, default_val=np.nan):
+    """تبدیل آرایه به یک‌بعدی با طول مشخص"""
+    if arr is None:
+        return np.full(length, default_val)
+    arr = np.asarray(arr)
+    if arr.ndim > 1:
+        arr = arr.flatten()
+    if arr.size == 1:
+        return np.full(length, arr[0])
+    if arr.size != length:
+        if arr.size < length:
+            new_arr = np.full(length, default_val)
+            new_arr[:arr.size] = arr
+            return new_arr
+        else:
+            return arr[:length]
+    return arr
+
+# ============================================================================
+# ۴. تحلیل اصلی
+# ============================================================================
+
+print("\n" + "=" * 60)
+print("🔹 تحلیل توزیع‌های برازش‌شده")
+print("=" * 60)
+
+# ----------------------------------------------------------------
+# ۴-۱. تغییرات روزانه و فصلی
+# ----------------------------------------------------------------
+print("\n📊 تحلیل تغییرات روزانه و فصلی...")
+
+daily_counts = {d: np.zeros(n_days) for d in dist_codes}
+for day in range(n_days):
+    for d in dist_codes:
+        daily_counts[d][day] = np.sum(best_dist[day, :] == d)
+
+daily_percent = {d: daily_counts[d] / n_points * 100 for d in dist_codes}
+
+# نمودار روزانه (انباشته)
+fig, ax = plt.subplots(figsize=(16, 6))
+days = np.arange(1, n_days + 1)
+bottom = np.zeros(n_days)
+for i, d in enumerate(dist_codes):
+    ax.bar(days, daily_percent[d], bottom=bottom,
+           label=dist_labels[i], color=dist_colors[i], alpha=0.7, width=1)
+    bottom += daily_percent[d]
+ax.set_xlabel('روز سال')
+ax.set_ylabel('درصد ایستگاه‌ها (%)')
+ax.set_title(f'تغییرات توزیع غالب در طول سال ({VAR})')
+ax.legend(loc='upper right')
+ax.grid(True, alpha=0.3)
+ax.set_xlim(0, n_days + 1)
+plt.tight_layout()
+plt.savefig(f'daily_distribution_{VAR}.png', dpi=300, bbox_inches='tight')
+plt.close()
+print(f"   ✅ daily_distribution_{VAR}.png")
+
+# تحلیل فصلی
+season_days = {'زمستان': [], 'بهار': [], 'تابستان': [], 'پاییز': []}
+for day in range(n_days):
+    season_days[get_season(day)].append(day)
+
+seasonal_percent = {}
+for season, days_list in season_days.items():
+    if days_list:
+        seasonal_counts = {d: np.mean([daily_counts[d][day] for day in days_list])
+                           for d in dist_codes}
+        total = sum(seasonal_counts.values())
+        seasonal_percent[season] = {d: seasonal_counts[d] / total * 100
+                                    for d in dist_codes}
+
+fig, ax = plt.subplots(figsize=(10, 6))
+x = np.arange(len(season_days))
+width = 0.2
+for i, d in enumerate(dist_codes):
+    values = [seasonal_percent[season][d] if season in seasonal_percent else 0
+              for season in season_days.keys()]
+    ax.bar(x + (i - len(dist_codes) / 2 + 0.5) * width, values, width,
+           label=dist_labels[i], color=dist_colors[i], alpha=0.7)
+ax.set_xticks(x)
+ax.set_xticklabels(season_days.keys())
+ax.set_ylabel('درصد ایستگاه‌ها (%)')
+ax.set_title(f'توزیع تابع‌ها در فصول مختلف ({VAR})')
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig(f'seasonal_distribution_{VAR}.png', dpi=300, bbox_inches='tight')
+plt.close()
+print(f"   ✅ seasonal_distribution_{VAR}.png")
+
+# ----------------------------------------------------------------
+# ۴-۲. تحلیل ارتفاعی
+# ----------------------------------------------------------------
+print("\n📊 تحلیل ارتفاعی...")
+
+elev_bins = [0, 500, 1000, 1500, 2000, 2500, 3000, 4000]
+elev_labels = ['0-500', '500-1000', '1000-1500', '1500-2000',
+               '2000-2500', '2500-3000', '3000+']
+elev_digitized = np.digitize(elev, elev_bins) - 1
+elev_digitized = np.clip(elev_digitized, 0, len(elev_labels) - 1)
+
+elev_counts = {}
+for d in dist_codes:
+    elev_counts[d] = np.zeros(len(elev_labels))
+    for i in range(len(elev_labels)):
+        mask = elev_digitized == i
+        if np.any(mask):
+            elev_counts[d][i] = np.sum(best_dist[:, mask] == d) / (n_days * np.sum(mask)) * 100
+
+fig, ax = plt.subplots(figsize=(12, 6))
+x = np.arange(len(elev_labels))
+width = 0.2
+for i, d in enumerate(dist_codes):
+    ax.bar(x + (i - len(dist_codes) / 2 + 0.5) * width, elev_counts[d], width,
+           label=dist_labels[i], color=dist_colors[i], alpha=0.7)
+ax.set_xticks(x)
+ax.set_xticklabels(elev_labels)
+ax.set_xlabel('ارتفاع (متر)')
+ax.set_ylabel('درصد ایستگاه‌ها (%)')
+ax.set_title(f'توزیع تابع‌ها بر اساس ارتفاع ({VAR})')
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig(f'elevation_distribution_{VAR}.png', dpi=300, bbox_inches='tight')
+plt.close()
+print(f"   ✅ elevation_distribution_{VAR}.png")
+
+# ----------------------------------------------------------------
+# ۴-۳. نقشه‌های مکانی
+# ----------------------------------------------------------------
+print("\n📊 نقشه‌های مکانی...")
+
+sample_day = n_days // 2  # روز میانی سال
+sample_season = 'تابستان'
+season_days_list = season_days.get(sample_season, [])
+if season_days_list:
+    season_best = np.zeros(n_points, dtype=int)
+    for p in range(n_points):
+        counts = np.bincount(best_dist[season_days_list, p].astype(int))
+        if len(counts) > 0:
+            season_best[p] = np.argmax(counts)
+        else:
+            season_best[p] = -1
+else:
+    season_best = None
+
+day_best = best_dist[sample_day, :]
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+sc1 = axes[0].scatter(lon, lat, c=day_best, cmap='tab10', s=1, alpha=0.6, vmin=-1, vmax=4)
+axes[0].set_title(f'روز {sample_day + 1} ({VAR})')
+axes[0].set_xlabel('طول جغرافیایی')
+axes[0].set_ylabel('عرض جغرافیایی')
+axes[0].grid(True, alpha=0.3)
+
+if season_best is not None:
+    sc2 = axes[1].scatter(lon, lat, c=season_best, cmap='tab10', s=1, alpha=0.6, vmin=-1, vmax=4)
+    axes[1].set_title(f'فصل {sample_season} ({VAR})')
+    axes[1].set_xlabel('طول جغرافیایی')
+    axes[1].set_ylabel('عرض جغرافیایی')
+    axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.savefig(f'spatial_distribution_{VAR}.png', dpi=300, bbox_inches='tight')
+plt.close()
+print(f"   ✅ spatial_distribution_{VAR}.png")
+
+# ----------------------------------------------------------------
+# ۴-۴. پارامترهای GEV
+# ----------------------------------------------------------------
+print("\n📊 تحلیل پارامترهای GEV...")
+
+gev_vars = [f'{VAR}_gev_p1', f'{VAR}_gev_p2', f'{VAR}_gev_p3']
+if all(v in ds.data_vars for v in gev_vars):
+    gev_p1 = ds[f'{VAR}_gev_p1'].values
+    gev_p2 = ds[f'{VAR}_gev_p2'].values
+    gev_p3 = ds[f'{VAR}_gev_p3'].values
+
+    for arr in [gev_p1, gev_p2, gev_p3]:
+        if arr.ndim == 1:
+            if arr.size == n_points:
+                arr = np.tile(arr, (n_days, 1))
+            elif arr.size == n_days:
+                arr = np.tile(arr, (n_points, 1)).T
+        elif arr.ndim == 2:
+            if arr.shape[0] != n_days or arr.shape[1] != n_points:
+                if arr.shape[0] == n_points and arr.shape[1] == n_days:
+                    arr = arr.T
+
+    loc_mean = np.nanmean(gev_p1, axis=1)
+    scale_mean = np.nanmean(gev_p2, axis=1)
+    shape_mean = np.nanmean(gev_p3, axis=1)
+
+    fig, axes = plt.subplots(3, 1, figsize=(14, 10))
+    axes[0].plot(days, loc_mean, 'b-', linewidth=2)
+    axes[0].set_ylabel('Location (μ)')
+    axes[0].set_title(f'GEV Location - روزانه ({VAR})')
+    axes[0].grid(True, alpha=0.3)
+    axes[1].plot(days, scale_mean, 'g-', linewidth=2)
+    axes[1].set_ylabel('Scale (σ)')
+    axes[1].set_title(f'GEV Scale - روزانه ({VAR})')
+    axes[1].grid(True, alpha=0.3)
+    axes[2].plot(days, shape_mean, 'r-', linewidth=2)
+    axes[2].set_xlabel('روز سال')
+    axes[2].set_ylabel('Shape (ξ)')
+    axes[2].set_title(f'GEV Shape - روزانه ({VAR})')
+    axes[2].grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f'gev_params_daily_{VAR}.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"   ✅ gev_params_daily_{VAR}.png")
+
+    # تغییرات ارتفاعی
+    elev_params = {'location': [], 'scale': [], 'shape': []}
+    for i in range(len(elev_labels)):
+        mask = elev_digitized == i
+        if np.any(mask):
+            elev_params['location'].append(np.nanmean(gev_p1[:, mask]))
+            elev_params['scale'].append(np.nanmean(gev_p2[:, mask]))
+            elev_params['shape'].append(np.nanmean(gev_p3[:, mask]))
+        else:
+            elev_params['location'].append(np.nan)
+            elev_params['scale'].append(np.nan)
+            elev_params['shape'].append(np.nan)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    x = np.arange(len(elev_labels))
+    for name, vals in elev_params.items():
+        ax.plot(x, vals, marker='o', label=name)
+    ax.set_xticks(x)
+    ax.set_xticklabels(elev_labels)
+    ax.set_xlabel('ارتفاع (متر)')
+    ax.set_ylabel('مقدار پارامتر')
+    ax.set_title(f'تغییرات پارامترهای GEV با ارتفاع ({VAR})')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f'gev_params_elevation_{VAR}.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"   ✅ gev_params_elevation_{VAR}.png")
+else:
+    print("   ⚠️ متغیرهای GEV یافت نشد.")
+
+# ----------------------------------------------------------------
+# ۴-۵. پارامترهای Skew-Normal
+# ----------------------------------------------------------------
+print("\n📊 تحلیل پارامترهای Skew-Normal...")
+
+skew_vars = [f'{VAR}_skew_p1', f'{VAR}_skew_p2', f'{VAR}_skew_p3']
+if all(v in ds.data_vars for v in skew_vars):
+    skew_p1 = ds[f'{VAR}_skew_p1'].values
+    skew_p2 = ds[f'{VAR}_skew_p2'].values
+    skew_p3 = ds[f'{VAR}_skew_p3'].values
+
+    for arr in [skew_p1, skew_p2, skew_p3]:
+        if arr.ndim == 1:
+            if arr.size == n_points:
+                arr = np.tile(arr, (n_days, 1))
+            elif arr.size == n_days:
+                arr = np.tile(arr, (n_points, 1)).T
+        elif arr.ndim == 2:
+            if arr.shape[0] != n_days or arr.shape[1] != n_points:
+                if arr.shape[0] == n_points and arr.shape[1] == n_days:
+                    arr = arr.T
+
+    loc_mean = np.nanmean(skew_p1, axis=1)
+    scale_mean = np.nanmean(skew_p2, axis=1)
+    shape_mean = np.nanmean(skew_p3, axis=1)
+
+    fig, axes = plt.subplots(3, 1, figsize=(14, 10))
+    axes[0].plot(days, loc_mean, 'c-', linewidth=2)
+    axes[0].set_ylabel('Location')
+    axes[0].set_title(f'Skew-Normal Location - روزانه ({VAR})')
+    axes[0].grid(True, alpha=0.3)
+    axes[1].plot(days, scale_mean, 'm-', linewidth=2)
+    axes[1].set_ylabel('Scale')
+    axes[1].set_title(f'Skew-Normal Scale - روزانه ({VAR})')
+    axes[1].grid(True, alpha=0.3)
+    axes[2].plot(days, shape_mean, 'y-', linewidth=2)
+    axes[2].set_xlabel('روز سال')
+    axes[2].set_ylabel('Shape')
+    axes[2].set_title(f'Skew-Normal Shape - روزانه ({VAR})')
+    axes[2].grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f'skew_normal_params_daily_{VAR}.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"   ✅ skew_normal_params_daily_{VAR}.png")
+else:
+    print("   ⚠️ متغیرهای Skew-Normal یافت نشد.")
+
+# ----------------------------------------------------------------
+# ۴-۶. پارامترهای Bimodal (اختیاری)
+# ----------------------------------------------------------------
+print("\n📊 تحلیل پارامترهای Bimodal...")
+
+bimodal_vars = [f'{VAR}_bimodal_p1', f'{VAR}_bimodal_p2', f'{VAR}_bimodal_p3',
+                f'{VAR}_bimodal_p4', f'{VAR}_bimodal_p5']
+if all(v in ds.data_vars for v in bimodal_vars):
+    bimodal_p1 = ds[f'{VAR}_bimodal_p1'].values
+    bimodal_p2 = ds[f'{VAR}_bimodal_p2'].values
+    bimodal_p3 = ds[f'{VAR}_bimodal_p3'].values
+    bimodal_p4 = ds[f'{VAR}_bimodal_p4'].values
+    bimodal_p5 = ds[f'{VAR}_bimodal_p5'].values
+
+    for arr in [bimodal_p1, bimodal_p2, bimodal_p3, bimodal_p4, bimodal_p5]:
+        if arr.ndim == 1:
+            if arr.size == n_points:
+                arr = np.tile(arr, (n_days, 1))
+            elif arr.size == n_days:
+                arr = np.tile(arr, (n_points, 1)).T
+        elif arr.ndim == 2:
+            if arr.shape[0] != n_days or arr.shape[1] != n_points:
+                if arr.shape[0] == n_points and arr.shape[1] == n_days:
+                    arr = arr.T
+
+    # میانگین روزانه پارامترها
+    w1_mean = np.nanmean(bimodal_p1, axis=1)
+    mu1_mean = np.nanmean(bimodal_p2, axis=1)
+    sigma1_mean = np.nanmean(bimodal_p3, axis=1)
+    mu2_mean = np.nanmean(bimodal_p4, axis=1)
+    sigma2_mean = np.nanmean(bimodal_p5, axis=1)
+
+    fig, axes = plt.subplots(5, 1, figsize=(14, 14))
+    axes[0].plot(days, w1_mean, 'k-', linewidth=2)
+    axes[0].set_ylabel('w1')
+    axes[0].set_title(f'Bimodal w1 - روزانه ({VAR})')
+    axes[0].grid(True, alpha=0.3)
+    axes[1].plot(days, mu1_mean, 'b-', linewidth=2)
+    axes[1].set_ylabel('μ1')
+    axes[1].set_title(f'Bimodal μ1 - روزانه ({VAR})')
+    axes[1].grid(True, alpha=0.3)
+    axes[2].plot(days, sigma1_mean, 'g-', linewidth=2)
+    axes[2].set_ylabel('σ1')
+    axes[2].set_title(f'Bimodal σ1 - روزانه ({VAR})')
+    axes[2].grid(True, alpha=0.3)
+    axes[3].plot(days, mu2_mean, 'r-', linewidth=2)
+    axes[3].set_ylabel('μ2')
+    axes[3].set_title(f'Bimodal μ2 - روزانه ({VAR})')
+    axes[3].grid(True, alpha=0.3)
+    axes[4].plot(days, sigma2_mean, 'm-', linewidth=2)
+    axes[4].set_xlabel('روز سال')
+    axes[4].set_ylabel('σ2')
+    axes[4].set_title(f'Bimodal σ2 - روزانه ({VAR})')
+    axes[4].grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f'bimodal_params_daily_{VAR}.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"   ✅ bimodal_params_daily_{VAR}.png")
+else:
+    print("   ⚠️ متغیرهای Bimodal یافت نشد.")
+
+# ----------------------------------------------------------------
+# ۴-۷. همبستگی نوع توزیع با آماره‌های توصیفی
+# ----------------------------------------------------------------
+print("\n📊 همبستگی نوع توزیع با آماره‌های توصیفی...")
+
+mode_dist = np.zeros(n_points, dtype=int)
+for p in range(n_points):
+    counts = np.bincount(best_dist[:, p].astype(int))
+    if len(counts) > 0:
+        mode_dist[p] = np.argmax(counts)
+    else:
+        mode_dist[p] = -1
+
+mean_flat = to_1d(mean_vals, n_points)
+std_flat = to_1d(std_vals, n_points)
+skew_flat = to_1d(skew_vals, n_points)
+elev_flat = to_1d(elev, n_points)
+
+df_points = pd.DataFrame({
+    'dist': mode_dist,
+    'mean': mean_flat,
+    'std': std_flat,
+    'skew': skew_flat,
+    'elev': elev_flat
+})
+df_points = df_points[(df_points['dist'] >= 0) & (~np.isnan(df_points['mean']))]
+
+if len(df_points) > 0:
+    stats_by_dist = df_points.groupby('dist').agg({
+        'mean': ['mean', 'std'],
+        'std': ['mean', 'std'],
+        'skew': ['mean', 'std'],
+        'elev': ['mean', 'std']
+    }).round(2)
+    stats_by_dist.index = [dist_labels[i] if i < len(dist_labels) else f'Dist{i}'
+                           for i in stats_by_dist.index]
+    print("\nجدول آماره‌ها بر اساس نوع توزیع غالب:")
+    print(stats_by_dist)
+    stats_by_dist.to_csv(f'stats_by_distribution_{VAR}.csv')
+    print(f"   ✅ stats_by_distribution_{VAR}.csv")
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    for ax, col in zip(axes, ['mean', 'std', 'skew']):
+        df_points.boxplot(column=col, by='dist', ax=ax)
+        ax.set_title(f'{col} بر حسب توزیع ({VAR})')
+        ax.set_xlabel('نوع توزیع')
+        ax.grid(True, alpha=0.3)
+    plt.suptitle('')
+    plt.tight_layout()
+    plt.savefig(f'boxplots_by_distribution_{VAR}.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"   ✅ boxplots_by_distribution_{VAR}.png")
+else:
+    print("   ⚠️ داده‌ای برای همبستگی وجود ندارد.")
+
+# ----------------------------------------------------------------
+# ۴-۸. خوشه‌بندی
+# ----------------------------------------------------------------
+print("\n📊 خوشه‌بندی ایستگاه‌ها بر اساس ویژگی‌ها...")
+
+features = []
+if mean_vals is not None:
+    features.append(to_1d(mean_vals, n_points))
+if std_vals is not None:
+    features.append(to_1d(std_vals, n_points))
+if skew_vals is not None:
+    features.append(to_1d(skew_vals, n_points))
+if elev is not None:
+    features.append(to_1d(elev, n_points))
+
+if features:
+    X = np.column_stack(features)
+    nan_mask = np.isnan(X).any(axis=1)
+    X_clean = X[~nan_mask]
+    if len(X_clean) > 0:
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X_clean)
+        inertias = []
+        K_range = range(2, 11)
+        for k in K_range:
+            kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+            kmeans.fit(X_scaled)
+            inertias.append(kmeans.inertia_)
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.plot(K_range, inertias, 'bo-')
+        ax.set_xlabel('تعداد خوشه‌ها')
+        ax.set_ylabel('اینرسی')
+        ax.set_title(f'نمودار Elbow ({VAR})')
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(f'elbow_plot_{VAR}.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"   ✅ elbow_plot_{VAR}.png")
+
+        n_clusters = 4
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+        clusters = kmeans.fit_predict(X_scaled)
+        valid_indices = np.where(~nan_mask)[0]
+        cluster_dist = np.zeros((n_clusters, len(dist_codes)))
+        for idx, orig_idx in enumerate(valid_indices):
+            c = clusters[idx]
+            d = mode_dist[orig_idx]
+            if d >= 0:
+                cluster_dist[c, d] += 1
+        cluster_percent = cluster_dist / cluster_dist.sum(axis=1, keepdims=True) * 100
+        df_cluster = pd.DataFrame(cluster_percent, columns=dist_labels)
+        df_cluster['خوشه'] = range(1, n_clusters + 1)
+        df_cluster = df_cluster.set_index('خوشه')
+        print("\nترکیب توزیع‌ها در خوشه‌ها:")
+        print(df_cluster)
+        df_cluster.to_csv(f'cluster_distribution_{VAR}.csv')
+        print(f"   ✅ cluster_distribution_{VAR}.csv")
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        x = np.arange(n_clusters)
+        bottom = np.zeros(n_clusters)
+        for i, d in enumerate(dist_codes):
+            ax.bar(x, cluster_percent[:, i], bottom=bottom,
+                   label=dist_labels[i], color=dist_colors[i], alpha=0.7)
+            bottom += cluster_percent[:, i]
+        ax.set_xticks(x)
+        ax.set_xticklabels([f'خوشه {i + 1}' for i in range(n_clusters)])
+        ax.set_ylabel('درصد ایستگاه‌ها (%)')
+        ax.set_title(f'ترکیب خوشه‌ها ({VAR})')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(f'cluster_composition_{VAR}.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"   ✅ cluster_composition_{VAR}.png")
+    else:
+        print("   ⚠️ داده‌ای برای خوشه‌بندی وجود ندارد.")
+else:
+    print("   ⚠️ ویژگی‌های کافی برای خوشه‌بندی موجود نیست.")
+
+# ----------------------------------------------------------------
+# ۴-۹. مقایسه معیارهای اطلاعاتی (AIC و BIC)
+# ----------------------------------------------------------------
+print("\n📊 مقایسه معیارهای اطلاعاتی (AIC و BIC)...")
+
+dist_list = ['normal', 'skew', 'gev', 'bimodal', 'pearson']
+aic_dict = {}
+bic_dict = {}
+for dist in dist_list:
+    aic_var = f'{VAR}_{dist}_aicc'
+    bic_var = f'{VAR}_{dist}_bic'
+    if aic_var in ds.data_vars:
+        arr = ds[aic_var].values
+        if arr.ndim > 1:
+            arr = arr.flatten()
+        aic_dict[dist_labels[dist_codes[dist_list.index(dist)]]] = np.nanmean(arr)
+    if bic_var in ds.data_vars:
+        arr = ds[bic_var].values
+        if arr.ndim > 1:
+            arr = arr.flatten()
+        bic_dict[dist_labels[dist_codes[dist_list.index(dist)]]] = np.nanmean(arr)
+
+if aic_dict:
+    df_aic = pd.DataFrame(list(aic_dict.items()), columns=['توزیع', 'میانگین AICc'])
+    df_aic = df_aic.sort_values('میانگین AICc')
+    print("\nمیانگین AICc:")
+    print(df_aic.to_string(index=False))
+    df_aic.to_csv(f'aic_comparison_{VAR}.csv', index=False)
+    print(f"   ✅ aic_comparison_{VAR}.csv")
+
+if bic_dict:
+    df_bic = pd.DataFrame(list(bic_dict.items()), columns=['توزیع', 'میانگین BIC'])
+    df_bic = df_bic.sort_values('میانگین BIC')
+    print("\nمیانگین BIC:")
+    print(df_bic.to_string(index=False))
+    df_bic.to_csv(f'bic_comparison_{VAR}.csv', index=False)
+    print(f"   ✅ bic_comparison_{VAR}.csv")
+
+# ============================================================================
+# ۵. جمع‌بندی نهایی
+# ============================================================================
+
+print("\n" + "=" * 80)
+print(f"✅ تحلیل کامل شد (متغیر: {VAR})")
+print("📁 فایل‌های خروجی:")
+files = [
+    f'daily_distribution_{VAR}.png',
+    f'seasonal_distribution_{VAR}.png',
+    f'elevation_distribution_{VAR}.png',
+    f'spatial_distribution_{VAR}.png',
+    f'gev_params_daily_{VAR}.png',
+    f'gev_params_elevation_{VAR}.png',
+    f'skew_normal_params_daily_{VAR}.png',
+    f'bimodal_params_daily_{VAR}.png',
+    f'stats_by_distribution_{VAR}.csv',
+    f'cluster_distribution_{VAR}.csv',
+    f'boxplots_by_distribution_{VAR}.png',
+    f'elbow_plot_{VAR}.png',
+    f'cluster_composition_{VAR}.png',
+    f'aic_comparison_{VAR}.csv',
+    f'bic_comparison_{VAR}.csv'
+]
+for f in files:
+    print(f"   - {f}")
+print("=" * 80)
+
+ds.close()
+
+
+================================================================================
 📄 فایل: apply_patches.py
 ================================================================================
 # -*- coding: utf-8 -*-
@@ -4278,6 +4971,286 @@ __all__ = [
     'hartigan_dip_test',
     'select_optimal_components'
 ]
+
+
+================================================================================
+📄 فایل: build_cache_only.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+build_cache_only.py – ساخت کش برای بلوک‌های بدون کش (با ادامه از checkpoint)
+================================================================================
+مسیر کامل:
+K:/gozareshha/dr vazife/140504 - qc temp/climatology/climatology_engine/build_cache_only.py
+
+رفتار:
+- از checkpoint_manager با تشخیص خودکار برای ادامه استفاده می‌کند.
+- فقط وجود فایل کش را بررسی می‌کند (بدون خواندن داده).
+- اگر کش وجود داشت، هیچ کاری نمی‌کند و به سراغ بعدی می‌رود.
+- اگر کش وجود نداشت، از Zarr می‌خواند و کش جدید با block_size فعلی (۲۰۰۰) می‌سازد.
+- فقط برای بلوک‌هایی که هنوز پردازش نشده‌اند (بر اساس checkpoint) این کار را انجام می‌دهد.
+================================================================================
+"""
+
+import os
+import sys
+import time
+import gc
+import yaml
+import numpy as np
+from tqdm import tqdm
+
+# اضافه کردن مسیر پروژه به sys.path
+sys.path.insert(0, os.path.dirname(__file__))
+
+# ============================================================
+# ۱. بارگذاری config.yaml
+# ============================================================
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    CONFIG = yaml.safe_load(f)
+
+LAT_MIN = CONFIG.get("lat_min")
+LAT_MAX = CONFIG.get("lat_max")
+LON_MIN = CONFIG.get("lon_min")
+LON_MAX = CONFIG.get("lon_max")
+DATA_FORMAT = CONFIG.get("data_format", "auto")
+N_POINTS_MAX = CONFIG.get("n_sample_points", 40000)
+
+# ============================================================
+# ۲. import از constants و checkpoint_manager
+# ============================================================
+from constants import (
+    ZARR_BASE,
+    YEAR_START,
+    YEAR_END,
+    VARS,
+    BLOCK_SIZE,
+)
+from runtime_tables import build_runtime_tables
+from data_adapter import create_adapter
+from monitoring.logger import logger
+
+# ============================================================
+# ✅ استفاده از checkpoint_manager با تشخیص خودکار
+# ============================================================
+from checkpoint_manager import ensure_checkpoint, save_checkpoint
+
+
+def cache_exists(adapter, block_start, block_size, year_idx, month, sample_hash="all"):
+    """
+    بررسی وجود فایل کش بدون بارگذاری داده.
+    از متدهای داخلی DiskCache برای ساخت کلید و مسیر استفاده می‌کند.
+    
+    پارامترها:
+        adapter: نمونه‌ی DataAdapter
+        block_start: اندیس شروع بلوک
+        block_size: اندازه‌ی بلوک
+        year_idx: اندیس سال در year_list
+        month: ماه (۱-۱۲)
+        sample_hash: هش نمونه‌برداری (پیش‌فرض "all")
+    
+    بازگشت:
+        True اگر فایل کش وجود داشته باشد، در غیر این صورت False
+    """
+    try:
+        # کلید و مسیر فایل کش را محاسبه کن
+        key = adapter.cache._get_cache_key(
+            block_start=block_start,
+            block_size=block_size,
+            year=year_idx,
+            month=month,
+            var="all_vars",
+            sample_hash=sample_hash
+        )
+        path = adapter.cache._get_cache_path(key)
+        return os.path.exists(path)
+    except Exception as e:
+        logger.debug(f"   ⚠️ خطا در بررسی کش: {e}")
+        return False
+
+
+def build_cache():
+    """
+    حلقه‌ی اصلی:
+    ۱. از checkpoint شروع می‌کند (بلوک و ایستگاه آخر).
+    ۲. برای هر بلوک از start_block به بعد، برای هر ماه:
+       - وجود کش را بررسی می‌کند (بدون خواندن).
+       - اگر کش وجود داشت، هیچ کاری نمی‌کند.
+       - اگر کش وجود نداشت، از Zarr می‌خواند و کش جدید می‌سازد.
+    ۳. بعد از هر بلوک، checkpoint ذخیره می‌شود.
+    """
+    logger.info("=" * 80)
+    logger.info("🚀 BUILD CACHE – ساخت کش برای بلوک‌های بدون کش")
+    logger.info("   - از checkpoint_manager با تشخیص خودکار برای ادامه استفاده می‌کند.")
+    logger.info("   - فقط وجود فایل کش را چک می‌کند (بدون خواندن داده).")
+    logger.info("   - اگر کش وجود داشت، هیچ کاری نمی‌کند.")
+    logger.info("   - اگر کش وجود نداشت، از Zarr می‌خواند و کش جدید می‌سازد.")
+    logger.info("   - فقط بلوک‌های پردازش‌نشده (بر اساس checkpoint) پردازش می‌شوند.")
+    logger.info("=" * 80)
+
+    # ============================================================
+    # ✅ استفاده از checkpoint_manager با تشخیص خودکار
+    # ============================================================
+    checkpoint = ensure_checkpoint(auto_detect=True)
+    start_block = checkpoint.get("block", 0)
+    start_station = checkpoint.get("station", 0)
+    logger.info(f"⏩ ادامه از بلوک {start_block}, ایستگاه {start_station} (طبق checkpoint)")
+
+    # ============================================================
+    # آماده‌سازی سال‌ها و جداول
+    # ============================================================
+    year_list = list(range(YEAR_START, YEAR_END + 1))
+    logger.info(f"📅 سال‌ها: {year_list[0]}–{year_list[-1]} ({len(year_list)} سال)")
+
+    tables = build_runtime_tables(ZARR_BASE)
+    file_map = tables["file_map"]
+    logger.info(f"📂 تعداد فایل‌های Zarr پیدا شده: {len(file_map)}")
+
+    # ============================================================
+    # ساخت Adapter (دقیقاً مانند main.py)
+    # ============================================================
+    logger.info("🔧 ساخت Data Adapter...")
+    adapter = create_adapter(
+        zarr_base=ZARR_BASE,
+        year_list=year_list,
+        data_format=DATA_FORMAT,
+        cache_enabled=True,
+        max_points=N_POINTS_MAX,
+        lat_min=LAT_MIN,
+        lat_max=LAT_MAX,
+        lon_min=LON_MIN,
+        lon_max=LON_MAX
+    )
+
+    n_stations = adapter.n_points
+    total_blocks = (n_stations + BLOCK_SIZE - 1) // BLOCK_SIZE
+
+    logger.info(f"📍 تعداد کل نقاط: {n_stations:,}")
+    logger.info(f"📦 اندازه‌ی بلوک: {BLOCK_SIZE}")
+    logger.info(f"📦 تعداد کل بلوک‌ها: {total_blocks}")
+
+    sample_hash = adapter._get_sample_hash()
+
+    start_time = time.time()
+    total_files_checked = 0
+    total_files_missing = 0
+    total_files_loaded = 0
+
+    # ============================================================
+    # حلقه‌ی اصلی – از start_block به بعد
+    # ============================================================
+    for block_idx in range(start_block, total_blocks):
+        block_start = block_idx * BLOCK_SIZE
+        block_end = min(block_start + BLOCK_SIZE, n_stations)
+        block_size_actual = block_end - block_start
+
+        # اگر در بلوک start_block هستیم و start_station از block_start بزرگ‌تر است،
+        # یعنی بخشی از این بلوک قبلاً پردازش شده، اما چون کش‌ها مستقل از ایستگاه هستند،
+        # ما کش را برای کل بلوک می‌سازیم (به ازای همه ایستگاه‌های بلوک).
+        # بنابراین نیازی به skipp کردن ایستگاه‌ها نیست.
+
+        logger.info(f"\n📦 بلوک {block_idx + 1}/{total_blocks}: "
+                    f"ایستگاه‌های {block_start:,}–{block_end:,} ({block_size_actual} ایستگاه)")
+
+        months_to_load = []
+        for year in year_list:
+            for month in range(1, 13):
+                if (year, month) in file_map:
+                    months_to_load.append((year, month))
+
+        pbar = tqdm(months_to_load, desc=f"   بررسی و ساخت کش", unit="file", position=0, leave=True)
+
+        for year, month in months_to_load:
+            year_idx = year_list.index(year) if year in year_list else 0
+
+            total_files_checked += 1
+
+            # ============================================================
+            # ۱. بررسی وجود کش (بدون خواندن)
+            # ============================================================
+            if cache_exists(adapter, block_start, block_size_actual, year_idx, month, sample_hash):
+                # کش موجود است – هیچ کاری نمی‌کنیم
+                pbar.update(1)
+                continue
+
+            # ============================================================
+            # ۲. کش وجود ندارد – از Zarr بخوان و کش جدید بساز
+            # ============================================================
+            total_files_missing += 1
+            
+            # بارگذاری از Zarr و ذخیره‌ی خودکار کش (توسط load_block_all_vars)
+            combined_data = adapter.load_block_all_vars(
+                block_start=block_start,
+                block_size=block_size_actual,
+                year_idx=year_idx,
+                month=month
+            )
+
+            if combined_data is not None:
+                total_files_loaded += 1
+            else:
+                logger.warning(f"   ⚠️ بارگذاری ناموفق: {year}-{month:02d}")
+
+            # آزادسازی حافظه
+            del combined_data
+            gc.collect()
+            pbar.update(1)
+
+        pbar.close()
+
+        # ذخیره checkpoint بعد از اتمام بلوک
+        save_checkpoint(block_idx, block_end - 1)
+
+        elapsed = time.time() - start_time
+        logger.info(f"   ✅ بلوک {block_idx + 1} کامل شد. "
+                    f"زمان کل: {elapsed:.1f} ثانیه | "
+                    f"میانگین: {elapsed / (block_idx + 1):.1f} ثانیه/بلوک")
+        logger.info(f"      کش‌های موجود: {total_files_checked - total_files_missing} | "
+                    f"کش‌های جدید: {total_files_loaded}")
+
+    # ============================================================
+    # گزارش نهایی
+    # ============================================================
+    total_time = time.time() - start_time
+    logger.info("\n" + "=" * 80)
+    logger.info("✅ ساخت کش با موفقیت کامل شد!")
+    logger.info(f"   تعداد کل فایل‌های بررسی‌شده: {total_files_checked:,}")
+    logger.info(f"   تعداد فایل‌های بدون کش (نیاز به ساخت): {total_files_missing:,}")
+    logger.info(f"   تعداد فایل‌های بارگذاری‌شده (کش‌های جدید): {total_files_loaded:,}")
+    logger.info(f"   زمان کل: {total_time:.1f} ثانیه ({total_time / 60:.1f} دقیقه)")
+    logger.info("=" * 80)
+
+    # نمایش مسیر کش
+    cache_path = os.path.join(os.path.dirname(__file__), "cache")
+    if os.path.exists(cache_path):
+        import glob
+        cache_files = glob.glob(os.path.join(cache_path, "*.pkl.gz"))
+        total_size = sum(os.path.getsize(f) for f in cache_files) / (1024**3)
+        logger.info(f"📁 تعداد فایل‌های کش: {len(cache_files):,}")
+        logger.info(f"💾 حجم کل کش: {total_size:.2f} GB")
+        logger.info("=" * 80)
+
+    # نمایش مسیر checkpoint
+    from constants import CHECKPOINT_FILE
+    logger.info(f"📌 آخرین checkpoint: {CHECKPOINT_FILE}")
+    logger.info("=" * 80)
+
+
+def main():
+    try:
+        build_cache()
+    except KeyboardInterrupt:
+        logger.warning("\n⏹️ کاربر متوقف کرد.")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"❌ خطا: {e}", exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
 
 
 ================================================================================
@@ -54342,6 +55315,104 @@ def get_persian_month_days(month, year):
 
 
 ================================================================================
+📄 فایل: check_cache_coverage.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+check_cache_coverage.py – بررسی محدوده‌ی نقاط کش‌شده
+- چند فایل کش را نمونه‌برداری می‌کند
+- شکل و محدوده‌ی نقاط را نشان می‌دهد
+- تخمین می‌زند که کش تا چه نقطه‌ای ساخته شده
+"""
+
+import os
+import sys
+import pickle
+import gzip
+from pathlib import Path
+from collections import defaultdict
+
+CACHE_DIR = Path("cache")
+if not CACHE_DIR.exists():
+    print("❌ پوشه‌ی کش وجود ندارد.")
+    sys.exit(1)
+
+files = list(CACHE_DIR.glob("*.pkl.gz")) + list(CACHE_DIR.glob("*.pkl"))
+print(f"📂 تعداد کل فایل‌های کش: {len(files):,}")
+
+# ============================================================================
+# نمونه‌برداری از ۱۰ فایل اول (و چند فایل تصادفی)
+# ============================================================================
+sample_files = files[:10]  # ۱۰ فایل اول
+
+# اضافه کردن چند فایل تصادفی (اگر بیشتر از ۱۰ تا باشد)
+if len(files) > 10:
+    import random
+    random.seed(42)
+    sample_files.extend(random.sample(files[10:], min(20, len(files) - 10)))
+
+print(f"🔍 بررسی {len(sample_files)} فایل نمونه...")
+
+# ============================================================================
+# بررسی هر فایل نمونه
+# ============================================================================
+block_info = defaultdict(int)  # شمارش تعداد فایل‌ها برای هر محدوده
+
+for f in sample_files:
+    try:
+        if f.suffix == '.gz':
+            with gzip.open(f, 'rb') as fp:
+                data = pickle.load(fp)
+        else:
+            with open(f, 'rb') as fp:
+                data = pickle.load(fp)
+        
+        # تشخیص محدوده‌ی نقاط از روی شکل داده
+        if hasattr(data, 'shape') and len(data.shape) >= 2:
+            # شکل داده معمولاً (days, block_size) است
+            # یا (days, block_size, vars)
+            if data.shape[1] <= 2000:
+                block_size = data.shape[1]
+            else:
+                block_size = data.shape[0] if data.shape[0] <= 2000 else None
+            
+            if block_size:
+                # تخمین block_start از نام فایل ممکن نیست، اما از محتوا هم نمی‌شود.
+                # فقط block_size قابل تشخیص است.
+                block_info[f"block_size_{block_size}"] += 1
+                print(f"   ✅ {f.name}: block_size={block_size}, shape={data.shape}")
+            else:
+                print(f"   ⚠️ {f.name}: shape غیرمنتظره: {data.shape}")
+        else:
+            print(f"   ⚠️ {f.name}: داده قابل تشخیص نیست (type={type(data)})")
+    except Exception as e:
+        print(f"   ❌ {f.name}: خطا در خواندن: {e}")
+
+# ============================================================================
+# نتیجه‌گیری
+# ============================================================================
+print("\n" + "=" * 80)
+print("📊 نتیجه‌گیری:")
+
+if block_info:
+    print("   block_size‌های پیدا شده در کش:")
+    for key, count in block_info.items():
+        print(f"      {key}: {count} فایل")
+
+    # اگر همه‌ی block_size‌ها ۱۰۰۰ یا ۲۰۰۰ باشند، یعنی کش برای بلوک‌های قبلی ساخته شده
+    if all('block_size_1000' in k or 'block_size_2000' in k for k in block_info.keys()):
+        print("\n   ✅ کش فعلی برای بلوک‌های **۴۰,۰۰۰ نقطه** (با block_size ۱۰۰۰ یا ۲۰۰۰) ساخته شده.")
+        print("   ⚠️ برای ۳۳۸,۶۲۷ نقطه، با block_size جدید، کش جدید ساخته می‌شود.")
+    else:
+        print("\n   ⚠️ کش شامل block_sizeهای مختلف است. ممکن است ترکیبی از کش‌های قدیم و جدید باشد.")
+else:
+    print("   ❌ هیچ داده‌ای قابل تشخیص از فایل‌های نمونه پیدا نشد.")
+
+print("=" * 80)
+
+
+================================================================================
 📄 فایل: check_distributions.py
 ================================================================================
 #!/usr/bin/env python3
@@ -54660,6 +55731,279 @@ else:
 
 
 ================================================================================
+📄 فایل: checkpoint_manager.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+checkpoint_manager.py – مدیریت یکپارچه‌ی فایل checkpoint با تشخیص خودکار
+================================================================================
+- بررسی وجود فایل checkpoint در مسیر صحیح
+- ایجاد خودکار فایل با مقادیر پیش‌فرض در صورت نبود
+- تشخیص خودکار آخرین نقطه‌ی معتبر از Zarr و تنظیم checkpoint بر اساس آن
+================================================================================
+"""
+
+import os
+import time
+import numpy as np
+import xarray as xr
+from constants import CHECKPOINT_FILE, OUTPUT_DIR, OUTPUT_ZARR, BLOCK_SIZE, N_DAYS
+
+
+def ensure_checkpoint_dir():
+    """اطمینان از وجود پوشه‌ی والد فایل checkpoint"""
+    dirname = os.path.dirname(CHECKPOINT_FILE)
+    if dirname and not os.path.exists(dirname):
+        os.makedirs(dirname, exist_ok=True)
+        print(f"📁 پوشه‌ی checkpoint ساخته شد: {dirname}")
+
+
+def get_default_checkpoint():
+    """برگرداندن دیکشنری پیش‌فرض checkpoint (شروع از ابتدا)"""
+    return {
+        "block": 0,
+        "station": 0,
+        "timestamp": int(time.time()),
+        "version": 1,
+    }
+
+
+def load_checkpoint_dict():
+    """
+    بارگذاری فایل checkpoint و برگرداندن دیکشنری.
+    اگر فایل وجود نداشت یا خراب بود، None برمی‌گرداند.
+    """
+    if not os.path.exists(CHECKPOINT_FILE):
+        return None
+
+    data = {}
+    try:
+        with open(CHECKPOINT_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    data[key] = value
+
+        return {
+            "block": int(data.get("block", 0)),
+            "station": int(data.get("station", 0)),
+            "timestamp": int(data.get("timestamp", 0)),
+            "version": int(data.get("version", 1)),
+        }
+    except Exception as e:
+        print(f"⚠️ خطا در خواندن checkpoint: {e}")
+        return None
+
+
+def save_checkpoint_dict(checkpoint):
+    """ذخیره‌ی دیکشنری checkpoint در فایل."""
+    ensure_checkpoint_dir()
+    with open(CHECKPOINT_FILE, "w", encoding="utf-8") as f:
+        f.write(f"block={checkpoint['block']}\n")
+        f.write(f"station={checkpoint['station']}\n")
+        f.write(f"timestamp={checkpoint.get('timestamp', int(time.time()))}\n")
+        f.write(f"version={checkpoint.get('version', 1)}\n")
+        f.flush()
+        os.fsync(f.fileno())
+
+
+def save_checkpoint(block, station):
+    """ذخیره‌ی سریع checkpoint با بلوک و ایستگاه مشخص"""
+    checkpoint = {
+        "block": block,
+        "station": station,
+        "timestamp": int(time.time()),
+        "version": 1,
+    }
+    save_checkpoint_dict(checkpoint)
+
+
+def load_checkpoint():
+    """بارگذاری checkpoint و برگرداندن دیکشنری (با fallback به پیش‌فرض)"""
+    cp = load_checkpoint_dict()
+    if cp is None:
+        return get_default_checkpoint()
+    return cp
+
+
+def reset_checkpoint(block=0, station=0):
+    """بازنشانی checkpoint به مقادیر مشخص"""
+    checkpoint = {
+        "block": block,
+        "station": station,
+        "timestamp": int(time.time()),
+        "version": 1,
+    }
+    save_checkpoint_dict(checkpoint)
+    print(f"🔄 checkpoint بازنشانی شد: بلوک {block}, ایستگاه {station}")
+    return checkpoint
+
+
+def delete_checkpoint():
+    """حذف فایل checkpoint"""
+    if os.path.exists(CHECKPOINT_FILE):
+        os.remove(CHECKPOINT_FILE)
+        print(f"🗑️ فایل checkpoint حذف شد: {CHECKPOINT_FILE}")
+
+
+def auto_detect_last_valid_point(zarr_path=None, var_name="tmean_mean", day_idx=-1):
+    """
+    تشخیص خودکار آخرین نقطه‌ی معتبر در فایل Zarr.
+    
+    پارامترها:
+        zarr_path: مسیر فایل Zarr (پیش‌فرض: OUTPUT_ZARR)
+        var_name: نام متغیر برای بررسی (پیش‌فرض: tmean_mean)
+        day_idx: اندیس روز (پیش‌فرض: -1 یعنی آخرین روز)
+    
+    بازگشت:
+        دیکشنری شامل:
+            - n_valid: تعداد نقاط معتبر
+            - last_block: آخرین بلوک کامل
+            - last_station: آخرین ایستگاه معتبر
+            - checkpoint: دیکشنری checkpoint پیشنهادی
+    """
+    if zarr_path is None:
+        zarr_path = OUTPUT_ZARR
+    
+    # اگر Zarr وجود ندارد، از ابتدا شروع کن
+    if not os.path.exists(zarr_path):
+        print(f"⚠️ فایل Zarr وجود ندارد: {zarr_path}")
+        print("🆕 شروع از ابتدا (بلوک ۰، ایستگاه ۰)")
+        return {
+            "n_valid": 0,
+            "last_block": 0,
+            "last_station": 0,
+            "checkpoint": get_default_checkpoint()
+        }
+    
+    try:
+        # باز کردن Zarr
+        ds = xr.open_zarr(zarr_path, consolidated=False)
+        
+        # بررسی وجود متغیر
+        if var_name not in ds:
+            print(f"⚠️ متغیر {var_name} در Zarr وجود ندارد")
+            ds.close()
+            return {
+                "n_valid": 0,
+                "last_block": 0,
+                "last_station": 0,
+                "checkpoint": get_default_checkpoint()
+            }
+        
+        # استخراج داده‌های روز آخر
+        if day_idx < 0:
+            day_idx = ds.dims['day'] - 1
+        
+        data = ds[var_name].isel(day=day_idx).values
+        
+        # تعداد نقاط معتبر
+        valid_mask = ~np.isnan(data)
+        n_valid = np.sum(valid_mask)
+        
+        ds.close()
+        
+        # محاسبه بلوک و ایستگاه
+        if n_valid == 0:
+            last_block = 0
+            last_station = 0
+        else:
+            # آخرین ایستگاه معتبر
+            last_station = np.max(np.where(valid_mask)[0])
+            last_block = last_station // BLOCK_SIZE
+        
+        # checkpoint پیشنهادی
+        checkpoint = {
+            "block": last_block,
+            "station": (last_block + 1) * BLOCK_SIZE if last_block > 0 else 0,
+            "timestamp": int(time.time()),
+            "version": 1,
+        }
+        
+        print(f"📊 تشخیص خودکار از Zarr:")
+        print(f"   تعداد نقاط معتبر در روز {day_idx}: {n_valid:,}")
+        print(f"   آخرین ایستگاه معتبر: {last_station:,}")
+        print(f"   آخرین بلوک کامل: {last_block}")
+        print(f"   نقطه‌ی شروع پیشنهادی: بلوک {checkpoint['block']}, ایستگاه {checkpoint['station']}")
+        
+        return {
+            "n_valid": n_valid,
+            "last_block": last_block,
+            "last_station": last_station,
+            "checkpoint": checkpoint
+        }
+        
+    except Exception as e:
+        print(f"⚠️ خطا در تشخیص خودکار: {e}")
+        return {
+            "n_valid": 0,
+            "last_block": 0,
+            "last_station": 0,
+            "checkpoint": get_default_checkpoint()
+        }
+
+
+def ensure_checkpoint(auto_detect=False):
+    """
+    اطمینان از وجود فایل checkpoint با تشخیص خودکار.
+    
+    پارامترها:
+        auto_detect: اگر True باشد، موقعیت از Zarr تشخیص داده می‌شود.
+    """
+    ensure_checkpoint_dir()
+    
+    # اگر تشخیص خودکار فعال باشد
+    if auto_detect:
+        detection = auto_detect_last_valid_point()
+        if detection["n_valid"] > 0:
+            # checkpoint را با مقدار تشخیص‌شده به‌روز کن
+            checkpoint = detection["checkpoint"]
+            save_checkpoint_dict(checkpoint)
+            print(f"✅ checkpoint به‌روز شد: بلوک {checkpoint['block']}, ایستگاه {checkpoint['station']}")
+            return checkpoint
+    
+    # اگر فایل وجود ندارد
+    if not os.path.exists(CHECKPOINT_FILE):
+        print(f"🆕 هیچ checkpointی وجود ندارد. ایجاد checkpoint پیش‌فرض (شروع از ابتدا)...")
+        checkpoint = get_default_checkpoint()
+        save_checkpoint_dict(checkpoint)
+        return checkpoint
+    
+    # بارگذاری فایل موجود
+    checkpoint = load_checkpoint_dict()
+    if checkpoint is None:
+        print("⚠️ فایل checkpoint خراب است. بازنشانی به مقادیر پیش‌فرض...")
+        checkpoint = get_default_checkpoint()
+        save_checkpoint_dict(checkpoint)
+    
+    return checkpoint
+
+
+def print_checkpoint_status():
+    """چاپ وضعیت فعلی checkpoint"""
+    cp = ensure_checkpoint()
+    print(f"📍 وضعیت checkpoint: بلوک {cp['block']}, ایستگاه {cp['station']}")
+    return cp
+
+
+# ============================================================
+# تست
+# ============================================================
+if __name__ == "__main__":
+    print("🧪 تست checkpoint_manager با تشخیص خودکار...")
+    print(f"مسیر checkpoint: {CHECKPOINT_FILE}")
+    print(f"مسیر Zarr: {OUTPUT_ZARR}")
+    
+    # تست تشخیص خودکار
+    cp = ensure_checkpoint(auto_detect=True)
+    print(f"checkpoint نهایی: {cp}")
+    
+    print("\n✅ تست کامل شد.")
+
+
+================================================================================
 📄 فایل: climatology_processor.py
 ================================================================================
 #!/usr/bin/env python3
@@ -54904,9 +56248,227 @@ if __name__ == "__main__":
 
 
 ================================================================================
+📄 فایل: compare_gof.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+compare_gof.py
+================================================================================
+مقایسه آماره‌های نیکویی برازش برای ۵ توزیع (Normal, Skew‑Normal, GEV, Bimodal, Pearson)
+با استفاده از داده‌های موجود در فایل Zarr خروجی.
+================================================================================
+"""
+
+import os
+import numpy as np
+import xarray as xr
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import warnings
+warnings.filterwarnings("ignore")
+
+# ============================================================================
+# تنظیمات
+# ============================================================================
+ZARR_PATH = r"I:/climatology_366_rolling/climatology_stationwise_final.zarr"
+VAR = 'tmax'   # یا 'tmean' یا 'tmin'
+
+print("=" * 80)
+print(f"📊 مقایسه آماره‌های نیکویی برازش (متغیر: {VAR})")
+print("=" * 80)
+
+# بارگذاری داده
+ds = xr.open_zarr(ZARR_PATH, consolidated=False)
+
+# نام توزیع‌ها و کدها
+dist_names = ['normal', 'skew', 'gev', 'bimodal', 'pearson']
+dist_labels = ['Normal', 'Skew‑Normal', 'GEV', 'Bimodal', 'Pearson']
+dist_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+
+# ============================================================================
+# ۱. استخراج معیارهای اطلاعاتی برای همه توزیع‌ها
+# ============================================================================
+print("\n📊 استخراج معیارهای اطلاعاتی از Zarr...")
+
+dataframes = {}
+
+for dist in dist_names:
+    aicc_var = f'{VAR}_{dist}_aicc'
+    bic_var = f'{VAR}_{dist}_bic'
+    loglik_var = f'{VAR}_{dist}_loglik'
+    
+    if aicc_var not in ds:
+        print(f"   ⚠️ متغیر {aicc_var} وجود ندارد. از ادامه صرف‌نظر می‌شود.")
+        continue
+    
+    aicc = ds[aicc_var].values.flatten()
+    bic = ds[bic_var].values.flatten() if bic_var in ds else np.full_like(aicc, np.nan)
+    loglik = ds[loglik_var].values.flatten() if loglik_var in ds else np.full_like(aicc, np.nan)
+    
+    valid_mask = np.isfinite(aicc)
+    aicc_clean = aicc[valid_mask]
+    bic_clean = bic[valid_mask]
+    loglik_clean = loglik[valid_mask]
+    
+    print(f"   {dist_labels[dist_names.index(dist)]}: {len(aicc_clean)} مقدار معتبر از {len(aicc)}")
+    
+    dataframes[dist] = pd.DataFrame({
+        'aicc': aicc_clean,
+        'bic': bic_clean,
+        'loglik': loglik_clean,
+        'distribution': dist_labels[dist_names.index(dist)]
+    })
+
+# ترکیب همه داده‌ها
+df_all = pd.concat(dataframes.values(), ignore_index=True)
+
+# ============================================================================
+# ۲. آماره‌های توصیفی
+# ============================================================================
+print("\n📊 آماره‌های توصیفی معیارهای اطلاعاتی:")
+stats = df_all.groupby('distribution').agg({
+    'aicc': ['count', 'mean', 'std', 'min', 'max'],
+    'bic': ['count', 'mean', 'std', 'min', 'max'],
+    'loglik': ['count', 'mean', 'std', 'min', 'max']
+}).round(2)
+print(stats)
+stats.to_csv(f'gof_stats_{VAR}.csv')
+print(f"   ✅ gof_stats_{VAR}.csv ذخیره شد.")
+
+# ============================================================================
+# ۳. درصد انتخاب هر توزیع (بر اساس best_dist)
+# ============================================================================
+print("\n📊 درصد انتخاب هر توزیع (بر اساس AICc):")
+
+best_dist = ds[f'{VAR}_best_dist'].values.flatten()
+valid_best = best_dist[best_dist >= 0]   # حذف -1 (Failed)
+unique, counts = np.unique(valid_best, return_counts=True)
+percentages = counts / len(valid_best) * 100
+
+print("   کد توزیع → درصد:")
+for code, pct in zip(unique, percentages):
+    code_int = int(code)   # تبدیل به int برای استفاده به عنوان اندیس
+    name = dist_labels[code_int] if code_int < len(dist_labels) else f"Unknown({code_int})"
+    print(f"      {name}: {pct:.2f}%")
+
+# ذخیره CSV
+df_best = pd.DataFrame({
+    'distribution_code': unique.astype(int),
+    'distribution_name': [dist_labels[int(c)] if int(c) < len(dist_labels) else f"Unknown({int(c)})" for c in unique],
+    'count': counts,
+    'percentage': percentages
+})
+df_best.to_csv(f'best_distribution_percentages_{VAR}.csv', index=False)
+print(f"   ✅ best_distribution_percentages_{VAR}.csv ذخیره شد.")
+
+# ============================================================================
+# ۴. نمودارهای مقایسه AICc
+# ============================================================================
+print("\n📊 رسم نمودارهای مقایسه...")
+
+# باکس‌پلات (مقیاس لگاریتمی)
+fig, ax = plt.subplots(figsize=(12, 6))
+sns.boxplot(data=df_all, x='distribution', y='aicc', palette=dist_colors, ax=ax)
+ax.set_yscale('log')
+ax.set_xlabel('توزیع')
+ax.set_ylabel('AICc (مقیاس لگاریتمی)')
+ax.set_title(f'مقایسه توزیع AICc برای توزیع‌های مختلف ({VAR})')
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig(f'boxplot_aicc_comparison_{VAR}.png', dpi=300, bbox_inches='tight')
+plt.close()
+print(f"   ✅ boxplot_aicc_comparison_{VAR}.png")
+
+# هیستوگرام AICc برای هر توزیع
+fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+axes = axes.flatten()
+for idx, dist in enumerate(dist_names):
+    if dist not in dataframes:
+        axes[idx].set_visible(False)
+        continue
+    df_sub = dataframes[dist]
+    ax = axes[idx]
+    ax.hist(df_sub['aicc'], bins=50, alpha=0.7, color=dist_colors[idx], edgecolor='black')
+    ax.set_xlabel('AICc')
+    ax.set_ylabel('تعداد')
+    ax.set_title(f'{dist_labels[idx]} (n={len(df_sub):,})')
+    ax.grid(True, alpha=0.3)
+for i in range(len(dist_names), len(axes)):
+    axes[i].set_visible(False)
+plt.tight_layout()
+plt.savefig(f'histogram_aicc_{VAR}.png', dpi=300, bbox_inches='tight')
+plt.close()
+print(f"   ✅ histogram_aicc_{VAR}.png")
+
+# ============================================================================
+# ۵. بررسی مواردی که Bimodal بهتر از Normal عمل کرده است
+# ============================================================================
+print("\n📊 بررسی مواردی که Bimodal AICc کمتری نسبت به Normal دارد...")
+
+if 'bimodal' in dataframes and 'normal' in dataframes:
+    n_days = ds.dims['day']
+    n_points = ds.dims['point']
+    
+    aicc_normal = ds[f'{VAR}_normal_aicc'].values
+    aicc_bimodal = ds[f'{VAR}_bimodal_aicc'].values
+    
+    aicc_normal_flat = aicc_normal.flatten()
+    aicc_bimodal_flat = aicc_bimodal.flatten()
+    
+    valid = np.isfinite(aicc_normal_flat) & np.isfinite(aicc_bimodal_flat)
+    aicc_normal_valid = aicc_normal_flat[valid]
+    aicc_bimodal_valid = aicc_bimodal_flat[valid]
+    
+    better_bimodal = aicc_bimodal_valid < aicc_normal_valid
+    count_better = np.sum(better_bimodal)
+    total = len(aicc_bimodal_valid)
+    
+    print(f"   تعداد کل مقایسه‌های معتبر: {total:,}")
+    print(f"   تعداد مواردی که Bimodal AICc کمتری دارد: {count_better:,} ({count_better/total*100:.2f}%)")
+    
+    diff = aicc_bimodal_valid - aicc_normal_valid
+    print(f"   میانگین تفاوت (Bimodal - Normal): {np.mean(diff):.2f}")
+    print(f"   میانه تفاوت: {np.median(diff):.2f}")
+    print(f"   انحراف معیار تفاوت: {np.std(diff):.2f}")
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.hist(diff, bins=100, alpha=0.7, color='purple', edgecolor='black')
+    ax.axvline(0, color='red', linestyle='--', label='مرز برابری')
+    ax.set_xlabel('تفاوت AICc (Bimodal - Normal)')
+    ax.set_ylabel('تعداد')
+    ax.set_title(f'توزیع تفاوت AICc بین Bimodal و Normal ({VAR})')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f'diff_aicc_bimodal_normal_{VAR}.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"   ✅ diff_aicc_bimodal_normal_{VAR}.png")
+
+# ============================================================================
+# ۶. جمع‌بندی
+# ============================================================================
+print("\n" + "=" * 80)
+print("✅ تحلیل کامل شد.")
+print("📁 فایل‌های خروجی:")
+for f in [
+    f'gof_stats_{VAR}.csv',
+    f'best_distribution_percentages_{VAR}.csv',
+    f'boxplot_aicc_comparison_{VAR}.png',
+    f'histogram_aicc_{VAR}.png',
+    f'diff_aicc_bimodal_normal_{VAR}.png'
+]:
+    print(f"   - {f}")
+print("=" * 80)
+
+ds.close()
+
+
+================================================================================
 📄 فایل: config.yaml
 ================================================================================
-block_size: 5000
+block_size: 2000
 bootstrap:
   confidence_level: 0.95
   enabled: true
@@ -54933,7 +56495,7 @@ logging:
   file_output: true
   level: INFO
 min_valid_years: 10
-n_sample_points: 40000
+n_sample_points: 338627
 output:
   format: zarr
   include_metadata: true
@@ -54943,7 +56505,7 @@ parallel:
   backend: multiprocessing
   chunk_size: 100
   enabled: true
-  max_workers: 14
+  max_workers: 6
 paths:
   cache_dir: ./cache
   calendar_file: K:/Temp/needed/calendar.txt
@@ -54960,8 +56522,8 @@ processing:
   - 500
   compression: zstd
   compression_level: 3
-  max_blocks_in_memory: 3
-  n_points_max: 40000
+  max_blocks_in_memory: 2
+  n_points_max: 338627
   output_precision: float32
 quality:
   detect_outliers: false
@@ -54984,14 +56546,425 @@ years:
 # تولید نقشه‌های صدک
 generate_percentile_maps: false
 percentiles: [0.9, 0.95, 0.99]
-map_days: [1, 91, 181, 271]  # روزهای خاص برای نقشه (خالی = همه روزها)
+map_days: [1, 91, 181, 271]
 map_output_dir: "I:/climatology_366_rolling/percentile_maps"
+
+
+================================================================================
+📄 فایل: config_advisor.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+config_advisor.py – نسخه کامل با توضیحات بیشتر
+================================================================================
+ارزیابی خودکار config.yaml و ارائه راهنمای تنظیم بهینه
+برای موتور اقلیم‌شناسی (ClimateProcessingEngine)
+================================================================================
+"""
+
+import os
+import sys
+import yaml
+import glob
+from pathlib import Path
+import warnings
+warnings.filterwarnings("ignore")
+
+# ============================================================================
+# تلاش برای import psutil (اختیاری)
+# ============================================================================
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+    print("⚠️ psutil نصب نیست. اطلاعات سخت‌افزاری کامل در دسترس نخواهد بود.")
+    print("   برای نصب: pip install psutil\n")
+
+# ============================================================================
+# رنگ‌ها برای خروجی زیبا
+# ============================================================================
+class Colors:
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+
+def print_colored(text, color=Colors.RESET, bold=False):
+    """چاپ متن با رنگ در ترمینال"""
+    if not sys.stdout.isatty():
+        print(text)
+        return
+    prefix = Colors.BOLD if bold else ""
+    print(f"{prefix}{color}{text}{Colors.RESET}")
+
+# ============================================================================
+# ۱. خواندن و اعتبارسنجی config.yaml
+# ============================================================================
+def load_config(config_path):
+    """
+    بارگذاری فایل YAML و بازگرداندن دیکشنری
+    """
+    if not os.path.exists(config_path):
+        print_colored(f"❌ فایل {config_path} یافت نشد!", Colors.RED, bold=True)
+        return None
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        print_colored(f"✅ فایل {config_path} با موفقیت بارگذاری شد.", Colors.GREEN)
+        return config
+    except Exception as e:
+        print_colored(f"❌ خطا در خواندن {config_path}: {e}", Colors.RED, bold=True)
+        return None
+
+# ============================================================================
+# ۲. تشخیص سخت‌افزار
+# ============================================================================
+def get_hardware_info():
+    """
+    دریافت اطلاعات RAM، CPU، دیسک با استفاده از psutil
+    """
+    info = {}
+    if HAS_PSUTIL:
+        # اطلاعات حافظه
+        mem = psutil.virtual_memory()
+        info['ram_total_gb'] = mem.total / (1024**3)
+        info['ram_available_gb'] = mem.available / (1024**3)
+        info['ram_percent'] = mem.percent
+        
+        # اطلاعات CPU
+        info['cpu_count'] = psutil.cpu_count(logical=True)
+        info['cpu_physical'] = psutil.cpu_count(logical=False)
+        
+        # اطلاعات دیسک
+        disk_usage = {}
+        for partition in psutil.disk_partitions():
+            if partition.fstype and 'cdrom' not in partition.opts:
+                try:
+                    usage = psutil.disk_usage(partition.mountpoint)
+                    disk_usage[partition.mountpoint] = {
+                        'total_gb': usage.total / (1024**3),
+                        'free_gb': usage.free / (1024**3),
+                        'used_gb': usage.used / (1024**3),
+                        'percent': usage.percent
+                    }
+                except Exception:
+                    pass
+        info['disk_usage'] = disk_usage
+    else:
+        info['ram_total_gb'] = None
+        info['ram_available_gb'] = None
+        info['ram_percent'] = None
+        info['cpu_count'] = None
+        info['cpu_physical'] = None
+        info['disk_usage'] = {}
+    return info
+
+# ============================================================================
+# ۳. بررسی مسیرها و فایل‌های ورودی
+# ============================================================================
+def validate_paths(config):
+    """
+    بررسی وجود مسیرهای ورودی و خروجی
+    """
+    issues = []
+    warnings_list = []
+    
+    # مسیر ورودی Zarr
+    input_base = config.get('paths', {}).get('input_zarr_base') or config.get('paths', {}).get('zarr_base')
+    if input_base:
+        if os.path.exists(input_base):
+            zarr_files = glob.glob(os.path.join(input_base, "*.zarr"))
+            if zarr_files:
+                issues.append(f"✅ ورودی Zarr: {len(zarr_files)} فایل در {input_base}")
+            else:
+                warnings_list.append(f"⚠️ هیچ فایل Zarr در {input_base} یافت نشد!")
+        else:
+            warnings_list.append(f"❌ مسیر ورودی Zarr وجود ندارد: {input_base}")
+    
+    # فایل calendar.txt
+    calendar_file = config.get('paths', {}).get('calendar_file')
+    if calendar_file:
+        if os.path.exists(calendar_file):
+            issues.append(f"✅ calendar.txt: {calendar_file} (موجود)")
+        else:
+            warnings_list.append(f"⚠️ فایل calendar.txt در {calendar_file} یافت نشد!")
+    
+    # دایرکتوری خروجی
+    output_dir = config.get('paths', {}).get('output_dir')
+    if output_dir:
+        if os.path.exists(output_dir):
+            issues.append(f"✅ دایرکتوری خروجی: {output_dir} (موجود)")
+        else:
+            warnings_list.append(f"⚠️ دایرکتوری خروجی وجود ندارد: {output_dir} (ایجاد خواهد شد)")
+    
+    # فایل checkpoint
+    checkpoint_file = config.get('paths', {}).get('checkpoint_file')
+    if checkpoint_file and os.path.exists(checkpoint_file):
+        warnings_list.append(f"⚠️ فایل checkpoint موجود است: {checkpoint_file} (در صورت نیاز حذف کنید)")
+    
+    return issues, warnings_list
+
+# ============================================================================
+# ۴. ارزیابی پارامترهای حیاتی بر اساس سخت‌افزار
+# ============================================================================
+def evaluate_parameters(config, hardware):
+    """
+    مقایسه مقادیر فعلی با مقادیر پیشنهادی
+    """
+    recommendations = []
+    warnings_list = []
+    
+    # ۴-۱. block_size و max_workers
+    block_size = config.get('block_size', 5000)
+    max_workers = config.get('parallel', {}).get('max_workers', 14)
+    ram_gb = hardware.get('ram_total_gb', 32)  # fallback به 32
+    
+    # محاسبه حافظه مصرفی هر بلوک (تقریبی)
+    # block_size × 31 (years) × 366 (days) × 3 (vars) × 4 (bytes)
+    ram_per_block_mb = (block_size * 31 * 366 * 3 * 4) / (1024**2)
+    total_ram_estimate_gb = (ram_per_block_mb * max_workers) / 1024 + 4  # +4 GB سیستم
+    
+    if ram_gb:
+        if total_ram_estimate_gb > ram_gb * 0.8:
+            warnings_list.append(
+                f"⚠️ حافظهٔ تخمینی {total_ram_estimate_gb:.1f} GB بیش از ۸۰٪ RAM موجود ({ram_gb:.1f} GB) است!"
+            )
+            if block_size > 1000:
+                recommendations.append(f"🔧 block_size را از {block_size} به ۲۰۰۰ یا کمتر کاهش دهید")
+            if max_workers > 6:
+                recommendations.append(f"🔧 max_workers را از {max_workers} به ۴ یا ۶ کاهش دهید")
+        elif total_ram_estimate_gb > ram_gb * 0.6:
+            warnings_list.append(
+                f"⚠️ حافظهٔ تخمینی {total_ram_estimate_gb:.1f} GB حدود {total_ram_estimate_gb/ram_gb*100:.0f}٪ RAM است (ترجیحاً زیر ۶۰٪)"
+            )
+        else:
+            recommendations.append(f"✅ تنظیمات حافظه مناسب است (~{total_ram_estimate_gb/ram_gb*100:.0f}٪ RAM)")
+    
+    # ۴-۲. پیشنهاد block_size بر اساس RAM
+    if ram_gb:
+        if ram_gb < 16:
+            recommended_block_size = 1000
+        elif ram_gb < 32:
+            recommended_block_size = 1500
+        elif ram_gb < 64:
+            recommended_block_size = 2000
+        else:
+            recommended_block_size = 5000
+        
+        if block_size != recommended_block_size:
+            recommendations.append(
+                f"🔧 block_size پیشنهادی برای RAM {ram_gb:.1f} GB: {recommended_block_size} (فعلی: {block_size})"
+            )
+    
+    # ۴-۳. max_workers
+    cpu_count = hardware.get('cpu_count', 8)
+    if cpu_count:
+        recommended_workers = min(cpu_count - 1, 8) if cpu_count > 2 else 2
+        if max_workers > cpu_count:
+            warnings_list.append(f"⚠️ max_workers ({max_workers}) بیشتر از تعداد هسته‌های CPU ({cpu_count}) است!")
+            recommendations.append(f"🔧 max_workers را حداکثر به {cpu_count} کاهش دهید")
+        elif max_workers > recommended_workers + 2:
+            recommendations.append(f"🔧 max_workers پیشنهادی: {recommended_workers} (فعلی: {max_workers})")
+    
+    # ۴-۴. n_points_max
+    n_points_max = config.get('processing', {}).get('n_points_max', 40000)
+    n_sample = config.get('n_sample_points', 40000)
+    if n_points_max == 40000 and n_sample == 40000:
+        # اگر هر دو ۴۰۰۰۰ باشند، ممکن است کاربر نخواهد همه نقاط را پردازش کند
+        recommendations.append(
+            "ℹ️ n_points_max و n_sample_points هر دو ۴۰۰۰۰ هستند. اگر همه نقاط را می‌خواهید، مقدار را به تعداد کل نقاط افزایش دهید."
+        )
+    elif n_points_max < n_sample:
+        warnings_list.append(
+            f"⚠️ n_points_max ({n_points_max}) کمتر از n_sample_points ({n_sample}) است. نقاط نمونه‌گیری بیشتر از نقاط پردازشی است."
+        )
+    
+    # ۴-۵. max_blocks_in_memory
+    max_blocks = config.get('processing', {}).get('max_blocks_in_memory', 3)
+    if ram_gb and ram_gb < 32 and max_blocks > 2:
+        recommendations.append(f"🔧 max_blocks_in_memory را از {max_blocks} به ۲ کاهش دهید (برای RAM کمتر از ۳۲ GB)")
+    
+    # ۴-۶. output_precision
+    precision = config.get('processing', {}).get('output_precision', 'float32')
+    if precision != 'float32':
+        recommendations.append(f"ℹ️ output_precision: {precision} (float32 برای صرفه‌جویی در حافظه و فضا پیشنهاد می‌شود)")
+    
+    # ۴-۷. compression
+    compression = config.get('processing', {}).get('compression', 'zstd')
+    if compression not in ['zstd', 'blosc']:
+        recommendations.append(f"ℹ️ compression: {compression} (zstd یا blosc پیشنهاد می‌شود)")
+    
+    # ۴-۸. use_parallel
+    if not config.get('use_parallel', True):
+        recommendations.append("ℹ️ use_parallel: false (فعال کردن آن سرعت را افزایش می‌دهد)")
+    
+    return recommendations, warnings_list
+
+# ============================================================================
+# ۵. بررسی تنظیمات توزیع‌ها
+# ============================================================================
+def evaluate_distributions(config):
+    """
+    بررسی تنظیمات توزیع‌ها
+    """
+    issues = []
+    dist_normal = config.get('distributions', {}).get('normal_mode', [])
+    dist_extreme = config.get('distributions', {}).get('extreme_mode', [])
+    
+    if not dist_normal:
+        issues.append("⚠️ normal_mode خالی است! حداقل Normal را اضافه کنید.")
+    elif 'normal' not in dist_normal:
+        issues.append("⚠️ normal_mode باید شامل 'normal' باشد (توزیع پایه).")
+    
+    if not dist_extreme:
+        issues.append("⚠️ extreme_mode خالی است! حداقل Normal و GEV را اضافه کنید.")
+    
+    return issues
+
+# ============================================================================
+# ۶. بررسی اعتبارسنجی
+# ============================================================================
+def evaluate_validation(config):
+    """
+    بررسی تنظیمات اعتبارسنجی
+    """
+    issues = []
+    validate_after = config.get('validate_after_load', False)
+    validate_before = config.get('validate_before_write', False)
+    validate_every = config.get('validate_every_n_blocks', 10)
+    
+    if validate_after:
+        issues.append("ℹ️ validate_after_load: true (کند می‌کند، برای دیباگ مفید است)")
+    if validate_before:
+        issues.append("ℹ️ validate_before_write: true (کند می‌کند، برای دیباگ مفید است)")
+    if validate_every < 5:
+        issues.append("ℹ️ validate_every_n_blocks بسیار کوچک است (کند می‌شود). ۱۰ یا بیشتر پیشنهاد می‌شود.")
+    
+    return issues
+
+# ============================================================================
+# ۷. گزارش نهایی
+# ============================================================================
+def generate_report(config, hardware, issues, warnings_list, recommendations):
+    """
+    تولید گزارش نهایی
+    """
+    print("\n" + "=" * 80)
+    print_colored("📊 گزارش ارزیابی config.yaml", Colors.CYAN, bold=True)
+    print("=" * 80)
+    
+    # سخت‌افزار
+    print("\n🖥️  اطلاعات سخت‌افزاری:")
+    if hardware.get('ram_total_gb'):
+        print(f"   RAM کل: {hardware['ram_total_gb']:.1f} GB")
+        print(f"   RAM موجود: {hardware['ram_available_gb']:.1f} GB ({hardware['ram_percent']:.1f}% استفاده)")
+    if hardware.get('cpu_count'):
+        print(f"   CPU: {hardware['cpu_count']} هسته منطقی, {hardware['cpu_physical']} هسته فیزیکی")
+    if hardware.get('disk_usage'):
+        for mount, usage in hardware['disk_usage'].items():
+            print(f"   دیسک {mount}: {usage['free_gb']:.1f} GB آزاد از {usage['total_gb']:.1f} GB")
+    print()
+    
+    # مسیرها
+    print("📂 بررسی مسیرها:")
+    for item in issues:
+        if item.startswith("✅"):
+            print_colored(f"   {item}", Colors.GREEN)
+        elif item.startswith("⚠️"):
+            print_colored(f"   {item}", Colors.YELLOW)
+        else:
+            print(f"   {item}")
+    
+    for warn in warnings_list:
+        if warn.startswith("⚠️"):
+            print_colored(f"   {warn}", Colors.YELLOW)
+        elif warn.startswith("❌"):
+            print_colored(f"   {warn}", Colors.RED)
+        else:
+            print(f"   {warn}")
+    
+    # توصیه‌ها
+    if recommendations:
+        print("\n💡 توصیه‌های تنظیم:")
+        for rec in recommendations:
+            if rec.startswith("✅"):
+                print_colored(f"   {rec}", Colors.GREEN)
+            elif rec.startswith("🔧"):
+                print_colored(f"   {rec}", Colors.BLUE)
+            elif rec.startswith("⚠️"):
+                print_colored(f"   {rec}", Colors.YELLOW)
+            else:
+                print(f"   {rec}")
+    else:
+        print_colored("\n✅ هیچ توصیه‌ای برای تغییر وجود ندارد. تنظیمات بهینه است.", Colors.GREEN)
+    
+    # خلاصه
+    print("\n" + "=" * 80)
+    total_issues = len([i for i in issues if not i.startswith("✅")]) + len(warnings_list) + len(recommendations)
+    if total_issues == 0:
+        print_colored("✅ همه چیز عالی است! می‌توانید main.py را اجرا کنید.", Colors.GREEN, bold=True)
+    else:
+        print_colored(f"⚠️ {total_issues} مورد نیاز به بررسی/تغییر دارد.", Colors.YELLOW, bold=True)
+    print("=" * 80)
+    
+    # پیشنهادات نهایی
+    print("\n📌 پیشنهادات نهایی:")
+    print("   1. برای پردازش همه نقاط، n_points_max را به تعداد کل نقاط افزایش دهید.")
+    print("   2. اگر RAM محدود است، block_size و max_workers را کاهش دهید.")
+    print("   3. از float32 برای صرفه‌جویی در فضا استفاده کنید.")
+    print("   4. checkpoint را در صورت وجود حذف کنید تا از ابتدا شروع شود.")
+    print("   5. برای تست اولیه، n_points_max را به ۱۰۰۰ کاهش دهید.")
+
+# ============================================================================
+# ۸. تابع اصلی
+# ============================================================================
+def main():
+    config_path = "config.yaml"
+    if len(sys.argv) > 1:
+        config_path = sys.argv[1]
+    
+    print_colored("🚀 راهنمای تنظیم خودکار config.yaml", Colors.CYAN, bold=True)
+    print("=" * 80)
+    
+    # بارگذاری config
+    config = load_config(config_path)
+    if config is None:
+        return
+    
+    # دریافت اطلاعات سخت‌افزاری
+    hardware = get_hardware_info()
+    
+    # اعتبارسنجی مسیرها
+    path_issues, path_warnings = validate_paths(config)
+    
+    # ارزیابی پارامترها
+    recs, warns = evaluate_parameters(config, hardware)
+    
+    # ارزیابی توزیع‌ها
+    dist_issues = evaluate_distributions(config)
+    
+    # ارزیابی اعتبارسنجی
+    val_issues = evaluate_validation(config)
+    
+    # ترکیب همه موارد
+    all_issues = path_issues + dist_issues + val_issues
+    all_warnings = path_warnings + warns
+    
+    # گزارش نهایی
+    generate_report(config, hardware, all_issues, all_warnings, recs)
+
+if __name__ == "__main__":
+    main()
 
 
 ================================================================================
 📄 فایل: constants.py
 ================================================================================
-
 # -*- coding: utf-8 -*-
 """
 constants.py – automatically generated with safe defaults.
@@ -55037,17 +57010,39 @@ WINDOW_TYPE = CONFIG.get("window_type", "centered")
 MIN_VALID_YEARS = CONFIG.get("min_valid_years", 10)
 
 # =============================================
-# ۴. تنظیمات مسیرها (Paths)
+# ۴. تنظیمات مسیرها (Paths) – با اولویت config.yaml
 # =============================================
 PATHS = CONFIG.get("paths", {})
 
+INPUT_ZARR_BASE = PATHS.get("input_zarr_base", r"K:\gozareshha\dr vazife\140504 - qc temp\zarr_yearly_monthly")
+ZARR_BASE = PATHS.get("zarr_base", INPUT_ZARR_BASE)
+
+OUTPUT_DIR = PATHS.get("output_dir", r"./nature_output")
+OUTPUT_ZARR_NAME = PATHS.get("output_zarr_name", r"climatology_stationwise_final.zarr")
+OUTPUT_ZARR = os.path.join(OUTPUT_DIR, OUTPUT_ZARR_NAME)
+
+# ============================================================
+# ✅ اصلاح مهم: مسیر مطلق checkpoint
+# ============================================================
+CHECKPOINT_FILE = PATHS.get("checkpoint_file", "checkpoint.csv")
+# اگر مسیر نسبی است، آن را به OUTPUT_DIR متصل کن
+if not os.path.isabs(CHECKPOINT_FILE):
+    CHECKPOINT_FILE = os.path.join(OUTPUT_DIR, CHECKPOINT_FILE)
+CHECKPOINT_PATH = CHECKPOINT_FILE  # برای سازگاری
+
+# بقیه‌ی مسیرها
+LOG_FILE = PATHS.get("log_file", r"climatology.log")
+CACHE_DIR = PATHS.get("cache_dir", r"./cache")
+SAMPLE_DATA_DIR = PATHS.get("sample_data_dir", r"./sample_data")
+CALENDAR_FILE = PATHS.get("calendar_file", r"K:/Temp/needed/calendar.txt")
+
 # =============================================
-# ۵. تنظیمات پردازش (به‌روز شده با خودکار)
+# ۵. تنظیمات پردازش
 # =============================================
-USE_PARALLEL = CONFIG.get("use_parallel", True)          # پیش‌فرض: فعال
-BLOCK_SIZE = CONFIG.get("block_size", 30000)              # پیش‌فرض: ۳۰,۰۰۰
-CHUNK_SIZE = CONFIG.get("chunk_size", 500)                # پیش‌فرض: ۵۰۰
-CORES = CONFIG.get("cores", 0)                            # ۰ = تشخیص خودکار (نصف هسته‌ها)
+USE_PARALLEL = CONFIG.get("use_parallel", True)
+BLOCK_SIZE = CONFIG.get("block_size", 30000)
+CHUNK_SIZE = CONFIG.get("chunk_size", 500)
+CORES = CONFIG.get("cores", 0)
 
 MAX_BLOCKS_IN_MEMORY = CONFIG.get("processing", {}).get("max_blocks_in_memory", 5)
 CHUNK_SIZE_ZARR = CONFIG.get("processing", {}).get("chunk_size", [366, 500])
@@ -55120,35 +57115,23 @@ VIZ_INTERACTIVE = CONFIG.get("visualization", {}).get("interactive", True)
 VIZ_MAP_PROJECTION = CONFIG.get("visualization", {}).get("map_projection", "PlateCarree")
 VIZ_DPI = CONFIG.get("visualization", {}).get("dpi", 300)
 
-
 LOG_TIMESTAMPS = True
 
 # =============================================
 # توزیع‌های معتبر
 # =============================================
-VALID_BEST_DIST = {-1, 0, 1, 2, 3}   # -1: failed, 0: Normal, 1: Skew-Normal, 2: Bimodal, 3: Pearson
+VALID_BEST_DIST = {-1, 0, 1, 2, 3, 4}   # ۴ = GEV
 
 # =============================================
 # پارامترهای محاسباتی
 # =============================================
-MAX_VALUES_PER_FIT = N_YEARS * WINDOW_SIZE   # حداکثر تعداد مقادیر برای هر برازش
-MIN_VALID_VALUES = 5                         # حداقل تعداد مقادیر معتبر مورد نیاز
+MAX_VALUES_PER_FIT = N_YEARS * WINDOW_SIZE
+MIN_VALID_VALUES = 5
 
-# Zarr paths (read from config.yaml)
-INPUT_ZARR_BASE = PATHS.get("input_zarr_base", r"K:\gozareshha\dr vazife\140504 - qc temp\zarr_yearly_monthly")
-ZARR_BASE = PATHS.get("zarr_base", PATHS.get("input_zarr_base", r"K:\gozareshha\dr vazife\140504 - qc temp\zarr_yearly_monthly"))
-
-# Output paths (read from config.yaml)
-OUTPUT_DIR = PATHS.get("output_dir", r"./nature_output")
-OUTPUT_ZARR_NAME = PATHS.get("output_zarr_name", r"climatology_stationwise_final.zarr")
-OUTPUT_ZARR = os.path.join(OUTPUT_DIR, OUTPUT_ZARR_NAME)
-CHECKPOINT_FILE = PATHS.get("checkpoint_file", r"checkpoint.csv")
-CHECKPOINT_PATH = os.path.join(OUTPUT_DIR, CHECKPOINT_FILE)
-LOG_FILE = PATHS.get("log_file", r"climatology.log")
-CACHE_DIR = PATHS.get("cache_dir", r"./cache")
-SAMPLE_DATA_DIR = PATHS.get("sample_data_dir", r"./sample_data")
-CALENDAR_FILE = PATHS.get("calendar_file", r"K:/Temp/needed/calendar.txt")
-
+# =============================================
+# برای سازگاری با کدهای قدیمی
+# =============================================
+CHECKPOINT_PATH = CHECKPOINT_FILE
 
 
 ================================================================================
@@ -55229,8 +57212,8 @@ else:
 """
 data_adapter.py
 ================================================================================
-لایه انتزاع داده برای پشتیبانی از فرمتهای ایستگاهی و شبکهای
-نسخه ۳.۳ - تشخیص ابعاد با استفاده از ds.dims
+لایه انتزاع داده برای پشتیبانی از فرمت‌های ایستگاهی و شبکه‌ای (Gridded)
+نسخه ۴.۷ – کش فقط برای بلوک‌های بدون کش ساخته می‌شود (با بررسی وجود فایل)
 ================================================================================
 """
 
@@ -55240,63 +57223,221 @@ import numpy as np
 import xarray as xr
 import pickle
 import hashlib
-import gzip                         # ← اضافه شده برای فشرده‌سازی
-from datetime import datetime
-from typing import Dict, Optional, Tuple, List
+import gzip
+from typing import Optional, List, Dict, Tuple, Any, Union
 from constants import VARS
 
+
 # ============================================================================
-# ۱. مدیریت کش (Disk Cache) – با فشرده‌سازی gzip
+# ۱. مدیریت کش دیسک (با ذخیره‌ی شرطی)
 # ============================================================================
 
 class DiskCache:
-    """کش دیسکی با فشرده‌سازی gzip – بدون تغییر در نوع داده"""
-    def __init__(self, cache_dir="./cache", max_size_gb=10, ttl_hours=24):
+    """
+    کش دیسک با قابلیت جستجوی چندین کلید و ذخیره‌ی جدید فقط در صورت نیاز.
+    
+    ویژگی‌ها:
+        - جستجوی کش با اولویت: block_size=1000, 2000, 5000 با hash="all" و سپس hash فعلی
+        - ذخیره‌ی کش جدید فقط در صورتی که فایل کش وجود نداشته باشد
+        - مدیریت حجم کش (حداکثر ۲۰ گیگابایت)
+    """
+
+    def __init__(self, cache_dir: str = "./cache", max_size_gb: int = 20):
+        """
+        پارامترها:
+            cache_dir: مسیر پوشه‌ی کش
+            max_size_gb: حداکثر حجم کش به گیگابایت
+        """
         self.cache_dir = cache_dir
         self.max_size_bytes = max_size_gb * 1024**3
-        self.ttl_seconds = ttl_hours * 3600
         os.makedirs(cache_dir, exist_ok=True)
 
-    def _get_cache_key(self, station_start, station_end, year, month, var):
-        key_str = f"{station_start}_{station_end}_{year}_{month}_{var}"
+    def _get_cache_key(
+        self,
+        block_start: int,
+        block_size: int,
+        year: int,
+        month: int,
+        var: Any,
+        sample_hash: str = "all"
+    ) -> str:
+        """
+        ساخت کلید منحصربه‌فرد برای هر ترکیب پارامتر.
+        
+        پارامترها:
+            block_start: اندیس شروع بلوک
+            block_size: اندازه‌ی بلوک
+            year: سال
+            month: ماه
+            var: شناسه‌ی متغیر (عدد یا رشته)
+            sample_hash: هش نمونه‌برداری (پیش‌فرض "all")
+        
+        بازگشت:
+            رشته‌ی هش MD5
+        """
+        key_str = f"{block_start}_{block_size}_{year}_{month}_{var}_{sample_hash}"
         return hashlib.md5(key_str.encode()).hexdigest()
 
-    def get(self, block_start, block_size, year, month, var):
-        key = self._get_cache_key(block_start, block_size, year, month, var)
-        path = os.path.join(self.cache_dir, f"{key}.pkl.gz")   # پسوند جدید
+    def _get_cache_path(self, key: str) -> str:
+        """
+        مسیر کامل فایل کش.
+        
+        پارامترها:
+            key: کلید کش
+        
+        بازگشت:
+            مسیر فایل با پسوند .pkl.gz
+        """
+        return os.path.join(self.cache_dir, f"{key}.pkl.gz")
 
-        if os.path.exists(path):
-            mtime = os.path.getmtime(path)
-            if (datetime.now().timestamp() - mtime) < self.ttl_seconds:
-                try:
-                    with gzip.open(path, "rb") as f:
-                        return pickle.load(f)
-                except (gzip.BadGzipFile, OSError):
-                    # Fallback برای فایل‌های قدیمی (بدون فشرده‌سازی)
-                    with open(path, "rb") as f:
-                        return pickle.load(f)
+    def _load_cached_data(self, path: str) -> Optional[np.ndarray]:
+        """
+        بارگذاری داده از فایل کش (با پشتیبانی از gzip و غیر gzip).
+        
+        پارامترها:
+            path: مسیر فایل کش
+        
+        بازگشت:
+            آرایه‌ی numpy در صورت موفقیت، در غیر این صورت None
+        """
+        if not os.path.exists(path):
+            return None
+        try:
+            with gzip.open(path, "rb") as f:
+                return pickle.load(f)
+        except (OSError, pickle.UnpicklingError):
+            try:
+                with open(path, "rb") as f:
+                    return pickle.load(f)
+            except Exception:
+                return None
+
+    def get(
+        self,
+        block_start: int,
+        block_size: int,
+        year: int,
+        month: int,
+        var: Any,
+        sample_hash: str = "all"
+    ) -> Optional[np.ndarray]:
+        """
+        جستجوی کش با اولویت:
+        ۱. block_size=1000, 2000, 5000 با sample_hash="all"
+        ۲. block_size=1000, 2000, 5000 با sample_hash فعلی
+        ۳. block_size و block_start فعلی با sample_hash فعلی
+        
+        اگر کشی پیدا شد، آن را برمی‌گرداند (و هرگز کپی نمی‌کند).
+        
+        پارامترها:
+            block_start: اندیس شروع بلوک
+            block_size: اندازه‌ی بلوک
+            year: سال
+            month: ماه
+            var: شناسه‌ی متغیر
+            sample_hash: هش نمونه‌برداری
+        
+        بازگشت:
+            آرایه‌ی numpy در صورت پیدا شدن کش، در غیر این صورت None
+        """
+        # لیست تمام ترکیب‌های (block_start, block_size, sample_hash) به ترتیب اولویت
+        search_order = []
+        
+        # تطبیق block_start برای کش‌های قدیمی
+        adjusted_start_1000 = (block_start // 1000) * 1000
+        adjusted_start_2000 = (block_start // 2000) * 2000
+        adjusted_start_5000 = (block_start // 5000) * 5000
+        
+        # اولویت ۱ تا ۳: کش‌های قدیمی با sample_hash="all"
+        search_order.append((adjusted_start_1000, 1000, "all"))
+        search_order.append((adjusted_start_2000, 2000, "all"))
+        search_order.append((adjusted_start_5000, 5000, "all"))
+        
+        # اولویت ۴ تا ۶: کش‌های جدید با sample_hash فعلی (اگر با "all" فرق داره)
+        if sample_hash != "all":
+            search_order.append((adjusted_start_1000, 1000, sample_hash))
+            search_order.append((adjusted_start_2000, 2000, sample_hash))
+            search_order.append((adjusted_start_5000, 5000, sample_hash))
+        
+        # اولویت ۷: block_start و block_size فعلی با sample_hash جدید
+        search_order.append((block_start, block_size, sample_hash))
+        
+        # جستجو
+        for bs_start, bs_size, bs_hash in search_order:
+            key = self._get_cache_key(bs_start, bs_size, year, month, var, bs_hash)
+            path = self._get_cache_path(key)
+            data = self._load_cached_data(path)
+            if data is not None:
+                print(f"   ✅ کش استفاده شد: {path}")
+                print(f"      block_start={bs_start}, block_size={bs_size}, hash={bs_hash}")
+                return data
+        
         return None
 
-    def set(self, block_start, block_size, year, month, var, data):
-        key = self._get_cache_key(block_start, block_size, year, month, var)
-        path = os.path.join(self.cache_dir, f"{key}.pkl.gz")   # پسوند جدید
+    def set(
+        self,
+        block_start: int,
+        block_size: int,
+        year: int,
+        month: int,
+        var: Any,
+        data: np.ndarray,
+        sample_hash: str = "all"
+    ) -> None:
+        """
+        ذخیره‌ی داده در کش با کلید اصلی (block_start, block_size, sample_hash فعلی).
+        
+        ⚠️ این متد فقط زمانی ذخیره می‌کند که فایل کش از قبل وجود نداشته باشد.
+        اگر فایل کش از قبل وجود داشته باشد، هیچ عملی انجام نمی‌دهد (از duplicate جلوگیری می‌کند).
+        
+        پارامترها:
+            block_start: اندیس شروع بلوک
+            block_size: اندازه‌ی بلوک
+            year: سال
+            month: ماه
+            var: شناسه‌ی متغیر
+            data: آرایه‌ی numpy برای ذخیره
+            sample_hash: هش نمونه‌برداری
+        """
+        # کلید و مسیر فایل کش را محاسبه کن
+        key = self._get_cache_key(block_start, block_size, year, month, var, sample_hash)
+        path = self._get_cache_path(key)
+        
+        # ============================================================
+        # ✅ اگر فایل کش از قبل وجود دارد، هیچ کاری نکن (از duplicate جلوگیری کن)
+        # ============================================================
+        if os.path.exists(path):
+            print(f"   ⏭️ کش از قبل وجود دارد، ذخیره نشد: {path}")
+            return
+        
+        # مدیریت حجم کش
+        self._enforce_cache_limit()
+        
+        # ذخیره با فشرده‌سازی gzip
+        with gzip.open(path, "wb", compresslevel=6) as f:
+            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        
+        print(f"   💾 کش جدید ذخیره شد: {path}")
 
-        # محاسبه حجم فعلی کش (هم فایل‌های قدیمی و هم جدید)
+    def _enforce_cache_limit(self) -> None:
+        """
+        مدیریت حجم کش: اگر از حد مجاز بیشتر شد، قدیمی‌ترین فایل‌ها حذف می‌شوند.
+        """
         total_size = sum(
             os.path.getsize(os.path.join(self.cache_dir, f))
             for f in os.listdir(self.cache_dir)
             if f.endswith((".pkl", ".pkl.gz"))
         )
-
-        # برآورد حجم فشرده‌شده (تقریباً ۳۰٪ حجم اصلی)
-        estimated_compressed_size = data.nbytes * 0.3
-        if total_size + estimated_compressed_size > self.max_size_bytes:
+        if total_size > self.max_size_bytes:
             files = sorted(
-                [os.path.join(self.cache_dir, f) for f in os.listdir(self.cache_dir)
-                 if f.endswith((".pkl", ".pkl.gz"))],
+                [
+                    os.path.join(self.cache_dir, f)
+                    for f in os.listdir(self.cache_dir)
+                    if f.endswith((".pkl", ".pkl.gz"))
+                ],
                 key=os.path.getmtime
             )
-            while files and total_size + estimated_compressed_size > self.max_size_bytes:
+            while files and total_size > self.max_size_bytes:
                 removed = files.pop(0)
                 os.remove(removed)
                 total_size = sum(
@@ -55305,88 +57446,151 @@ class DiskCache:
                     if f.endswith((".pkl", ".pkl.gz"))
                 )
 
-        # ذخیره با فشرده‌سازی – داده دقیقاً به همان شکل (مثلاً int16) نوشته می‌شود
-        with gzip.open(path, "wb", compresslevel=6) as f:
-            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
-
 
 # ============================================================================
-# ۲. شناسایی خودکار فرمت داده (اصلاح‌شده)
+# ۲. توابع شناسایی خودکار فرمت داده و استخراج اطلاعات
 # ============================================================================
 
-def detect_data_format(zarr_path):
-    ds = xr.open_zarr(zarr_path, consolidated=False)
-    dims = list(ds.dims)
-    has_point = "point" in dims
-    has_stationid = "stationid" in ds.data_vars or "stationid" in ds.coords
-    has_grid = all(d in dims for d in ["latitude", "longitude", "time"])
-    ds.close()
-    if has_point and has_stationid:
-        return "station"
-    elif has_grid:
-        return "gridded"
-    else:
+def detect_data_format(zarr_path: str) -> Optional[str]:
+    """
+    تشخیص فرمت داده‌های Zarr: 'station' یا 'gridded' یا None
+    
+    پارامترها:
+        zarr_path: مسیر فایل Zarr نمونه
+    
+    بازگشت:
+        'station' برای داده‌های ایستگاهی
+        'gridded' برای داده‌های شبکه‌ای
+        None در صورت عدم تشخیص
+    """
+    try:
+        ds = xr.open_zarr(zarr_path, consolidated=False)
+        dims = list(ds.dims)
+        has_point = "point" in dims
+        has_stationid = "stationid" in ds.data_vars or "stationid" in ds.coords
+        has_grid = all(d in dims for d in ["latitude", "longitude", "time"])
+        ds.close()
+        if has_point and has_stationid:
+            return "station"
+        elif has_grid:
+            return "gridded"
+        else:
+            return None
+    except Exception:
         return None
 
-def get_grid_info(zarr_path):
-    ds = xr.open_zarr(zarr_path, consolidated=False)
-    if "latitude" in ds.coords:
-        lat = ds["latitude"].values
-    else:
-        lat = ds["latitude"].values if "latitude" in ds.data_vars else None
-    if "longitude" in ds.coords:
-        lon = ds["longitude"].values
-    else:
-        lon = ds["longitude"].values if "longitude" in ds.data_vars else None
-    ds.close()
-    return lat, lon
 
-def get_station_info(zarr_path):
+def get_station_info(zarr_path: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    استخراج شناسه‌ها، طول، عرض و ارتفاع ایستگاه‌ها از یک فایل Zarr نمونه.
+    
+    پارامترها:
+        zarr_path: مسیر فایل Zarr نمونه
+    
+    بازگشت:
+        (station_ids, lats, lons, elevs)
+    """
     ds = xr.open_zarr(zarr_path, consolidated=False)
+    
+    # استخراج شناسه‌های ایستگاه
     if "stationid" in ds.coords:
         station_ids = ds["stationid"].values
     else:
         station_ids = ds["stationid"].values if "stationid" in ds.data_vars else None
+    
+    # استخراج عرض جغرافیایی
     if "lat" in ds.coords:
         lats = ds["lat"].values
     else:
         lats = ds["lat"].values if "lat" in ds.data_vars else None
+    
+    # استخراج طول جغرافیایی
     if "lon" in ds.coords:
         lons = ds["lon"].values
     else:
         lons = ds["lon"].values if "lon" in ds.data_vars else None
+    
+    # استخراج ارتفاع
     if "elev" in ds.coords:
         elevs = ds["elev"].values
     elif "elev" in ds.data_vars:
         elevs = ds["elev"].values
     else:
         elevs = np.zeros_like(station_ids)
+    
     ds.close()
     return station_ids, lats, lons, elevs
 
+
+def get_grid_info(zarr_path: str) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    """
+    استخراج طول و عرض شبکه از یک فایل Zarr نمونه.
+    
+    پارامترها:
+        zarr_path: مسیر فایل Zarr نمونه
+    
+    بازگشت:
+        (latitudes, longitudes)
+    """
+    ds = xr.open_zarr(zarr_path, consolidated=False)
+    
+    if "latitude" in ds.coords:
+        lat = ds["latitude"].values
+    else:
+        lat = ds["latitude"].values if "latitude" in ds.data_vars else None
+    
+    if "longitude" in ds.coords:
+        lon = ds["longitude"].values
+    else:
+        lon = ds["longitude"].values if "longitude" in ds.data_vars else None
+    
+    ds.close()
+    return lat, lon
+
+
 # ============================================================================
-# ۳. کلاسهای Adapter
+# ۳. کلاس‌های پایه و پیاده‌سازی‌های Adapter
 # ============================================================================
 
 class BaseDataAdapter:
-    def __init__(self, zarr_base, year_list, cache_enabled=True):
+    """کلاس پایه برای تمام Adapterها"""
+
+    def __init__(
+        self,
+        zarr_base: str,
+        year_list: List[int],
+        cache_enabled: bool = True
+    ):
+        """
+        پارامترها:
+            zarr_base: مسیر پایه‌ی فایل‌های Zarr
+            year_list: لیست سال‌ها
+            cache_enabled: فعال/غیرفعال کردن کش
+        """
         self.zarr_base = zarr_base
         self.year_list = year_list
-        self._file_map = None
-        self._n_points = None
+        self._file_map: Optional[Dict[Tuple[int, int], str]] = None
+        self._n_points: Optional[int] = None
+        self._selected_indices: Optional[np.ndarray] = None
+        self.max_points: Optional[int] = None
         self.cache = DiskCache() if cache_enabled else None
 
     @property
-    def n_points(self):
+    def n_points(self) -> int:
+        """تعداد نقاط (ایستگاه‌ها یا پیکسل‌های شبکه)"""
+        if self._n_points is None:
+            raise ValueError("n_points not initialized")
         return self._n_points
 
     @property
-    def file_map(self):
+    def file_map(self) -> Dict[Tuple[int, int], str]:
+        """نگاشت (سال, ماه) → مسیر فایل Zarr"""
         if self._file_map is None:
             self._build_file_map()
         return self._file_map
 
-    def _build_file_map(self):
+    def _build_file_map(self) -> None:
+        """ساخت نگاشت (سال, ماه) → مسیر فایل Zarr از فایل‌های موجود"""
         self._file_map = {}
         zarr_files = glob.glob(os.path.join(self.zarr_base, "*.zarr"))
         for f in zarr_files:
@@ -55400,122 +57604,244 @@ class BaseDataAdapter:
                 except ValueError:
                     continue
 
-    def load_block(self, block_start, block_size, year_idx, month, var_idx):
+    def _get_sample_hash(self) -> str:
+        """
+        محاسبه هش از اندیس‌های انتخاب‌شده (برای تشخیص تغییر sample).
+        اگر نمونه‌برداری انجام نشده باشد، "all" برمی‌گرداند.
+        """
+        if self._selected_indices is not None and len(self._selected_indices) > 0:
+            return hashlib.md5(self._selected_indices.tobytes()).hexdigest()[:8]
+        return "all"
+
+    def load_block(
+        self,
+        block_start: int,
+        block_size: int,
+        year_idx: int,
+        month: int,
+        var_idx: int
+    ) -> Optional[np.ndarray]:
+        """
+        بارگذاری یک بلوک از داده‌های یک متغیر خاص.
+        
+        پارامترها:
+            block_start: اندیس شروع بلوک
+            block_size: اندازه‌ی بلوک
+            year_idx: اندیس سال در year_list
+            month: ماه (۱-۱۲)
+            var_idx: اندیس متغیر در VARS
+        
+        بازگشت:
+            آرایه‌ی numpy با ابعاد (days, block_size) یا None در صورت خطا
+        """
         raise NotImplementedError
 
-    def load_block_all_vars(self, block_start, block_size, year_idx, month):
+    def load_block_all_vars(
+        self,
+        block_start: int,
+        block_size: int,
+        year_idx: int,
+        month: int
+    ) -> Optional[np.ndarray]:
+        """
+        بارگذاری یک بلوک از همه متغیرها به‌صورت همزمان.
+        
+        پارامترها:
+            block_start: اندیس شروع بلوک
+            block_size: اندازه‌ی بلوک
+            year_idx: اندیس سال در year_list
+            month: ماه (۱-۱۲)
+        
+        بازگشت:
+            آرایه‌ی numpy با ابعاد (days, block_size, n_vars) یا None در صورت خطا
+        """
         raise NotImplementedError
 
-    def get_coords(self):
+    def get_coords(self) -> Dict[str, Any]:
+        """
+        برگرداندن مختصات نقاط (ایستگاه‌ها یا پیکسل‌های شبکه).
+        
+        بازگشت:
+            دیکشنری شامل 'stationid', 'lat', 'lon', 'elev' و غیره
+        """
         raise NotImplementedError
 
 
 class StationDataAdapter(BaseDataAdapter):
-    def __init__(self, zarr_base, year_list, cache_enabled=True, max_points=40000):
+    """
+    Adapter برای داده‌های ایستگاهی (Station-based)
+    """
+
+    def __init__(
+        self,
+        zarr_base: str,
+        year_list: List[int],
+        cache_enabled: bool = True,
+        max_points: int = 40000
+    ):
+        """
+        پارامترها:
+            zarr_base: مسیر پایه‌ی فایل‌های Zarr
+            year_list: لیست سال‌ها
+            cache_enabled: فعال/غیرفعال کردن کش
+            max_points: حداکثر تعداد نقاط (برای نمونه‌برداری)
+        """
         super().__init__(zarr_base, year_list, cache_enabled)
         self.max_points = max_points
-        first_file = None
+        self._station_ids: Optional[np.ndarray] = None
+        self._lats: Optional[np.ndarray] = None
+        self._lons: Optional[np.ndarray] = None
+        self._elevs: Optional[np.ndarray] = None
+        self._initialize_from_sample()
+
+    def _initialize_from_sample(self) -> None:
+        """
+        بارگذاری اطلاعات ایستگاه‌ها از اولین فایل Zarr موجود و اعمال نمونه‌برداری.
+        """
         zarr_files = glob.glob(os.path.join(self.zarr_base, "*.zarr"))
-        if zarr_files:
-            first_file = zarr_files[0]
-        if first_file:
-            ds = xr.open_zarr(first_file, consolidated=False)
-            total_points = ds.sizes["point"]
+        if not zarr_files:
+            raise FileNotFoundError(f"No Zarr files found in {self.zarr_base}")
 
-            if "stationid" in ds.coords:
-                all_station_ids = ds["stationid"].values
-            else:
-                all_station_ids = ds["stationid"].values if "stationid" in ds.data_vars else np.arange(total_points)
+        ds = xr.open_zarr(zarr_files[0], consolidated=False)
+        total_points = ds.sizes["point"]
 
-            if "lat" in ds.coords:
-                all_lats = ds["lat"].values
-            else:
-                all_lats = ds["lat"].values if "lat" in ds.data_vars else np.zeros(total_points)
+        # استخراج اطلاعات
+        if "stationid" in ds.coords:
+            all_station_ids = ds["stationid"].values
+        else:
+            all_station_ids = ds["stationid"].values if "stationid" in ds.data_vars else np.arange(total_points)
 
-            if "lon" in ds.coords:
-                all_lons = ds["lon"].values
-            else:
-                all_lons = ds["lon"].values if "lon" in ds.data_vars else np.zeros(total_points)
+        if "lat" in ds.coords:
+            all_lats = ds["lat"].values
+        else:
+            all_lats = ds["lat"].values if "lat" in ds.data_vars else np.zeros(total_points)
 
-            if "elev" in ds.coords:
-                all_elevs = ds["elev"].values
-            elif "elev" in ds.data_vars:
-                all_elevs = ds["elev"].values
-            else:
-                all_elevs = np.zeros(total_points)
+        if "lon" in ds.coords:
+            all_lons = ds["lon"].values
+        else:
+            all_lons = ds["lon"].values if "lon" in ds.data_vars else np.zeros(total_points)
 
-            if total_points > max_points:
-                np.random.seed(42)
-                indices = np.random.choice(total_points, size=max_points, replace=False)
-                indices = np.sort(indices)
-                self._selected_indices = indices
-                self._n_points = max_points
-                self._station_ids = all_station_ids[indices]
-                self._lats = all_lats[indices]
-                self._lons = all_lons[indices]
-                self._elevs = all_elevs[indices] if len(all_elevs) == total_points else np.zeros(max_points)
-            else:
-                self._selected_indices = None
-                self._n_points = total_points
-                self._station_ids = all_station_ids
-                self._lats = all_lats
-                self._lons = all_lons
-                self._elevs = all_elevs if len(all_elevs) == total_points else np.zeros(total_points)
+        if "elev" in ds.coords:
+            all_elevs = ds["elev"].values
+        elif "elev" in ds.data_vars:
+            all_elevs = ds["elev"].values
+        else:
+            all_elevs = np.zeros(total_points)
 
-            ds.close()
+        ds.close()
 
-    def _get_point_axis(self, ds):
-        """دریافت ایندکس محور نقاط از روی dims"""
+        # نمونه‌برداری تصادفی (با seed ثابت برای تکرارپذیری)
+        if total_points > self.max_points:
+            np.random.seed(42)
+            indices = np.random.choice(total_points, size=self.max_points, replace=False)
+            indices = np.sort(indices)
+            self._selected_indices = indices
+            self._n_points = self.max_points
+            self._station_ids = all_station_ids[indices]
+            self._lats = all_lats[indices]
+            self._lons = all_lons[indices]
+            self._elevs = all_elevs[indices] if len(all_elevs) == total_points else np.zeros(self.max_points)
+        else:
+            self._selected_indices = None
+            self._n_points = total_points
+            self._station_ids = all_station_ids
+            self._lats = all_lats
+            self._lons = all_lons
+            self._elevs = all_elevs if len(all_elevs) == total_points else np.zeros(total_points)
+
+    def _get_point_axis(self, ds: xr.Dataset) -> int:
+        """تشخیص محور نقاط در دیتاست (0 یا 1)"""
         if "point" in ds.dims:
             return list(ds.dims).index("point")
-        # fallback: بعد دوم را به عنوان نقطه فرض کن
         return 1
 
-    def load_block(self, block_start, block_size, year_idx, month, var_idx):
+    def load_block(
+        self,
+        block_start: int,
+        block_size: int,
+        year_idx: int,
+        month: int,
+        var_idx: int
+    ) -> Optional[np.ndarray]:
+        """
+        بارگذاری یک بلوک از داده‌های یک متغیر خاص.
+        
+        منطق:
+            ۱. ابتدا در کش جستجو می‌کند (با اولویت block_size=1000, 2000, 5000)
+            ۲. اگر کش پیدا شد، آن را برمی‌گرداند (و هیچ کش جدیدی نمی‌سازد)
+            ۳. اگر کش پیدا نشد، از Zarr می‌خواند
+            ۴. سپس کش جدید ذخیره می‌کند (فقط در صورتی که فایل کش وجود نداشته باشد)
+        """
         key = (self.year_list[year_idx], month)
         if key not in self.file_map:
             return None
+
+        sample_hash = self._get_sample_hash()
+
+        # ۱. جستجو در کش
         if self.cache:
-            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, var_idx)
+            cached = self.cache.get(block_start, block_size, year_idx, month, var_idx, sample_hash)
             if cached is not None:
                 return cached
 
+        # ۲. خواندن از Zarr (چون کشی وجود نداشت)
         var_name = VARS[var_idx]
         ds = xr.open_zarr(self.file_map[key], consolidated=False)
         point_axis = self._get_point_axis(ds)
 
-        arr = ds[var_name].values  # shape: (day, point) معمولاً
+        arr = ds[var_name].values
 
-        # اعمال انتخاب نقاط نمونه‌گیری‌شده
+        # اعمال نمونه‌برداری
         if self._selected_indices is not None:
             if point_axis == 0:
                 arr = arr[self._selected_indices, :]
             else:
                 arr = arr[:, self._selected_indices]
 
-        # استخراج بلوک
+        # برش بلوک
         if point_axis == 0:
-            arr_block = arr[block_start:block_start + block_size, :]  # (block_size, day)
-            arr_block = arr_block.T  # (day, block_size)
+            arr_block = arr[block_start:block_start + block_size, :]
+            arr_block = arr_block.T
         else:
-            arr_block = arr[:, block_start:block_start + block_size]  # (day, block_size)
+            arr_block = arr[:, block_start:block_start + block_size]
 
         ds.close()
+
+        # ۳. ذخیره در کش (فقط اگر فایل کش وجود نداشته باشد)
         if self.cache:
-            self.cache.set(block_start, block_start + block_size, year_idx, month, var_idx, arr_block)
+            self.cache.set(block_start, block_size, year_idx, month, var_idx, arr_block, sample_hash)
+
         return arr_block
 
-    def load_block_all_vars(self, block_start, block_size, year_idx, month):
-        """بارگذاری همه متغیرها در یک بار باز کردن فایل (نسخه سریع)"""
+    def load_block_all_vars(
+        self,
+        block_start: int,
+        block_size: int,
+        year_idx: int,
+        month: int
+    ) -> Optional[np.ndarray]:
+        """
+        بارگذاری یک بلوک از همه متغیرها به‌صورت همزمان.
+        
+        منطق:
+            ۱. ابتدا در کش جستجو می‌کند (با کلید "all_vars")
+            ۲. اگر کش پیدا شد، آن را برمی‌گرداند
+            ۳. اگر کش پیدا نشد، از Zarr می‌خواند
+            ۴. سپس کش جدید ذخیره می‌کند (فقط در صورتی که فایل کش وجود نداشته باشد)
+        """
         key = (self.year_list[year_idx], month)
         if key not in self.file_map:
             return None
 
+        sample_hash = self._get_sample_hash()
+
+        # ۱. جستجو در کش
         if self.cache:
-            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, "all_vars")
+            cached = self.cache.get(block_start, block_size, year_idx, month, "all_vars", sample_hash)
             if cached is not None:
                 return cached
 
+        # ۲. خواندن از Zarr (چون کشی وجود نداشت)
         ds = xr.open_zarr(self.file_map[key], consolidated=False)
         point_axis = self._get_point_axis(ds)
         n_vars = len(VARS)
@@ -55526,19 +57852,19 @@ class StationDataAdapter(BaseDataAdapter):
                 continue
             arr = ds[var_name].values
 
-            # اعمال انتخاب نقاط نمونه‌گیری‌شده
+            # اعمال نمونه‌برداری
             if self._selected_indices is not None:
                 if point_axis == 0:
                     arr = arr[self._selected_indices, :]
                 else:
                     arr = arr[:, self._selected_indices]
 
-            # استخراج بلوک
+            # برش بلوک
             if point_axis == 0:
-                arr_block = arr[block_start:block_start + block_size, :]  # (block_size, day)
-                arr_block = arr_block.T  # (day, block_size)
+                arr_block = arr[block_start:block_start + block_size, :]
+                arr_block = arr_block.T
             else:
-                arr_block = arr[:, block_start:block_start + block_size]  # (day, block_size)
+                arr_block = arr[:, block_start:block_start + block_size]
 
             if combined is None:
                 days = arr_block.shape[0]
@@ -55546,11 +57872,15 @@ class StationDataAdapter(BaseDataAdapter):
             combined[:, :, v] = arr_block
 
         ds.close()
+
+        # ۳. ذخیره در کش (فقط اگر فایل کش وجود نداشته باشد)
         if self.cache and combined is not None:
-            self.cache.set(block_start, block_start + block_size, year_idx, month, "all_vars", combined)
+            self.cache.set(block_start, block_size, year_idx, month, "all_vars", combined, sample_hash)
+
         return combined
 
-    def get_coords(self):
+    def get_coords(self) -> Dict[str, Any]:
+        """برگرداندن مختصات ایستگاه‌ها"""
         return {
             "stationid": self._station_ids,
             "lat": self._lats,
@@ -55561,112 +57891,185 @@ class StationDataAdapter(BaseDataAdapter):
 
 
 class GriddedDataAdapter(BaseDataAdapter):
-    def __init__(self, zarr_base, year_list, cache_enabled=True, max_points=40000,
-                 lat_min=None, lat_max=None, lon_min=None, lon_max=None):
+    """
+    Adapter برای داده‌های شبکه‌ای (Gridded) با قابلیت محدوده‌ی مکانی (lat_min, lat_max, ...)
+    """
+
+    def __init__(
+        self,
+        zarr_base: str,
+        year_list: List[int],
+        cache_enabled: bool = True,
+        max_points: int = 40000,
+        lat_min: Optional[float] = None,
+        lat_max: Optional[float] = None,
+        lon_min: Optional[float] = None,
+        lon_max: Optional[float] = None
+    ):
+        """
+        پارامترها:
+            zarr_base: مسیر پایه‌ی فایل‌های Zarr
+            year_list: لیست سال‌ها
+            cache_enabled: فعال/غیرفعال کردن کش
+            max_points: حداکثر تعداد نقاط (برای نمونه‌برداری)
+            lat_min, lat_max: محدوده‌ی عرض جغرافیایی
+            lon_min, lon_max: محدوده‌ی طول جغرافیایی
+        """
         super().__init__(zarr_base, year_list, cache_enabled)
         self.max_points = max_points
         self.lat_min = lat_min
         self.lat_max = lat_max
         self.lon_min = lon_min
         self.lon_max = lon_max
+        self._lats: Optional[np.ndarray] = None
+        self._lons: Optional[np.ndarray] = None
+        self._lat_indices: Optional[np.ndarray] = None
+        self._lon_indices: Optional[np.ndarray] = None
+        self._initialize_from_sample()
 
-        first_file = None
+    def _initialize_from_sample(self) -> None:
+        """
+        بارگذاری شبکه و اعمال محدوده و نمونه‌برداری.
+        """
         zarr_files = glob.glob(os.path.join(self.zarr_base, "*.zarr"))
-        if zarr_files:
-            first_file = zarr_files[0]
-        if first_file:
-            ds = xr.open_zarr(first_file, consolidated=False)
+        if not zarr_files:
+            raise FileNotFoundError(f"No Zarr files found in {self.zarr_base}")
 
-            if "latitude" in ds.coords:
-                all_lats = ds["latitude"].values
-            else:
-                all_lats = ds["latitude"].values if "latitude" in ds.data_vars else None
+        ds = xr.open_zarr(zarr_files[0], consolidated=False)
 
-            if "longitude" in ds.coords:
-                all_lons = ds["longitude"].values
-            else:
-                all_lons = ds["longitude"].values if "longitude" in ds.data_vars else None
+        # استخراج طول و عرض
+        if "latitude" in ds.coords:
+            all_lats = ds["latitude"].values
+        else:
+            all_lats = ds["latitude"].values if "latitude" in ds.data_vars else None
 
-            if all_lats is None or all_lons is None:
-                raise ValueError("Could not find latitude/longitude")
+        if "longitude" in ds.coords:
+            all_lons = ds["longitude"].values
+        else:
+            all_lons = ds["longitude"].values if "longitude" in ds.data_vars else None
 
-            if lat_min is not None and lat_max is not None:
-                lat_mask = (all_lats >= lat_min) & (all_lats <= lat_max)
-            else:
-                lat_mask = np.ones(len(all_lats), dtype=bool)
-            if lon_min is not None and lon_max is not None:
-                lon_mask = (all_lons >= lon_min) & (all_lons <= lon_max)
-            else:
-                lon_mask = np.ones(len(all_lons), dtype=bool)
+        if all_lats is None or all_lons is None:
+            raise ValueError("Could not find latitude/longitude in Zarr file")
 
-            self._lats = all_lats[lat_mask]
-            self._lons = all_lons[lon_mask]
-            n_lat = len(self._lats)
-            n_lon = len(self._lons)
-            total_points = n_lat * n_lon
+        ds.close()
 
-            if total_points > max_points:
-                np.random.seed(42)
-                indices = np.random.choice(total_points, size=max_points, replace=False)
-                indices = np.sort(indices)
-                self._selected_indices = indices
-                self._n_points = max_points
-                lat_grid, lon_grid = np.meshgrid(self._lats, self._lons, indexing="ij")
-                lat_flat = lat_grid.flatten()[indices]
-                lon_flat = lon_grid.flatten()[indices]
-                self._lats = lat_flat
-                self._lons = lon_flat
-            else:
-                self._selected_indices = None
-                self._n_points = total_points
-                lat_grid, lon_grid = np.meshgrid(self._lats, self._lons, indexing="ij")
-                self._lats = lat_grid.flatten()
-                self._lons = lon_grid.flatten()
+        # اعمال محدوده مکانی
+        if self.lat_min is not None and self.lat_max is not None:
+            lat_mask = (all_lats >= self.lat_min) & (all_lats <= self.lat_max)
+        else:
+            lat_mask = np.ones(len(all_lats), dtype=bool)
 
-            self._lat_indices = np.where(lat_mask)[0]
-            self._lon_indices = np.where(lon_mask)[0]
-            ds.close()
+        if self.lon_min is not None and self.lon_max is not None:
+            lon_mask = (all_lons >= self.lon_min) & (all_lons <= self.lon_max)
+        else:
+            lon_mask = np.ones(len(all_lons), dtype=bool)
 
-    def load_block(self, block_start, block_size, year_idx, month, var_idx):
+        self._lats = all_lats[lat_mask]
+        self._lons = all_lons[lon_mask]
+        n_lat = len(self._lats)
+        n_lon = len(self._lons)
+        total_points = n_lat * n_lon
+
+        # نمونه‌برداری تصادفی (با seed ثابت)
+        if total_points > self.max_points:
+            np.random.seed(42)
+            indices = np.random.choice(total_points, size=self.max_points, replace=False)
+            indices = np.sort(indices)
+            self._selected_indices = indices
+            self._n_points = self.max_points
+
+            lat_grid, lon_grid = np.meshgrid(self._lats, self._lons, indexing="ij")
+            lat_flat = lat_grid.flatten()[indices]
+            lon_flat = lon_grid.flatten()[indices]
+            self._lats = lat_flat
+            self._lons = lon_flat
+        else:
+            self._selected_indices = None
+            self._n_points = total_points
+            lat_grid, lon_grid = np.meshgrid(self._lats, self._lons, indexing="ij")
+            self._lats = lat_grid.flatten()
+            self._lons = lon_grid.flatten()
+
+        self._lat_indices = np.where(lat_mask)[0]
+        self._lon_indices = np.where(lon_mask)[0]
+
+    def load_block(
+        self,
+        block_start: int,
+        block_size: int,
+        year_idx: int,
+        month: int,
+        var_idx: int
+    ) -> Optional[np.ndarray]:
+        """
+        بارگذاری یک بلوک از داده‌های یک متغیر خاص (شبکه‌ای).
+        
+        منطق مشابه StationDataAdapter است.
+        """
         key = (self.year_list[year_idx], month)
         if key not in self.file_map:
             return None
+
+        sample_hash = self._get_sample_hash()
+
+        # ۱. جستجو در کش
         if self.cache:
-            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, var_idx)
+            cached = self.cache.get(block_start, block_size, year_idx, month, var_idx, sample_hash)
             if cached is not None:
                 return cached
 
+        # ۲. خواندن از Zarr
         var_name = VARS[var_idx]
         ds = xr.open_zarr(self.file_map[key], consolidated=False)
         arr = ds[var_name].values
 
-        # تبدیل به (day, n_points)
+        # اعمال محدوده مکانی (برش شبکه)
         if arr.ndim == 3:
             arr = arr[:, self._lat_indices, :][:, :, self._lon_indices]
-            arr = arr.reshape(arr.shape[0], -1)
+            arr = arr.reshape(arr.shape[0], -1)   # (time, points)
         else:
-            # fallback
-            arr = arr.reshape(-1, arr.shape[-1])
-            arr = arr.T
+            arr = arr.reshape(-1, arr.shape[-1])  # fallback
+            arr = arr.T                          # (time, points)
 
+        # اعمال نمونه‌برداری
         if self._selected_indices is not None:
             arr = arr[:, self._selected_indices]
 
+        # برش بلوک
         arr_block = arr[:, block_start:block_start + block_size]
         ds.close()
+
+        # ۳. ذخیره در کش (فقط اگر فایل کش وجود نداشته باشد)
         if self.cache:
-            self.cache.set(block_start, block_start + block_size, year_idx, month, var_idx, arr_block)
+            self.cache.set(block_start, block_size, year_idx, month, var_idx, arr_block, sample_hash)
+
         return arr_block
 
-    def load_block_all_vars(self, block_start, block_size, year_idx, month):
+    def load_block_all_vars(
+        self,
+        block_start: int,
+        block_size: int,
+        year_idx: int,
+        month: int
+    ) -> Optional[np.ndarray]:
+        """
+        بارگذاری یک بلوک از همه متغیرها به‌صورت همزمان (شبکه‌ای).
+        
+        منطق مشابه StationDataAdapter است.
+        """
         key = (self.year_list[year_idx], month)
         if key not in self.file_map:
             return None
+
+        sample_hash = self._get_sample_hash()
+
+        # ۱. جستجو در کش
         if self.cache:
-            cached = self.cache.get(block_start, block_start + block_size, year_idx, month, "all_vars")
+            cached = self.cache.get(block_start, block_size, year_idx, month, "all_vars", sample_hash)
             if cached is not None:
                 return cached
 
+        # ۲. خواندن از Zarr
         ds = xr.open_zarr(self.file_map[key], consolidated=False)
         n_vars = len(VARS)
         combined = None
@@ -55694,11 +58097,15 @@ class GriddedDataAdapter(BaseDataAdapter):
             combined[:, :, v] = arr_block
 
         ds.close()
+
+        # ۳. ذخیره در کش (فقط اگر فایل کش وجود نداشته باشد)
         if self.cache and combined is not None:
-            self.cache.set(block_start, block_start + block_size, year_idx, month, "all_vars", combined)
+            self.cache.set(block_start, block_size, year_idx, month, "all_vars", combined, sample_hash)
+
         return combined
 
-    def get_coords(self):
+    def get_coords(self) -> Dict[str, Any]:
+        """برگرداندن مختصات نقاط شبکه (به‌صورت flattened)"""
         return {
             "lat": self._lats,
             "lon": self._lons,
@@ -55708,23 +58115,70 @@ class GriddedDataAdapter(BaseDataAdapter):
         }
 
 
-def create_adapter(zarr_base, year_list, data_format="auto", cache_enabled=True,
-                   max_points=40000, **kwargs):
+# ============================================================================
+# ۴. تابع کارخانه (Factory) برای ساخت Adapter مناسب
+# ============================================================================
+
+def create_adapter(
+    zarr_base: str,
+    year_list: List[int],
+    data_format: str = "auto",
+    cache_enabled: bool = True,
+    max_points: int = 40000,
+    **kwargs
+) -> BaseDataAdapter:
+    """
+    ساخت Adapter مناسب بر اساس فرمت داده (station, gridded, auto)
+    
+    پارامترها:
+        zarr_base: مسیر پایه‌ی فایل‌های Zarr
+        year_list: لیست سال‌ها
+        data_format: 'station', 'gridded', یا 'auto'
+        cache_enabled: فعال/غیرفعال کردن کش
+        max_points: حداکثر تعداد نقاط
+        **kwargs: پارامترهای اضافی مانند lat_min, lat_max, lon_min, lon_max
+    
+    بازگشت:
+        نمونه‌ای از BaseDataAdapter
+    """
     if data_format == "station":
         return StationDataAdapter(zarr_base, year_list, cache_enabled, max_points)
+    
     elif data_format == "gridded":
-        return GriddedDataAdapter(zarr_base, year_list, cache_enabled, max_points, **kwargs)
+        return GriddedDataAdapter(
+            zarr_base,
+            year_list,
+            cache_enabled,
+            max_points,
+            lat_min=kwargs.get("lat_min"),
+            lat_max=kwargs.get("lat_max"),
+            lon_min=kwargs.get("lon_min"),
+            lon_max=kwargs.get("lon_max")
+        )
+    
     elif data_format == "auto":
         zarr_files = glob.glob(os.path.join(zarr_base, "*.zarr"))
         if not zarr_files:
             raise FileNotFoundError(f"No Zarr files found in {zarr_base}")
+        
         format_type = detect_data_format(zarr_files[0])
+        
         if format_type == "station":
             return StationDataAdapter(zarr_base, year_list, cache_enabled, max_points)
         elif format_type == "gridded":
-            return GriddedDataAdapter(zarr_base, year_list, cache_enabled, max_points, **kwargs)
+            return GriddedDataAdapter(
+                zarr_base,
+                year_list,
+                cache_enabled,
+                max_points,
+                lat_min=kwargs.get("lat_min"),
+                lat_max=kwargs.get("lat_max"),
+                lon_min=kwargs.get("lon_min"),
+                lon_max=kwargs.get("lon_max")
+            )
         else:
             raise ValueError(f"Unsupported data format: {format_type}")
+    
     else:
         raise ValueError(f"Unknown data_format: {data_format}")
 
@@ -56053,6 +58507,290 @@ print("=" * 60)
 
 
 ================================================================================
+📄 فایل: diagnose_cache.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+analyze_cache_detailed.py – تحلیل دقیق محتوای کش
+- گروه‌بندی بر اساس کلید واقعی (sample_hash, block_start, block_size, year, month, var)
+- شناسایی فایل‌های تکراری و بی‌استفاده
+- پیشنهاد حذف
+"""
+
+import os
+import sys
+import re
+import hashlib
+from pathlib import Path
+from collections import defaultdict
+from datetime import datetime
+
+# ============================================================================
+# مسیر کش
+# ============================================================================
+CACHE_DIR = Path("cache")
+if not CACHE_DIR.exists():
+    print("❌ پوشه‌ی کش وجود ندارد.")
+    sys.exit(1)
+
+files = list(CACHE_DIR.glob("*.pkl.gz")) + list(CACHE_DIR.glob("*.pkl"))
+print(f"📂 تعداد کل فایل‌های کش: {len(files):,}")
+total_size = sum(f.stat().st_size for f in files) / (1024**2)
+print(f"💾 حجم کل کش: {total_size:.2f} MB ({total_size/1024:.2f} GB)")
+
+# ============================================================================
+# استخراج کلید واقعی از نام فایل (نام فایل = hash کلید)
+# ============================================================================
+# برای هر فایل، ما نمی‌توانیم کلید اصلی را از نام فایل استخراج کنیم،
+# چون نام فایل هش کلید است. پس نمی‌توانیم مستقیماً sample_hash را بخوانیم.
+# اما می‌توانیم فایل‌ها را بر اساس اندازه و تاریخ گروه‌بندی کنیم.
+
+# ============================================================================
+# گروه‌بندی بر اساس اندازه + تاریخ (تقریب خوبی برای تشخیص تکراری‌ها)
+# ============================================================================
+groups = defaultdict(list)
+for f in files:
+    size = f.stat().st_size
+    # تاریخ به ساعت و دقیقه (نه ثانیه) برای کاهش حساسیت
+    mtime = int(f.stat().st_mtime / 60) * 60
+    key = (size, mtime)
+    groups[key].append(f)
+
+print(f"\n📊 تعداد گروه‌های منحصربه‌فرد (بر اساس اندازه+زمان): {len(groups):,}")
+
+# ============================================================================
+# شناسایی گروه‌های با بیش از ۱ فایل (تکراری)
+# ============================================================================
+duplicate_groups = {k: v for k, v in groups.items() if len(v) > 1}
+if duplicate_groups:
+    total_dup_files = sum(len(v) for v in duplicate_groups.values())
+    print(f"🔁 تعداد فایل‌های تکراری: {total_dup_files:,} از {len(files):,}")
+    
+    # حجم اضافی
+    extra_size = sum(
+        (len(v) - 1) * v[0].stat().st_size 
+        for v in duplicate_groups.values()
+    ) / (1024**2)
+    print(f"💾 فضای اضافی اشغال‌شده توسط تکراری‌ها: {extra_size:.2f} MB ({extra_size/1024:.2f} GB)")
+else:
+    print("✅ هیچ فایل تکراری یافت نشد.")
+
+# ============================================================================
+# پیشنهاد نهایی
+# ============================================================================
+print("\n" + "=" * 80)
+print("🧹 پیشنهاد:")
+if duplicate_groups:
+    print(f"   ✅ می‌توانید {total_dup_files:,} فایل تکراری را حذف کنید.")
+    print(f"   💾 {extra_size:.2f} MB فضا آزاد می‌شود.")
+    print("\n   برای حذف خودکار، اسکریپت clean_cache_safe.py را اجرا کنید.")
+else:
+    print("   ✅ کش شما بهینه است. هیچ تکراری وجود ندارد.")
+
+print("=" * 80)
+
+
+================================================================================
+📄 فایل: diagnose_status.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+diagnose_status.py – بررسی وضعیت فعلی پردازش
+- وضعیت فایل Zarr (تعداد نقاط، زمان آخرین تغییر)
+- وضعیت checkpoint (بلوک و ایستگاه آخر)
+- وضعیت کش دیسک (حجم، تعداد فایل‌ها)
+- لاگ‌های اخیر (آخرین پیام‌ها)
+"""
+
+import os
+import sys
+import time
+import glob
+import json
+from pathlib import Path
+from datetime import datetime
+
+# ============================================================================
+# مسیرها (همانند config.yaml)
+# ============================================================================
+BASE_DIR = Path(__file__).parent
+ZARR_PATH = Path(r"I:/climatology_366_rolling/climatology_stationwise_final.zarr")
+CHECKPOINT_FILE = BASE_DIR / "nature_output" / "checkpoint.csv"
+LOG_FILE = BASE_DIR / "logs" / "climatology.log"
+CACHE_DIR = BASE_DIR / "cache" / "zarr_cache"
+
+print("=" * 80)
+print("🔍 تشخیص وضعیت پردازش")
+print("=" * 80)
+
+# ============================================================================
+# ۱. وضعیت فایل Zarr
+# ============================================================================
+print("\n📂 ۱. وضعیت فایل Zarr:")
+if ZARR_PATH.exists():
+    stat = ZARR_PATH.stat()
+    size_gb = stat.st_size / (1024**3)
+    last_modified = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+    print(f"   ✅ فایل وجود دارد")
+    print(f"   حجم: {size_gb:.2f} GB")
+    print(f"   آخرین تغییر: {last_modified}")
+    
+    # بررسی تعداد نقاط با xarray (اگر خوانده شود)
+    try:
+        import xarray as xr
+        ds = xr.open_zarr(ZARR_PATH, consolidated=False)
+        n_points = ds.dims.get("point", 0)
+        n_days = ds.dims.get("day", 0)
+        print(f"   تعداد نقاط در Zarr: {n_points:,}")
+        print(f"   تعداد روزها: {n_days}")
+        # بررسی اینکه آیا داده‌ای برای نقاط جدید نوشته شده
+        if n_points > 0:
+            # بررسی یک متغیر نمونه برای نقطه آخر (اگر وجود داشته باشد)
+            last_point_data = ds["tmean_mean"].isel(point=-1).values
+            valid_count = (~np.isnan(last_point_data)).sum()
+            print(f"   نقطه‌ی آخر ({n_points-1}) دارای {valid_count} روز معتبر از {n_days}")
+            if valid_count == 0:
+                print("      ⚠️ نقطه‌ی آخر کاملاً NaN است (هنوز نوشته نشده)")
+            elif valid_count < n_days:
+                print("      ⚠️ نقطه‌ی آخر فقط تا حدی پر شده (نوشتن ناقص)")
+            else:
+                print("      ✅ نقطه‌ی آخر کامل است")
+        ds.close()
+    except Exception as e:
+        print(f"   ⚠️ خطا در خواندن Zarr: {e}")
+else:
+    print("   ❌ فایل Zarr وجود ندارد")
+
+# ============================================================================
+# ۲. وضعیت Checkpoint
+# ============================================================================
+print("\n📌 ۲. وضعیت Checkpoint:")
+if CHECKPOINT_FILE.exists():
+    with open(CHECKPOINT_FILE, 'r') as f:
+        lines = f.read().strip().split('\n')
+    data = {}
+    for line in lines:
+        if '=' in line:
+            k, v = line.split('=', 1)
+            data[k] = v
+    block = data.get("block", "نامشخص")
+    station = data.get("station", "نامشخص")
+    timestamp = data.get("timestamp", "نامشخص")
+    print(f"   ✅ فایل checkpoint وجود دارد")
+    print(f"   آخرین بلوک: {block}")
+    print(f"   آخرین ایستگاه: {station}")
+    if timestamp != "نامشخص":
+        try:
+            dt = datetime.fromtimestamp(int(timestamp)).strftime("%Y-%m-%d %H:%M:%S")
+            print(f"   زمان ذخیره: {dt}")
+        except:
+            print(f"   زمان ذخیره (خام): {timestamp}")
+else:
+    print("   ℹ️ فایل checkpoint وجود ندارد")
+
+# ============================================================================
+# ۳. وضعیت کش دیسک
+# ============================================================================
+print("\n💾 ۳. وضعیت کش دیسک:")
+if CACHE_DIR.exists():
+    cache_files = list(CACHE_DIR.glob("*.npy"))
+    if cache_files:
+        total_size = sum(f.stat().st_size for f in cache_files) / (1024**2)
+        print(f"   تعداد فایل‌های کش: {len(cache_files)}")
+        print(f"   حجم کل کش: {total_size:.2f} MB")
+        # آخرین فایل کش
+        latest = max(cache_files, key=lambda f: f.stat().st_mtime)
+        latest_time = datetime.fromtimestamp(latest.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+        print(f"   آخرین کش: {latest.name} ({latest_time})")
+        # بررسی اینکه آیا کش‌های جدید ساخته می‌شوند یا نه
+        if len(cache_files) > 0:
+            print("   ✅ کش در حال استفاده است")
+    else:
+        print("   ℹ️ کش دیسک خالی است")
+else:
+    print("   ℹ️ پوشه‌ی کش وجود ندارد")
+
+# ============================================================================
+# ۴. لاگ‌های اخیر
+# ============================================================================
+print("\n📄 ۴. بررسی لاگ‌های اخیر (۱۰ خط آخر):")
+if LOG_FILE.exists():
+    with open(LOG_FILE, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    if lines:
+        print("   آخرین ۱۰ خط لاگ:")
+        for line in lines[-10:]:
+            print(f"      {line.strip()}")
+    else:
+        print("   ℹ️ لاگ خالی است")
+else:
+    print("   ❌ فایل لاگ وجود ندارد")
+
+# ============================================================================
+# ۵. بررسی فرآیندهای در حال اجرا (اختیاری)
+# ============================================================================
+print("\n🔄 ۵. بررسی فرآیندهای پایتون در حال اجرا:")
+try:
+    import psutil
+    python_procs = []
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        if proc.info['name'] and 'python' in proc.info['name'].lower():
+            cmdline = ' '.join(proc.info['cmdline']) if proc.info['cmdline'] else ''
+            if 'main.py' in cmdline or 'climatology' in cmdline:
+                python_procs.append({
+                    'pid': proc.info['pid'],
+                    'cmdline': cmdline[:100],
+                    'cpu_percent': proc.cpu_percent(interval=0.1),
+                    'memory_mb': proc.memory_info().rss / (1024**2)
+                })
+    if python_procs:
+        print(f"   تعداد فرآیندهای مرتبط: {len(python_procs)}")
+        for p in python_procs:
+            print(f"   PID {p['pid']}: CPU {p['cpu_percent']:.1f}%, RAM {p['memory_mb']:.0f} MB")
+            print(f"      {p['cmdline']}")
+    else:
+        print("   ℹ️ هیچ فرآیند پایتون مرتبطی یافت نشد")
+except ImportError:
+    print("   ⚠️ psutil نصب نیست (برای اطلاعات دقیق‌تر نصب کنید: pip install psutil)")
+except Exception as e:
+    print(f"   ⚠️ خطا در بررسی فرآیندها: {e}")
+
+# ============================================================================
+# ۶. جمع‌بندی
+# ============================================================================
+print("\n" + "=" * 80)
+print("📊 جمع‌بندی:")
+if ZARR_PATH.exists() and CHECKPOINT_FILE.exists():
+    try:
+        block_val = int(data.get("block", -1))
+        station_val = int(data.get("station", -1))
+        # اگر checkpoint نشان می‌دهد که به نقاط جدید رسیده
+        if station_val > 40000:
+            print("✅ برنامه به نقاط جدید (بیش از ۴۰,۰۰۰) رسیده است.")
+            print(f"   آخرین ایستگاه: {station_val:,}")
+        else:
+            print("⚠️ برنامه هنوز به نقاط جدید نرسیده است (ایستگاه ≤ ۴۰,۰۰۰).")
+            print(f"   آخرین ایستگاه: {station_val:,}")
+        # بررسی زمان آخرین بروزرسانی Zarr
+        if ZARR_PATH.exists():
+            last_mod = datetime.fromtimestamp(ZARR_PATH.stat().st_mtime)
+            now = datetime.now()
+            diff = (now - last_mod).total_seconds() / 60
+            if diff < 5:
+                print(f"✅ Zarr به‌روز است (آخرین تغییر {diff:.1f} دقیقه پیش)")
+            else:
+                print(f"⚠️ Zarr مدت‌هاست به‌روز نشده ({diff:.1f} دقیقه). ممکن است نوشتن متوقف شده باشد.")
+    except:
+        pass
+else:
+    print("⚠️ اطلاعات کافی برای جمع‌بندی وجود ندارد")
+
+print("=" * 80)
+
+
+================================================================================
 📄 فایل: ensure_scaling.py
 ================================================================================
 #!/usr/bin/env python3
@@ -56164,6 +58902,97 @@ print("")
 print("   The first block will load data, scale it (÷10), and cache it.")
 print("   Subsequent blocks will load from cache with correct scaling.")
 print("="*60)
+
+
+================================================================================
+📄 فایل: fix_checkpoint.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+fix_checkpoint.py - رفع خودکار مشکل checkpoint
+این اسکریپت مسیر دقیق فایل checkpoint را پیدا کرده و محتوای صحیح را در آن می‌نویسد.
+همچنین فایل‌های checkpoint اضافی را حذف می‌کند تا برنامه دچار اشتباه نشود.
+"""
+
+import os
+import sys
+import time
+
+# ============================================================================
+# ۱. پیدا کردن مسیر دقیق checkpoint که برنامه از آن می‌خواند
+# ============================================================================
+
+# اطمینان از اینکه مسیر پروژه در sys.path است
+project_root = os.getcwd()
+sys.path.insert(0, project_root)
+
+print("=" * 60)
+print("🔧 رفع مشکل Checkpoint")
+print("=" * 60)
+
+try:
+    from constants import CHECKPOINT_FILE
+    target_path = CHECKPOINT_FILE
+    print(f"📍 مسیر checkpoint طبق constants: {target_path}")
+except ImportError:
+    print("⚠️ ماژول constants پیدا نشد. از مسیر پیش‌فرض استفاده می‌شود.")
+    target_path = "checkpoint.csv"
+
+# تبدیل به مسیر مطلق
+target_path = os.path.abspath(target_path)
+print(f"📍 مسیر مطلق: {target_path}")
+
+# ============================================================================
+# ۲. نوشتن محتوای صحیح در فایل checkpoint
+# ============================================================================
+
+correct_content = f"""block=19
+station=40000
+timestamp={int(time.time())}
+version=1
+"""
+
+print(f"\n📝 نوشتن checkpoint در: {target_path}")
+with open(target_path, 'w', encoding='utf-8') as f:
+    f.write(correct_content)
+
+print("✅ فایل checkpoint با موفقیت نوشته شد.")
+print(f"📄 محتوا:\n{correct_content}")
+
+# ============================================================================
+# ۳. پاک کردن فایل‌های checkpoint اضافی (برای جلوگیری از سردرگمی)
+# ============================================================================
+
+print("\n🗑️ جستجو و حذف فایل‌های checkpoint اضافی...")
+
+other_paths = [
+    os.path.join(project_root, "nature_output", "checkpoint.csv"),
+    "I:/climatology_366_rolling/checkpoint.csv",
+    "C:/Windows/system32/checkpoint.csv",
+]
+
+for p in other_paths:
+    if os.path.exists(p) and os.path.abspath(p) != target_path:
+        try:
+            os.remove(p)
+            print(f"   🗑️ حذف شد: {p}")
+        except Exception as e:
+            print(f"   ⚠️ خطا در حذف {p}: {e}")
+
+# ============================================================================
+# ۴. تأیید نهایی
+# ============================================================================
+
+print("\n📋 تأیید محتوای فایل اصلی:")
+with open(target_path, 'r', encoding='utf-8') as f:
+    print(f.read())
+
+print("=" * 60)
+print("🚀 اکنون می‌توانید main.py را اجرا کنید.")
+print("   انتظار داریم که پیام زیر را ببینید:")
+print("   ⏩ Resuming from block 19, station 40000")
+print("=" * 60)
 
 
 ================================================================================
@@ -56856,7 +59685,7 @@ print("\nDONE ✅")
 # -*- coding: utf-8 -*-
 """
 main.py - نقطه ورود اصلی با Data Adapter و Checkpoint صحیح
-نسخه ۳.۱ - همراه با تولید نقشه‌های صدک
+نسخه ۳.۳ - استفاده از checkpoint_manager با تشخیص خودکار
 """
 
 import os
@@ -56880,19 +59709,36 @@ with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     CONFIG = yaml.safe_load(f)
 
 from constants import (
-    YEAR_START, YEAR_END, N_YEARS, N_DAYS, VARS, N_VARS, VAR_INDEX_FOR_FIT,
-    OUTPUT_DIR, OUTPUT_ZARR, CHECKPOINT_FILE, ZARR_BASE,
-    BLOCK_SIZE, USE_PARALLEL, CORES,
-    VALIDATE_AFTER_LOAD, VALIDATE_BEFORE_WRITE, VALIDATE_EVERY_N_BLOCKS,
-    FLOAT_DTYPE, INT_DTYPE
+    YEAR_START,
+    YEAR_END,
+    N_YEARS,
+    N_DAYS,
+    VARS,
+    N_VARS,
+    VAR_INDEX_FOR_FIT,
+    OUTPUT_DIR,
+    OUTPUT_ZARR,
+    ZARR_BASE,
+    BLOCK_SIZE,
+    USE_PARALLEL,
+    CORES,
+    VALIDATE_AFTER_LOAD,
+    VALIDATE_BEFORE_WRITE,
+    VALIDATE_EVERY_N_BLOCKS,
+    FLOAT_DTYPE,
+    INT_DTYPE
 )
 
 from calendar_tables import build_doy_table_from_config
 from runtime_tables import build_runtime_tables
-from zarr_schema import create_zarr_store, add_coords_and_metadata
+from zarr_schema import get_or_create_zarr_store, add_coords_and_metadata
 from orchestrator.process_block import process_block
-from monitoring.checkpoint import load_checkpoint, save_checkpoint, delete_checkpoint
 from monitoring.logger import logger
+
+# ============================================================================
+# ✅ استفاده از checkpoint_manager با تشخیص خودکار
+# ============================================================================
+from checkpoint_manager import ensure_checkpoint, save_checkpoint, delete_checkpoint
 
 # ============================================================================
 # استفاده از Data Adapter
@@ -56970,7 +59816,7 @@ def main():
     logger.setLevel(logging.INFO)
     
     logger.info("=" * 80)
-    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v3.1")
+    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v3.3")
     logger.info(f"   Years: {YEAR_START}–{YEAR_END} ({N_YEARS} years)")
     logger.info(f"   Days: {N_DAYS}")
     logger.info(f"   Output: {OUTPUT_ZARR}")
@@ -57023,27 +59869,18 @@ def main():
         logger.info("   ✅ Tables built")
 
         # ============================================================
-        # ۳. ایجاد Zarr
+        # ۳. ایجاد/دریافت Zarr (با مدیریت خودکار resize)
         # ============================================================
-        if not os.path.exists(OUTPUT_ZARR):
-            root = create_zarr_store(OUTPUT_ZARR, n_stations)
-        else:
-            import zarr
-            root = zarr.open(OUTPUT_ZARR, mode="a")
-            logger.info(f"   📂 Existing Zarr opened: {OUTPUT_ZARR}")
+        root = get_or_create_zarr_store(OUTPUT_ZARR, n_stations)
+        logger.info(f"   📂 Zarr store ready: {OUTPUT_ZARR}")
 
         # ============================================================
-        # ۴. Checkpoint
+        # ۴. ✅ استفاده از checkpoint_manager با تشخیص خودکار
         # ============================================================
-        checkpoint = load_checkpoint()
-        start_block = 0
-        start_station = 0
-        if checkpoint:
-            start_block = int(checkpoint.get("block", 0))
-            start_station = int(checkpoint.get("station", 0))
-            logger.info(f"   ⏩ Resuming from block {start_block}, station {start_station}")
-        else:
-            logger.info("   🆕 Starting from beginning")
+        checkpoint = ensure_checkpoint(auto_detect=True)
+        start_block = checkpoint.get("block", 0)
+        start_station = checkpoint.get("station", 0)
+        logger.info(f"   ⏩ Resuming from block {start_block}, station {start_station}")
 
         # ============================================================
         # ۵. حلقه پردازش
@@ -57091,7 +59928,7 @@ def main():
         ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
         ds = add_coords_and_metadata(ds, station_ids, lons, lats, elevs)
         ds.attrs["source"] = f"Years {YEAR_START}-{YEAR_END}"
-        ds.attrs["version"] = "3.1"
+        ds.attrs["version"] = "3.3"
         ds.attrs["data_format"] = DATA_FORMAT
         ds.to_zarr(OUTPUT_ZARR, mode="a", consolidated=False)
         ds.close()
@@ -57178,6 +60015,39 @@ scikit-learn
 shapely
 netcdf4
 zarr
+
+
+================================================================================
+📄 فایل: resize_zarr.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+resize_zarr.py – تغییر ابعاد فایل Zarr از ۴۰,۰۰۰ به ۳۳۸,۶۲۷ نقطه
+داده‌های قبلی حفظ می‌شوند و نقاط جدید با NaN پر می‌شوند.
+"""
+
+import zarr
+from zarr_schema import VAR_NAMES
+
+ZARR_PATH = r"I:/climatology_366_rolling/climatology_stationwise_final.zarr"
+NEW_N_POINTS = 338627
+
+print(f"📂 باز کردن فایل Zarr: {ZARR_PATH}")
+root = zarr.open(ZARR_PATH, mode="a")
+
+print(f"📊 ابعاد فعلی: (366, {root[VAR_NAMES[0]].shape[1]})")
+print(f"📊 ابعاد جدید: (366, {NEW_N_POINTS})")
+
+for name in VAR_NAMES:
+    arr = root[name]
+    old_shape = arr.shape
+    new_shape = (old_shape[0], NEW_N_POINTS)
+    print(f"   🔄 در حال resize: {name} ...")
+    arr.resize(new_shape)
+
+print("✅ همه‌ی متغیرها با موفقیت resize شدند.")
+print(f"📁 فایل Zarr اکنون ابعاد (366, {NEW_N_POINTS}) دارد.")
 
 
 ================================================================================
@@ -61522,7 +64392,7 @@ extract_window_values = extract_window_values_fast
 # -*- coding: utf-8 -*-
 """
 process_block.py - پردازش یک بلوک از ایستگاه‌ها
-(نسخه‌ی سازگار با Data Adapter و tqdm)
+نسخه‌ی به‌روز با نوشتن همزمان (بدون Async) برای جلوگیری از خطای shutdown
 """
 
 import time
@@ -61538,19 +64408,34 @@ from numerical_engine.analyze_station import analyze_station
 from numerical_engine.merge_results import merge_station_result
 from result_pipeline.validate_result import validate_result
 from result_pipeline.write_block import write_block_safe
-from constants import VARS, VAR_INDEX_FOR_FIT, N_DAYS, INT_DTYPE
+from constants import VARS, VAR_INDEX_FOR_FIT, N_DAYS
 from zarr_schema import VAR_NAMES, VAR_DTYPES, create_empty_block_result
 
 
 def process_block(block_start, block_end, block_idx, file_map, doy_table, window_table,
                   year_list, root, var_idx, last_checkpoint_station=0, adapter=None):
     """
-    پردازش یک بلوک از ایستگاه‌ها
+    پردازش یک بلوک از ایستگاه‌ها.
 
-    Parameters
-    ----------
-    adapter : object, optional
-        DataAdapter instance. اگر وجود داشته باشد، برای بارگذاری داده‌ها استفاده می‌شود.
+    پارامترها:
+        block_start: اندیس شروع ایستگاه‌ها در بلوک
+        block_end: اندیس پایان ایستگاه‌ها (اختصاصی)
+        block_idx: شماره بلوک
+        file_map: دیکشنری نگاشت (سال, ماه) → مسیر فایل Zarr
+        doy_table: جدول روزهای سال (سال‌ها × ۳۶۶)
+        window_table: جدول پنجره‌های ۵ روزه برای هر روز سال
+        year_list: لیست سال‌ها
+        root: گروه Zarr برای نوشتن
+        var_idx: اندیس متغیر اصلی برای برازش (معمولاً ۱ = tmean)
+        last_checkpoint_station: آخرین ایستگاه پردازش‌شده از checkpoint (برای ادامه)
+        adapter: (اختیاری) نمونه‌ای از DataAdapter برای بارگذاری داده
+
+    بازگشت:
+        True در صورت موفقیت، None در صورت عدم وجود داده
+
+    استثناها:
+        IOError: در صورت خطا در نوشتن
+        ValueError: در صورت نامعتبر بودن داده
     """
     block_size = block_end - block_start
     logger.info(f"📦 Block {block_idx}: stations {block_start} - {block_end} ({block_size} stations)")
@@ -61618,6 +64503,7 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
                             var_idx=v
                         )
                         if var_data is not None:
+                            # اطمینان از شکل صحیح
                             if var_data.ndim == 2 and var_data.shape[0] == block_size:
                                 var_data = var_data.T
                             elif var_data.ndim == 1:
@@ -61671,7 +64557,7 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
     # ============================================================
     logger.info("   ⚙️ Analyzing...")
     
-    # ✅ ایجاد block_result با ابعاد صحیح (N_DAYS, block_size)
+    # ایجاد block_result با ابعاد صحیح (N_DAYS, block_size)
     block_result = create_empty_block_result(block_size)
     
     N_YEARS = len(year_list)
@@ -61720,13 +64606,12 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
         try:
             result = analyze_station(station_data, year_list, window_table, var_idx)
             if result is not None:
-                # ✅ merge_station_result فقط مقداردهی می‌کند (آرایه‌ها از قبل وجود دارند)
                 merge_station_result(block_result, result, station_idx, block_start)
         except Exception as e:
             logger.warning(f"   ⚠️ Station {station_idx} failed: {e}")
             continue
 
-        # ذخیره checkpoint پس از هر ایستگاه
+        # ذخیره checkpoint پس از هر ۱۰۰ ایستگاه یا در انتهای بلوک
         if (station_idx - block_start + 1) % 100 == 0 or station_idx == block_end - 1:
             save_checkpoint(block_idx, station_idx + 1)
 
@@ -61742,16 +64627,20 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
         validate_result(block_result, block_start, block_size)
 
     # ============================================================
-    # ۶. نوشتن در Zarr
+    # ۶. نوشتن در Zarr (همزمان – بدون Async)
     # ============================================================
     t0 = time.time()
     try:
-        write_block_safe(root, block_result, block_start, block_end, validate=False)
+        # نوشتن همزمان با async_mode=False
+        write_block_safe(root, block_result, block_start, block_end, validate=False, async_mode=False)
         times["write"] = time.time() - t0
     except Exception as e:
         logger.error(f"   ❌ Write failed: {e}")
         save_checkpoint(block_idx, block_start)
         raise IOError(f"Write failed: {e}")
+
+    # ذخیره‌ی چک‌پوینت (بعد از اطمینان از نوشته شدن)
+    save_checkpoint(block_idx, block_end - 1)
 
     # ============================================================
     # ۷. گزارش زمان
@@ -61991,24 +64880,59 @@ def print_validation_report(report, prefix="   "):
 """
 result_pipeline/write_block.py
 ================================================================================
-نوشتن نتایج یک بلوک در Zarr.
-فقط ۳۳ write برای هر بلوک. هیچ محاسبه‌ای انجام نمی‌دهد.
+نوشتن نتایج یک بلوک در Zarr – نسخه‌ی همزمان (بدون Async)
+برای جلوگیری از خطای ThreadPoolExecutor shutdown
 ================================================================================
 """
 
 from zarr_schema import VAR_NAMES
 
+
 def write_block(root, block_result, block_start, block_end):
+    """
+    نوشتن همزمان داده‌ها در Zarr.
+    
+    پارامترها:
+        root: گروه Zarr (zarr.Group)
+        block_result: دیکشنری شامل آرایه‌های (day, block_size) برای هر متغیر
+        block_start: اندیس شروع در محور point
+        block_end: اندیس پایان (اختصاصی)
+    
+    بازگشت:
+        None
+    """
     for name in VAR_NAMES:
         root[name][:, block_start:block_end] = block_result[name]
 
-def write_block_safe(root, block_result, block_start, block_end, validate=True):
+
+def write_block_safe(root, block_result, block_start, block_end, validate=True, async_mode=False):
+    """
+    نوشتن با اعتبارسنجی (اختیاری) – فقط همزمان.
+    پارامتر async_mode برای سازگاری نگه‌داشته شده اما همیشه False است.
+    
+    پارامترها:
+        root: گروه Zarr
+        block_result: دیکشنری نتایج بلوک
+        block_start: اندیس شروع
+        block_end: اندیس پایان
+        validate: اگر True باشد، قبل از نوشتن اعتبارسنجی انجام می‌شود
+        async_mode: برای سازگاری نگه‌داشته شده (همیشه False)
+    
+    بازگشت:
+        True در صورت موفقیت
+    
+    استثناها:
+        ValueError: اگر اعتبارسنجی شکست بخورد
+    """
     if validate:
         from result_pipeline.validate_result import validate_result
         report = validate_result(block_result, block_start, block_end - block_start)
         if not report["valid"]:
             raise ValueError("Cannot write: validation failed")
+
+    # نوشتن همزمان
     write_block(root, block_result, block_start, block_end)
+    return True
 
 
 ================================================================================
@@ -62036,6 +64960,6 @@ def test_normal_fit():
 
 ================================================================================
 📊 آمار اسنپ‌شات:
-   تعداد فایل‌های اسکن‌شده: 76
-   تاریخ ایجاد: 2026-07-29 02:13:51
+   تعداد فایل‌های اسکن‌شده: 86
+   تاریخ ایجاد: 2026-07-31 16:23:34
 ================================================================================
