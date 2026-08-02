@@ -213,7 +213,13 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
 
         # فراخوانی تابع تحلیل
         try:
-            result = analyze_station(station_data, year_list, window_table, var_idx)
+            result = analyze_station(
+                station_data,
+                year_list,
+                window_table,
+                var_idx,
+                station_idx      # ✅ ارسال station_idx
+            )
             if result is not None:
                 merge_station_result(block_result, result, station_idx, block_start)
         except Exception as e:

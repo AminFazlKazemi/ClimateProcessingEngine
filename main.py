@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 main.py - نقطه ورود اصلی با Data Adapter و Checkpoint صحیح
-نسخه ۳.۳ - استفاده از checkpoint_manager با تشخیص خودکار
+نسخه ۳.۴ – با پشتیبانی از ثبت و ذخیره‌سازی بلوک به بلوک outlierها
 """
 
 import os
@@ -56,6 +56,15 @@ from monitoring.logger import logger
 # ✅ استفاده از checkpoint_manager با تشخیص خودکار
 # ============================================================================
 from checkpoint_manager import ensure_checkpoint, save_checkpoint, delete_checkpoint
+
+# ============================================================================
+# ✅ outlier logger با قابلیت flush
+# ============================================================================
+from monitoring.outlier_logger import (
+    clear_outlier_log,
+    flush_outliers_to_csv,
+    save_outlier_report
+)
 
 # ============================================================================
 # استفاده از Data Adapter
@@ -127,13 +136,18 @@ def generate_percentile_maps(zarr_path, output_dir, percentiles, days=None):
 
 
 def main():
+    # ============================================================
+    # ✅ پاک کردن حافظه outlierها در ابتدای اجرا
+    # ============================================================
+    clear_outlier_log()
+
     # Warmup Numba (pre-compile JIT)
     warmup_numba()
 
     logger.setLevel(logging.INFO)
     
     logger.info("=" * 80)
-    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v3.3")
+    logger.info("🚀 CLIMATOLOGY PROCESSING ENGINE v3.4 (با ثبت و ذخیره‌سازی بلوک به بلوک outlierها)")
     logger.info(f"   Years: {YEAR_START}–{YEAR_END} ({N_YEARS} years)")
     logger.info(f"   Days: {N_DAYS}")
     logger.info(f"   Output: {OUTPUT_ZARR}")
@@ -228,10 +242,30 @@ def main():
                     adapter=adapter,
                 )
                 save_checkpoint(block_idx, block_end - 1)
+                
+                # ============================================================
+                # ✅ ذخیره outlierهای این بلوک روی دیسک و پاک کردن حافظه
+                # ============================================================
+                try:
+                    flush_outliers_to_csv(
+                        output_dir="outlier_reports",
+                        metadata_path="st_metadata.txt"   # در صورت وجود
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to flush outliers after block {block_idx}: {e}")
+                
                 gc.collect()
             except KeyboardInterrupt:
                 logger.warning(f"Interrupted at block {block_idx}")
                 save_checkpoint(block_idx, block_start)
+                # در صورت قطع با Ctrl+C، outlierهای موجود را ذخیره کن
+                try:
+                    flush_outliers_to_csv(
+                        output_dir="outlier_reports",
+                        metadata_path="st_metadata.txt"
+                    )
+                except:
+                    pass
                 raise
             except Exception as e:
                 logger.error(f"Block {block_idx} failed: {e}")
@@ -245,7 +279,7 @@ def main():
         ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
         ds = add_coords_and_metadata(ds, station_ids, lons, lats, elevs)
         ds.attrs["source"] = f"Years {YEAR_START}-{YEAR_END}"
-        ds.attrs["version"] = "3.3"
+        ds.attrs["version"] = "3.4"
         ds.attrs["data_format"] = DATA_FORMAT
         ds.to_zarr(OUTPUT_ZARR, mode="a", consolidated=False)
         ds.close()
@@ -263,6 +297,17 @@ def main():
                 percentiles=PERCENTILES,
                 days=MAP_DAYS if MAP_DAYS else None
             )
+
+        # ============================================================
+        # ۸. ذخیره نهایی outlierها (در صورت باقی‌مانده در حافظه)
+        # ============================================================
+        try:
+            flush_outliers_to_csv(
+                output_dir="outlier_reports",
+                metadata_path="st_metadata.txt"
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save final outlier report: {e}")
 
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)

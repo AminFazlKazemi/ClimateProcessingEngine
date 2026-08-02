@@ -20,10 +20,17 @@ distributions:
   - bimodal
   - pearson
 fit_variable_index: 1
+generate_percentile_maps: false
 logging:
   console_output: true
   file_output: true
   level: INFO
+map_days:
+- 1
+- 91
+- 181
+- 271
+map_output_dir: I:/climatology_366_rolling/percentile_maps
 min_valid_years: 10
 n_sample_points: 338627
 output:
@@ -35,7 +42,7 @@ parallel:
   backend: multiprocessing
   chunk_size: 100
   enabled: true
-  max_workers: 6
+  max_workers: 12
 paths:
   cache_dir: ./cache
   calendar_file: K:/Temp/needed/calendar.txt
@@ -45,6 +52,10 @@ paths:
   output_dir: I:/climatology_366_rolling
   output_zarr_name: climatology_stationwise_final.zarr
   zarr_base: K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly
+percentiles:
+- 0.9
+- 0.95
+- 0.99
 point_sampling: all
 processing:
   chunk_size:
@@ -73,8 +84,3 @@ window_type: centered
 years:
   end: 1399
   start: 1369
-# تولید نقشه‌های صدک
-generate_percentile_maps: false
-percentiles: [0.9, 0.95, 0.99]
-map_days: [1, 91, 181, 271]
-map_output_dir: "I:/climatology_366_rolling/percentile_maps"

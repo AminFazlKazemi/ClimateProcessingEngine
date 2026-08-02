@@ -8,7 +8,7 @@ numerical_engine/distributions.py
 همه توزیع‌ها حفظ شده‌اند.
 خروجی: آرایه ۳۸ عضوی (۰=best_code, ۱–۲۷ پارامترها و معیارها, ۲۸–۳۲ ذخیره‌های کمکی, ۳۳=mean, ۳۴=std, ۳۵=skewness, ۳۶=median, ۳۷=count)
 ================================================================================
-ورژن: 3.1 - خروجی توسعه‌یافته
+ورژن: 3.2 - اصلاح توزیع پیرسون برای داده‌های با چولگی نزدیک صفر
 """
 
 import numpy as np
@@ -369,55 +369,105 @@ def _rankdata_max(data):
         i = k + 1
     return ranks.astype(np.float64)
 
+# ============================================================================
+# ✅ توزیع پیرسون – اصلاح‌شده برای داده‌های با چولگی نزدیک صفر
+# ============================================================================
+@njit(fastmath=True)
+def _pearson_fallback(data, mean, std, minim, inverted):
+    """
+    Fallback برای زمانی که روش اصلی شکست می‌خورد (چولگی نزدیک صفر)
+    یک توزیع نزدیک به نرمال با shape=100 برازش می‌دهد.
+    """
+    n = len(data)
+    shape = 100.0
+    scale = std / np.sqrt(shape)
+    loc = mean - shape * scale
+    if loc < -100:
+        loc = -100
+    loglik = 0.0
+    for x in data:
+        z = (x - loc) / scale
+        if z <= 0:
+            loglik = -1e10
+            break
+        loglik += (shape - 1) * np.log(z) - z - np.log(scale) - math.lgamma(shape)
+    if np.isinf(loglik) or np.isnan(loglik):
+        loglik = -1e10
+    aicc = compute_aicc_numba(loglik, 3, n)
+    bic = compute_bic_numba(loglik, 3, n)
+    if inverted:
+        loc_main = -minim
+    else:
+        loc_main = minim
+    return shape, scale, loc_main, loglik, aicc, bic, 3
+
 @njit(fastmath=True)
 def fit_pearson3_full_numba(data):
     n = len(data)
     if n < 5:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+
     MEAN_ = np.mean(data)
     STD_ = np.std(data)
     if STD_ == 0:
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+
+    # محاسبه چولگی
     sumy1 = np.sum(data)
     sumy2 = np.sum(data**2)
     sumy3 = np.sum(data**3)
     SKEW_ = (sumy3 - 3*MEAN_*sumy2 + 3*MEAN_**2*sumy1 - MEAN_**3*n) * n / (n-1) / (n-2) / (STD_**3)
+
+    # محدود کردن چولگی
     if SKEW_ > 2.999:
         SKEW = 2.999
     elif SKEW_ < -2.999:
         SKEW = -2.999
     else:
         SKEW = SKEW_
+
     INVERTED = False
     if SKEW_ < 0:
         DATA_111 = -data.copy()
         INVERTED = True
     else:
         DATA_111 = data.copy()
+
     minim = np.min(DATA_111)
     DATA_111 = DATA_111 - minim
     DATA_111 = np.where(DATA_111 == 0.0, 0.1, DATA_111)
+
     XBAR = np.mean(DATA_111)
     STD = np.std(DATA_111)
     lnX_BAR = np.mean(np.log(DATA_111))
     A = np.log(XBAR) - lnX_BAR
+
+    # ============================================================
+    # اگر A <= 0 (چولگی نزدیک صفر) → از fallback استفاده کن
+    # ============================================================
     if A <= 0:
-        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+        return _pearson_fallback(data, MEAN_, STD_, minim, INVERTED)
+
     shape1 = 1/(4*A) * (1 + np.sqrt(1 + 4*A/3))
     scale1 = XBAR / shape1
+
     q = np.sum(DATA_111 == 0.1) / (n + 0.3*abs(SKEW) + 0.05)
     beg = _gamma_ppf_approx(q, shape1, scale1)
     DATA_111 += beg
+
     XBAR = np.mean(DATA_111)
     STD = np.std(DATA_111)
     lnX_BAR = np.mean(np.log(DATA_111))
     A = np.log(XBAR) - lnX_BAR
     if A <= 0:
-        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+        return _pearson_fallback(data, MEAN_, STD_, minim, INVERTED)
+
     shape = 1/(4*A) * (1 + np.sqrt(1 + 4*A/3))
     scale = XBAR / shape
+
     ranks = _rankdata_max(DATA_111)
     q_ = (ranks - 0.42) / (n + 0.3*SKEW + 0.05)
+
     CDF = np.zeros(n, dtype=np.float64)
     for i in range(n):
         x = DATA_111[i]
@@ -433,8 +483,10 @@ def fit_pearson3_full_numba(data):
             CDF[i] = min(max(cdf_val, 0.0), 1.0)
         else:
             CDF[i] = 0.0
+
     if INVERTED:
         CDF = 1.0 - CDF
+
     loglik = 0.0
     for i in range(n):
         x = DATA_111[i]
@@ -442,14 +494,18 @@ def fit_pearson3_full_numba(data):
             loglik = np.nan
             break
         loglik += (shape - 1)*math.log(x) - x/scale - shape*math.log(scale) - math.lgamma(shape)
+
     if np.isnan(loglik):
-        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 3
+        return _pearson_fallback(data, MEAN_, STD_, minim, INVERTED)
+
     aicc = compute_aicc_numba(loglik, 3, n)
     bic = compute_bic_numba(loglik, 3, n)
+
     if INVERTED:
         loc_main = -minim
     else:
         loc_main = minim
+
     return shape, scale, loc_main, loglik, aicc, bic, 3
 
 # ============================================================================

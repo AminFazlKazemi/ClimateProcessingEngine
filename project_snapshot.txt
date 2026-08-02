@@ -1,7 +1,7 @@
 ================================================================================
 📁 SNAPSHOT از پروژه climatology_engine
 📂 ریشه: k:\gozareshha\dr vazife\140504 - qc temp\climatology\climatology_engine
-📅 تاریخ: 2026-07-31 21:07:03
+📅 تاریخ: 2026-08-02 06:42:53
 ================================================================================
 
 
@@ -2307,6 +2307,880 @@ climate science community.
 *Built with ❤️ for the climate science community.*
 
 Last updated: July 27, 2026
+
+
+================================================================================
+📄 فایل: Supplementary.txt
+================================================================================
+\documentclass[a4paper,12pt]{article}
+
+% ============================================================
+% بسته‌های مورد نیاز
+% ============================================================
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage[top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{enumitem}
+\usepackage{polyglossia}
+\usepackage{fontspec}
+\setmainlanguage{persian}
+\setotherlanguage{english}
+\newfontfamily\persianfont{B Zar}[Scale=1.2]
+\newfontfamily\latinfont{Times New Roman}[Scale=1]
+\newfontfamily\englishfont{Times New Roman}[Scale=1]
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% ============================================================
+% تنظیمات فاصله خطوط (تک‌فاصله)
+% ============================================================
+\singlespacing
+
+% شماره‌گذاری ضمیمه با پیشوند S
+\renewcommand{\theequation}{S\arabic{equation}}
+
+% ============================================================
+% عنوان مواد تکمیلی
+% ============================================================
+\title{%
+	\textbf{مواد تکمیلی: موتور پردازش اقلیم‌شناسی} \\
+	\large{راهنمای کامل روش‌های آماری، پیاده‌سازی و کاربرد عملی}%
+}
+
+\author{%
+	امین‌فضل کاظمی \\
+	\small{دکتری هواشناسی، گروه فیزیک فضا، دانشکده فیزیک، دانشگاه تهران، تهران، ایران}%
+}
+
+% ============================================================
+% شروع سند
+% ============================================================
+\begin{document}
+
+\maketitle
+
+% ------------------------------------------------------------
+% مقدمه مواد تکمیلی
+% ------------------------------------------------------------
+\section*{مقدمه}
+
+در این مواد تکمیلی، تمام جزئیات فنی، ریاضی و پیاده‌سازی موتور پردازش اقلیم‌شناسی (ClimateProcessingEngine) به‌صورت کامل و گام‌به‌گام ارائه شده است. هدف این است که خواننده، حتی بدون پیش‌زمینهٔ آماری یا برنامه‌نویسی، بتواند از این سامانه استفاده کند و روش‌های پیاده‌سازی‌شده را درک نماید.
+
+این مواد تکمیلی شامل بخش‌های زیر است:
+
+\begin{enumerate}
+\item معرفی کامل مخزن GitHub و نحوهٔ نصب و اجرا
+\item تشریح دقیق تابع چگالی احتمال، روش برآورد پارامترها و معیارهای انتخاب برای هر یک از ۵ توزیع
+\item توضیح گام‌به‌گام الگوریتم EM برای توزیع دوکوهانه (نوآوری پژوهش)
+\item معرفی شاخص‌های تشخیص دوکوهانه‌ای
+\item راهنمای عملی برای افزودن توزیع جدید
+\item مثال‌های عددی کامل با کد پایتون
+\end{enumerate}
+
+% ------------------------------------------------------------
+% بخش ۱: معرفی مخزن
+% ------------------------------------------------------------
+\section{معرفی مخزن GitHub و نصب}
+
+موتور پردازش اقلیم‌شناسی به‌صورت متن‌باز در مخزن GitHub به آدرس زیر در دسترس است:
+
+\centerline{\url{\latinfont{https://github.com/AminFazlKazemi/ClimateProcessingEngine}}}
+
+\subsection{ساختار مخزن}
+
+ساختار دایرکتوری مخزن به‌صورت زیر است:
+
+\begin{verbatim}
+ClimateProcessingEngine/
+├── core/                          # هستهٔ سامانه
+│   ├── engine/                    # مؤلفه‌های موتور
+│   │   ├── distribution_plugin.py # کلاس پایهٔ توزیع‌ها
+│   │   └── plugin_loader.py       # بارگذاری خودکار افزونه‌ها
+│   ├── interfaces/                # رابط‌های داده
+│   │   └── data_adapter.py        # تطبیق‌دهندهٔ داده
+│   ├── storage/                   # ذخیره‌سازی
+│   │   └── zarr_schema.py         # ساختار خروجی Zarr
+│   ├── quality/                   # کنترل کیفیت
+│   │   └── quality_flag.py        # پرچم‌های کیفیت
+│   └── uncertainty/               # عدم‌قطعیت
+│       └── bootstrap.py           # بازنمونه‌گیری بوت‌استرپ
+├── plugins/                       # افزونه‌ها
+│   └── distributions/             # توزیع‌های آماری
+│       ├── normal.py              # توزیع نرمال
+│       ├── skewnormal.py          # توزیع نرمال چوله
+│       ├── gev.py                 # توزیع مقادیر حدی تعمیم‌یافته
+│       ├── bimodal.py             # توزیع دوکوهانه (نوآوری)
+│       └── pearson.py             # توزیع پیرسون نوع III
+├── notebooks/                     # آموزش‌های تعاملی
+│   └── 01_Quick_Start.ipynb
+├── tests/                         # آزمون‌های واحد
+├── config.yaml                    # فایل پیکربندی اصلی
+├── main.py                        # نقطهٔ ورود
+└── README.md                      # مستندات کامل
+\end{verbatim}
+
+\subsection{نصب و راه‌اندازی}
+
+برای نصب سامانه، مراحل زیر را دنبال کنید:
+
+\begin{enumerate}
+\item کلون کردن مخزن:
+\begin{verbatim}
+git clone https://github.com/AminFazlKazemi/ClimateProcessingEngine.git
+cd ClimateProcessingEngine
+\end{verbatim}
+
+\item ایجاد محیط مجازی (توصیه‌شده):
+\begin{verbatim}
+python -m venv venv
+source venv/bin/activate  # لینوکس/مک
+# یا
+venv\Scripts\activate     # ویندوز
+\end{verbatim}
+
+\item نصب وابستگی‌ها:
+\begin{verbatim}
+pip install -e .
+\end{verbatim}
+
+\item اجرای سامانه:
+\begin{verbatim}
+python main.py
+\end{verbatim}
+\end{enumerate}
+
+\subsection{پیکربندی}
+
+همهٔ پارامترهای اجرا در فایل \texttt{config.yaml} تعریف می‌شوند. مهم‌ترین پارامترها عبارت‌اند از:
+
+\begin{itemize}
+\item \texttt{block\_size}: تعداد ایستگاه‌های هر بلوک (پیش‌فرض: ۲۰۰۰)
+\item \texttt{paths.input\_zarr\_base}: مسیر فایل‌های Zarr ورودی
+\item \texttt{paths.output\_dir}: مسیر خروجی
+\item \texttt{years.start} و \texttt{years.end}: سال‌های شروع و پایان
+\item \texttt{parallel.max\_workers}: تعداد پردازنده‌های موازی
+\end{itemize}
+
+% ------------------------------------------------------------
+% بخش ۲: توزیع‌های آماری
+% ------------------------------------------------------------
+\section{تشریح کامل توزیع‌های آماری}
+
+در این بخش، هر یک از پنج توزیع آماری به‌صورت کامل معرفی می‌شوند.
+
+\subsection{توزیع نرمال (Normal Distribution)}
+
+\subsubsection{تعریف}
+
+توزیع نرمال با تابع چگالی احتمال زیر تعریف می‌شود:
+
+\begin{equation}
+f(x) = \frac{1}{\sigma\sqrt{2\pi}} \exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
+\end{equation}
+
+\subsubsection{پارامترها}
+
+\begin{itemize}
+\item $\mu$: میانگین (مکان) – محدوده: $(-\infty, \infty)$
+\item $\sigma > 0$: انحراف معیار (مقیاس)
+\end{itemize}
+
+\subsubsection{روش برآورد پارامترها}
+
+برآوردگرهای بیشینه‌ی درست‌نمایی:
+
+\begin{equation}
+\hat{\mu} = \frac{1}{n}\sum_{i=1}^{n} x_i
+\end{equation}
+
+\begin{equation}
+\hat{\sigma} = \sqrt{\frac{1}{n}\sum_{i=1}^{n} (x_i - \hat{\mu})^2}
+\end{equation}
+
+\subsubsection{تابع درست‌نمایی}
+
+\begin{equation}
+\mathcal{L}(\mu, \sigma) = \prod_{i=1}^{n} \frac{1}{\sigma\sqrt{2\pi}} \exp\left(-\frac{(x_i-\mu)^2}{2\sigma^2}\right)
+\end{equation}
+
+\subsubsection{لگاریتم درست‌نمایی}
+
+\begin{equation}
+\ell(\mu, \sigma) = -\frac{n}{2}\ln(2\pi) - n\ln(\sigma) - \frac{1}{2\sigma^2}\sum_{i=1}^{n} (x_i - \mu)^2
+\end{equation}
+
+\subsubsection{کد نمونه در پایتون}
+
+\begin{verbatim}
+import numpy as np
+from scipy.stats import norm
+
+def fit_normal(data):
+    mu = np.mean(data)
+    sigma = np.std(data, ddof=0)
+    loglik = np.sum(norm.logpdf(data, mu, sigma))
+    n = len(data)
+    k = 2
+    aic = 2*k - 2*loglik
+    bic = k*np.log(n) - 2*loglik
+    aicc = aic + (2*k*(k+1))/(n-k-1) if n-k-1 > 0 else aic
+    return {'mu': mu, 'sigma': sigma, 'loglik': loglik, 
+            'aicc': aicc, 'bic': bic}
+\end{verbatim}
+
+\subsection{توزیع نرمال چوله (Skew-Normal Distribution)}
+
+\subsubsection{تعریف}
+
+توزیع نرمال چوله با تابع چگالی احتمال زیر تعریف می‌شود:
+
+\begin{equation}
+f(x) = \frac{2}{\omega} \phi\left(\frac{x-\xi}{\omega}\right) \Phi\left(\alpha\frac{x-\xi}{\omega}\right)
+\end{equation}
+
+که در آن $\phi$ تابع چگالی نرمال استاندارد و $\Phi$ تابع توزیع تجمعی نرمال استاندارد است.
+
+\subsubsection{پارامترها}
+
+\begin{itemize}
+\item $\xi$: پارامتر مکان – محدوده: $(-\infty, \infty)$
+\item $\omega > 0$: پارامتر مقیاس
+\item $\alpha$: پارامتر شکل (چولگی) – محدوده: $(-\infty, \infty)$
+\end{itemize}
+
+\subsubsection{روش برآورد پارامترها (روش گشتاورها)}
+
+\begin{enumerate}
+\item چولگی نمونه ($\hat{\gamma}_1$) را محاسبه کنید.
+\item $\delta$ را از رابطهٔ زیر محاسبه کنید:
+\begin{equation}
+\delta = \sqrt{\frac{\pi}{2}} \frac{\hat{\gamma}_1}{1 + \frac{2}{\pi}\hat{\gamma}_1^2}
+\end{equation}
+\item $\alpha$ را محاسبه کنید:
+\begin{equation}
+\alpha = \frac{\delta}{\sqrt{1-\delta^2}}
+\end{equation}
+\item $\omega$ را محاسبه کنید:
+\begin{equation}
+\omega = \frac{\sigma}{\sqrt{1 - \frac{2\delta^2}{\pi}}}
+\end{equation}
+\item $\xi$ را محاسبه کنید:
+\begin{equation}
+\xi = \mu - \omega\delta\sqrt{\frac{2}{\pi}}
+\end{equation}
+\end{enumerate}
+
+\subsubsection{کد نمونه در پایتون}
+
+\begin{verbatim}
+import numpy as np
+from scipy.stats import skewnorm
+
+def fit_skewnormal(data):
+    mu = np.mean(data)
+    sigma = np.std(data, ddof=0)
+    skew = np.mean(((data - mu)/sigma)**3)
+    
+    # برآورد اولیه با روش گشتاورها
+    delta = np.sqrt(np.pi/2) * skew / (1 + (2/np.pi)*skew**2)
+    delta = np.clip(delta, -0.999, 0.999)
+    alpha = delta / np.sqrt(1 - delta**2)
+    omega = sigma / np.sqrt(1 - 2*delta**2/np.pi)
+    xi = mu - omega * delta * np.sqrt(2/np.pi)
+    
+    # بهینه‌سازی عددی (اختیاری)
+    # ...
+    
+    loglik = np.sum(skewnorm.logpdf(data, alpha, xi, omega))
+    n = len(data)
+    k = 3
+    aic = 2*k - 2*loglik
+    bic = k*np.log(n) - 2*loglik
+    aicc = aic + (2*k*(k+1))/(n-k-1) if n-k-1 > 0 else aic
+    return {'alpha': alpha, 'xi': xi, 'omega': omega, 
+            'loglik': loglik, 'aicc': aicc, 'bic': bic}
+\end{verbatim}
+
+\subsection{توزیع مقادیر حدی تعمیم‌یافته (GEV)}
+
+\subsubsection{تعریف}
+
+توزیع GEV با تابع چگالی احتمال زیر تعریف می‌شود:
+
+\begin{equation}
+f(x) = \frac{1}{\sigma} \left(1 + \xi\frac{x-\mu}{\sigma}\right)^{-\left(\frac{1}{\xi}+1\right)} \exp\left(-\left(1 + \xi\frac{x-\mu}{\sigma}\right)^{-\frac{1}{\xi}}\right)
+\end{equation}
+
+برای $\xi \neq 0$، و برای $\xi = 0$:
+
+\begin{equation}
+f(x) = \frac{1}{\sigma} \exp\left(-\frac{x-\mu}{\sigma} - \exp\left(-\frac{x-\mu}{\sigma}\right)\right)
+\end{equation}
+
+\subsubsection{پارامترها}
+
+\begin{itemize}
+\item $\mu$: پارامتر مکان – محدوده: $(-\infty, \infty)$
+\item $\sigma > 0$: پارامتر مقیاس
+\item $\xi$: پارامتر شکل – محدوده: $(-\infty, \infty)$
+\end{itemize}
+
+\subsubsection{محدودهٔ تعریف}
+
+\begin{itemize}
+\item $\xi > 0$: $x \in [\mu - \sigma/\xi, \infty)$ (توزیع فرشه)
+\item $\xi < 0$: $x \in (-\infty, \mu - \sigma/\xi]$ (توزیع ویبول)
+\item $\xi = 0$: $x \in (-\infty, \infty)$ (توزیع گامبل)
+\end{itemize}
+
+\subsubsection{روش برآورد پارامترها (روش گشتاورها)}
+
+\begin{enumerate}
+\item میانگین ($\mu_x$)، انحراف معیار ($\sigma_x$) و چولگی ($\gamma_1$) داده را محاسبه کنید.
+\item $\xi$ را با حل عددی معادلهٔ زیر تخمین بزنید:
+\begin{equation}
+\gamma_1 = \frac{\Gamma(1-3\xi) - 3\Gamma(1-\xi)\Gamma(1-2\xi) + 2\Gamma(1-\xi)^3}{(\Gamma(1-2\xi) - \Gamma(1-\xi)^2)^{3/2}}
+\end{equation}
+\item $\sigma$ را محاسبه کنید:
+\begin{equation}
+\sigma = \frac{|\xi|\sigma_x}{\sqrt{\Gamma(1-2\xi) - \Gamma(1-\xi)^2}}
+\end{equation}
+\item $\mu$ را محاسبه کنید:
+\begin{equation}
+\mu = \mu_x + \frac{\sigma(\Gamma(1-\xi)-1)}{\xi}
+\end{equation}
+\end{enumerate}
+
+\subsubsection{کد نمونه در پایتون}
+
+\begin{verbatim}
+import numpy as np
+from scipy.stats import genextreme
+from scipy.special import gamma
+
+def fit_gev(data):
+    mu_x = np.mean(data)
+    sigma_x = np.std(data, ddof=0)
+    skew = np.mean(((data - mu_x)/sigma_x)**3)
+    
+    # برآورد اولیه ξ با روش گشتاورها
+    # (در عمل، از بهینه‌سازی عددی استفاده می‌شود)
+    # ...
+    
+    # برآورد با استفاده از scipy
+    params = genextreme.fit(data)
+    c, loc, scale = params[0], params[1], params[2]
+    
+    loglik = np.sum(genextreme.logpdf(data, c, loc, scale))
+    n = len(data)
+    k = 3
+    aic = 2*k - 2*loglik
+    bic = k*np.log(n) - 2*loglik
+    aicc = aic + (2*k*(k+1))/(n-k-1) if n-k-1 > 0 else aic
+    return {'shape': c, 'loc': loc, 'scale': scale, 
+            'loglik': loglik, 'aicc': aicc, 'bic': bic}
+\end{verbatim}
+
+\subsection{توزیع دوکوهانه (Bimodal Normal Distribution) – نوآوری پژوهش}
+
+\subsubsection{تعریف}
+
+توزیع دوکوهانه، ترکیبی وزنی از دو توزیع نرمال است:
+
+\begin{equation}
+f(x) = w_1 \mathcal{N}(x; \mu_1, \sigma_1^2) + w_2 \mathcal{N}(x; \mu_2, \sigma_2^2)
+\end{equation}
+
+که در آن $w_1 + w_2 = 1$ و $0 \leq w_i \leq 1$.
+
+\subsubsection{پارامترها}
+
+\begin{itemize}
+\item $w_1, w_2$: وزن‌های مؤلفه‌ها ($w_1 + w_2 = 1$)
+\item $\mu_1, \mu_2$: میانگین‌های دو مؤلفه
+\item $\sigma_1, \sigma_2 > 0$: انحراف معیارهای دو مؤلفه
+\end{itemize}
+
+تعداد کل پارامترها: ۵ (با در نظر گرفتن $w_2 = 1 - w_1$)
+
+\subsubsection{الگوریتم بیشینه‌سازی امید ریاضی (EM)}
+
+الگوریتم EM برای برآورد پارامترهای توزیع دوکوهانه به‌صورت زیر است:
+
+\paragraph{مرحلهٔ ۱: مقداردهی اولیه}
+
+\begin{enumerate}
+\item میانگین ($\mu$) و انحراف معیار ($\sigma$) کل داده را محاسبه کنید.
+\item چولگی ($\gamma_1$) و کشیدگی ($\gamma_2$) داده را محاسبه کنید.
+\item اگر $|\gamma_1| < 0.1$:
+  \begin{itemize}
+  \item $w_1 = 0.5$، $w_2 = 0.5$
+  \item اگر $\gamma_2 > 0$: $\delta = \sigma \sqrt{\max(0, \gamma_2/2)}$ در غیر این صورت $\delta = 0.5\sigma$
+  \item $\mu_1 = \mu - \delta$، $\mu_2 = \mu + \delta$
+  \item $\sigma_1 = \sigma_2 = \sqrt{\max(0.1, \sigma^2 - \delta^2)}$
+  \end{itemize}
+\item در غیر این صورت:
+  \begin{itemize}
+  \item $w_1 = 0.5 - 0.4 \times \text{clip}(\gamma_1, -1, 1)$
+  \item $w_2 = 1 - w_1$
+  \item $\delta = \sigma \times (0.5 + 0.3 \times |\gamma_1|)$
+  \item اگر $\gamma_1 > 0$: $\mu_1 = \mu - w_2\delta$، $\mu_2 = \mu + w_1\delta$
+  \item اگر $\gamma_1 < 0$: $\mu_1 = \mu + w_2\delta$، $\mu_2 = \mu - w_1\delta$
+  \item $\sigma_1 = \sigma_2 = \sqrt{\max(0.1, \sigma^2 - w_1 w_2 \delta^2)}$
+  \end{itemize}
+\item $w_1 = \text{clip}(w_1, 0.01, 0.99)$، $w_2 = 1 - w_1$
+\item $\sigma_1 = \max(\sigma_1, 0.1)$، $\sigma_2 = \max(\sigma_2, 0.1)$
+\end{enumerate}
+
+\paragraph{مرحلهٔ ۲: تکرار EM}
+
+برای هر تکرار تا رسیدن به همگرایی (حداکثر ۱۰۰۰ تکرار یا تغییر پارامترها کمتر از $10^{-6}$):
+
+\begin{enumerate}
+\item \textbf{مرحلهٔ E (Expectation):} برای هر مشاهده $x_i$، احتمال تعلق به مؤلفهٔ ۱ را محاسبه کنید:
+\begin{equation}
+\gamma_{i1} = \frac{w_1 \mathcal{N}(x_i; \mu_1, \sigma_1^2)}{w_1 \mathcal{N}(x_i; \mu_1, \sigma_1^2) + w_2 \mathcal{N}(x_i; \mu_2, \sigma_2^2)}
+\end{equation}
+و $\gamma_{i2} = 1 - \gamma_{i1}$.
+
+\item \textbf{مرحلهٔ M (Maximization):} پارامترها را به‌روزرسانی کنید:
+\begin{equation}
+w_1 = \frac{\sum_{i=1}^{n} \gamma_{i1}}{n}, \quad w_2 = 1 - w_1
+\end{equation}
+\begin{equation}
+\mu_1 = \frac{\sum_{i=1}^{n} \gamma_{i1} x_i}{\sum_{i=1}^{n} \gamma_{i1}}, \quad \mu_2 = \frac{\sum_{i=1}^{n} \gamma_{i2} x_i}{\sum_{i=1}^{n} \gamma_{i2}}
+\end{equation}
+\begin{equation}
+\sigma_1^2 = \frac{\sum_{i=1}^{n} \gamma_{i1} (x_i - \mu_1)^2}{\sum_{i=1}^{n} \gamma_{i1}}, \quad \sigma_2^2 = \frac{\sum_{i=1}^{n} \gamma_{i2} (x_i - \mu_2)^2}{\sum_{i=1}^{n} \gamma_{i2}}
+\end{equation}
+\end{enumerate}
+
+\paragraph{مرحلهٔ ۳: محاسبهٔ معیارهای اطلاعاتی}
+
+\begin{equation}
+\ell(\theta) = \sum_{i=1}^{n} \ln\left(w_1 \mathcal{N}(x_i; \mu_1, \sigma_1^2) + w_2 \mathcal{N}(x_i; \mu_2, \sigma_2^2)\right)
+\end{equation}
+
+\begin{equation}
+\text{AICc} = -2\ell(\theta) + 2k + \frac{2k(k+1)}{n-k-1}, \quad k = 5
+\end{equation}
+
+\begin{equation}
+\text{BIC} = -2\ell(\theta) + k\ln(n)
+\end{equation}
+
+\subsubsection{شاخص‌های تشخیص دوکوهانه‌ای}
+
+\begin{enumerate}
+\item \textbf{شاخص جدایش اشمن (Ashman's D):}
+\begin{equation}
+D = \frac{|\mu_2 - \mu_1|}{\sqrt{(\sigma_1^2 + \sigma_2^2)/2}}
+\end{equation}
+تفسیر: $D > 2$: دوکوهانه‌ای واضح، $1.5 < D < 2$: دوکوهانه‌ای متوسط، $D < 1.5$: دوکوهانه‌ای ضعیف
+
+\item \textbf{ضریب همپوشانی (Overlap Coefficient):}
+\begin{equation}
+\text{OVL} = \int_{-\infty}^{\infty} \min\{f_1(x), f_2(x)\} \, dx
+\end{equation}
+تفسیر: OVL نزدیک به ۰: جدایش کامل، OVL نزدیک به ۱: همپوشانی کامل
+
+\item \textbf{قدرت دوکوهانه‌ای (Bimodality Strength):}
+\begin{equation}
+\beta = \frac{w_1 w_2 (\mu_2 - \mu_1)^2}{\sigma_1 \sigma_2}
+\end{equation}
+\end{enumerate}
+
+\subsubsection{کد کامل پیاده‌سازی در پایتون}
+
+\begin{verbatim}
+import numpy as np
+from scipy.stats import norm
+from scipy.special import logsumexp
+
+class BimodalNormal:
+    def __init__(self, w1=0.5, mu1=0.0, mu2=1.0, sigma1=1.0, sigma2=1.0):
+        self.w1 = np.clip(w1, 0.0, 1.0)
+        self.w2 = 1.0 - self.w1
+        self.mu1, self.mu2 = min(mu1, mu2), max(mu1, mu2)
+        self.sigma1 = max(sigma1, 1e-6)
+        self.sigma2 = max(sigma2, 1e-6)
+        self._dist1 = norm(self.mu1, self.sigma1)
+        self._dist2 = norm(self.mu2, self.sigma2)
+    
+    def pdf(self, x):
+        """تابع چگالی احتمال"""
+        x = np.asarray(x)
+        return self.w1 * self._dist1.pdf(x) + self.w2 * self._dist2.pdf(x)
+    
+    def logpdf(self, x):
+        """لگاریتم تابع چگالی احتمال"""
+        x = np.asarray(x)
+        log_w = np.log([self.w1, self.w2])
+        log_pdf = np.column_stack([self._dist1.logpdf(x), self._dist2.logpdf(x)])
+        return logsumexp(log_pdf + log_w, axis=1)
+    
+    @classmethod
+    def fit(cls, data, max_iter=1000, tol=1e-6):
+        """برازش توزیع دوکوهانه با الگوریتم EM"""
+        data = np.asarray(data).flatten()
+        data = data[~np.isnan(data)]
+        n = len(data)
+        
+        if n < 10:
+            raise ValueError("حداقل ۱۰ داده برای برازش نیاز است")
+        
+        # مقداردهی اولیه
+        mu = np.mean(data)
+        sigma = np.std(data, ddof=0)
+        skew = np.mean(((data - mu)/sigma)**3)
+        kurt = np.mean(((data - mu)/sigma)**4) - 3
+        
+        if abs(skew) < 0.1:
+            w1 = 0.5
+            delta = sigma * np.sqrt(max(0, kurt/2)) if kurt > 0 else 0.5*sigma
+            mu1, mu2 = mu - delta, mu + delta
+            sigma1 = sigma2 = np.sqrt(max(0.1, sigma**2 - delta**2))
+        else:
+            w1 = 0.5 - 0.4 * np.clip(skew, -1, 1)
+            w1 = np.clip(w1, 0.01, 0.99)
+            w2 = 1 - w1
+            delta = sigma * (0.5 + 0.3 * abs(skew))
+            if skew > 0:
+                mu1, mu2 = mu - w2*delta, mu + w1*delta
+            else:
+                mu1, mu2 = mu + w2*delta, mu - w1*delta
+            sigma1 = sigma2 = np.sqrt(max(0.1, sigma**2 - w1*w2*delta**2))
+        
+        # الگوریتم EM
+        for iteration in range(max_iter):
+            # مرحله E
+            pdf1 = norm.pdf(data, mu1, sigma1)
+            pdf2 = norm.pdf(data, mu2, sigma2)
+            gamma = (w1 * pdf1) / (w1 * pdf1 + w2 * pdf2 + 1e-300)
+            
+            # مرحله M
+            w1_new = np.mean(gamma)
+            w2_new = 1 - w1_new
+            mu1_new = np.sum(gamma * data) / (np.sum(gamma) + 1e-300)
+            mu2_new = np.sum((1-gamma) * data) / (np.sum(1-gamma) + 1e-300)
+            sigma1_new = np.sqrt(np.sum(gamma * (data - mu1_new)**2) / (np.sum(gamma) + 1e-300))
+            sigma2_new = np.sqrt(np.sum((1-gamma) * (data - mu2_new)**2) / (np.sum(1-gamma) + 1e-300))
+            
+            # بررسی همگرایی
+            diff = max(abs(w1_new - w1), abs(mu1_new - mu1), abs(mu2_new - mu2),
+                      abs(sigma1_new - sigma1), abs(sigma2_new - sigma2))
+            
+            w1, w2 = w1_new, w2_new
+            mu1, mu2 = mu1_new, mu2_new
+            sigma1, sigma2 = sigma1_new, sigma2_new
+            
+            if diff < tol:
+                break
+        
+        # محاسبه معیارهای اطلاعاتی
+        loglik = np.sum(np.log(cls(w1, mu1, mu2, sigma1, sigma2).pdf(data) + 1e-300))
+        k = 5
+        aic = 2*k - 2*loglik
+        bic = k*np.log(n) - 2*loglik
+        aicc = aic + (2*k*(k+1))/(n-k-1) if n-k-1 > 0 else aic
+        
+        # شاخص‌های دوکوهانه‌ای
+        D = abs(mu2 - mu1) / np.sqrt((sigma1**2 + sigma2**2)/2)
+        beta = w1 * w2 * (mu2 - mu1)**2 / (sigma1 * sigma2)
+        
+        return {
+            'w1': w1, 'w2': w2,
+            'mu1': mu1, 'mu2': mu2,
+            'sigma1': sigma1, 'sigma2': sigma2,
+            'loglik': loglik, 'aicc': aicc, 'bic': bic,
+            'ashman_d': D, 'bimodality_strength': beta,
+            'iterations': iteration + 1
+        }
+    
+    @property
+    def ashman_d(self):
+        """شاخص جدایش اشمن"""
+        return abs(self.mu2 - self.mu1) / np.sqrt((self.sigma1**2 + self.sigma2**2)/2)
+    
+    @property
+    def bimodality_strength(self):
+        """قدرت دوکوهانه‌ای"""
+        return self.w1 * self.w2 * (self.mu2 - self.mu1)**2 / (self.sigma1 * self.sigma2)
+    
+    @property
+    def overlap_coefficient(self):
+        """ضریب همپوشانی (محاسبه عددی)"""
+        from scipy.integrate import quad
+        f1 = lambda x: norm.pdf(x, self.mu1, self.sigma1)
+        f2 = lambda x: norm.pdf(x, self.mu2, self.sigma2)
+        return quad(lambda x: np.minimum(f1(x), f2(x)), -np.inf, np.inf)[0]
+\end{verbatim}
+
+\subsection{توزیع پیرسون نوع III}
+
+\subsubsection{تعریف}
+
+توزیع پیرسون نوع III با تابع چگالی احتمال زیر تعریف می‌شود:
+
+\begin{equation}
+f(x) = \frac{1}{\Gamma(\alpha)\beta^\alpha} (x-\gamma)^{\alpha-1} \exp\left(-\frac{x-\gamma}{\beta}\right)
+\end{equation}
+
+\subsubsection{پارامترها}
+
+\begin{itemize}
+\item $\alpha > 0$: پارامتر شکل
+\item $\beta > 0$: پارامتر مقیاس
+\item $\gamma$: پارامتر مکان (حد پایین)
+\end{itemize}
+
+\subsubsection{روش برآورد پارامترها (روش گشتاورها)}
+
+\begin{enumerate}
+\item میانگین ($\mu$)، انحراف معیار ($\sigma$) و چولگی ($\gamma_1$) داده را محاسبه کنید.
+\item $\alpha$ را محاسبه کنید:
+\begin{equation}
+\alpha = \frac{4}{\gamma_1^2}
+\end{equation}
+\item $\beta$ را محاسبه کنید:
+\begin{equation}
+\beta = \frac{\sigma}{\sqrt{\alpha}}
+\end{equation}
+\item $\gamma$ را محاسبه کنید:
+\begin{equation}
+\gamma = \mu - \alpha\beta
+\end{equation}
+\end{enumerate}
+
+\subsubsection{کد نمونه در پایتون}
+
+\begin{verbatim}
+import numpy as np
+from scipy.stats import pearson3
+
+def fit_pearson3(data):
+    mu = np.mean(data)
+    sigma = np.std(data, ddof=0)
+    skew = np.mean(((data - mu)/sigma)**3)
+    
+    # برآورد با روش گشتاورها
+    skew = np.clip(skew, -2.999, 2.999)
+    alpha = 4 / (skew**2 + 1e-10)
+    beta = sigma / np.sqrt(alpha)
+    gamma = mu - alpha * beta
+    
+    # در صورت چولگی منفی، داده را معکوس می‌کنیم
+    if skew < 0:
+        data_transformed = -data
+        # ... برآورد روی داده‌های معکوس
+    else:
+        data_transformed = data
+    
+    # محاسبه درست‌نمایی
+    from scipy.stats import gamma
+    loglik = np.sum(gamma.logpdf(data_transformed - gamma, alpha, scale=beta))
+    
+    n = len(data)
+    k = 3
+    aic = 2*k - 2*loglik
+    bic = k*np.log(n) - 2*loglik
+    aicc = aic + (2*k*(k+1))/(n-k-1) if n-k-1 > 0 else aic
+    
+    return {'shape': alpha, 'scale': beta, 'loc': gamma,
+            'loglik': loglik, 'aicc': aicc, 'bic': bic}
+\end{verbatim}
+
+% ------------------------------------------------------------
+% بخش ۳: معیارهای انتخاب توزیع
+% ------------------------------------------------------------
+\section{معیارهای انتخاب توزیع}
+
+پس از برازش هر پنج توزیع به داده‌ها، سامانه بهترین توزیع را با استفاده از معیارهای اطلاعاتی انتخاب می‌کند.
+
+\subsection{معیار اطلاعات آکائیکه تصحیح‌شده (AICc)}
+
+\begin{equation}
+\text{AICc} = -2\ln(\hat{L}) + 2k + \frac{2k(k+1)}{n-k-1}
+\end{equation}
+
+که در آن $\hat{L}$ بیشینه‌ی تابع درست‌نمایی، $k$ تعداد پارامترهای توزیع و $n$ حجم نمونه است.
+
+\subsection{معیار اطلاعات بیزی (BIC)}
+
+\begin{equation}
+\text{BIC} = -2\ln(\hat{L}) + k\ln(n)
+\end{equation}
+
+\subsection{قانون انتخاب}
+
+سامانه توزیعی را انتخاب می‌کند که کمترین مقدار AICc را داشته باشد. در صورت تساوی (تفاوت کمتر از ۲)، توزیع با تعداد پارامتر کمتر (اصل سادگی) ترجیح داده می‌شود.
+
+% ------------------------------------------------------------
+% بخش ۴: راهنمای افزودن توزیع جدید
+% ------------------------------------------------------------
+\section{راهنمای افزودن توزیع جدید}
+
+برای افزودن یک توزیع جدید به سامانه، مراحل زیر را دنبال کنید:
+
+\begin{enumerate}
+\item یک فایل پایتون جدید در پوشهٔ \texttt{plugins/distributions/} ایجاد کنید (مثلاً \texttt{my\_distribution.py}).
+
+\item کلاسی تعریف کنید که از \texttt{DistributionPlugin} ارث‌بری کند:
+
+\begin{verbatim}
+from core.engine.distribution_plugin import DistributionPlugin
+
+class MyDistribution(DistributionPlugin):
+    name = "MyDistribution"     # نام نمایشی
+    code = 5                    # کد یکتا (بعد از ۴)
+    params = ["p1", "p2", "p3"] # نام پارامترها
+    n_params = 3                # تعداد پارامترها
+    supports_negative = True    # پشتیبانی از داده‌های منفی
+    supports_zero = True        # پشتیبانی از صفر
+    supports_positive = True    # پشتیبانی از داده‌های مثبت
+    extreme_only = False        # فقط در حالت فرین فعال باشد؟
+\end{verbatim}
+
+\item متد \texttt{fit(self, data)} را پیاده‌سازی کنید:
+
+\begin{verbatim}
+def fit(self, data):
+    # برآورد پارامترها
+    p1, p2, p3 = self._estimate_parameters(data)
+    
+    # محاسبه درست‌نمایی
+    loglik = self._compute_loglikelihood(data, p1, p2, p3)
+    
+    # محاسبه معیارهای اطلاعاتی
+    n = len(data)
+    k = self.n_params
+    aic = 2*k - 2*loglik
+    bic = k*np.log(n) - 2*loglik
+    aicc = aic + (2*k*(k+1))/(n-k-1) if n-k-1 > 0 else aic
+    
+    return {
+        "p1": p1, "p2": p2, "p3": p3,
+        "loglik": loglik,
+        "aicc": aicc,
+        "bic": bic
+    }
+\end{verbatim}
+
+\item سامانه به‌طور خودکار توزیع جدید را شناسایی و بارگذاری می‌کند.
+\end{enumerate}
+
+% ------------------------------------------------------------
+% بخش ۵: مثال‌های عددی کامل
+% ------------------------------------------------------------
+\section{مثال‌های عددی کامل}
+
+\subsection{مثال ۱: برازش توزیع نرمال بر داده‌های دمای روزانه}
+
+\begin{verbatim}
+import numpy as np
+from plugins.distributions.normal import NormalDistribution
+
+# داده‌های نمونه (دمای روزانه، ۳۰ سال)
+data = np.random.normal(25, 5, 10950)  # 30 سال × 365 روز
+
+# برازش توزیع نرمال
+dist = NormalDistribution()
+result = dist.fit(data)
+
+print(f"میانگین: {result['p1']:.2f}")
+print(f"انحراف معیار: {result['p2']:.2f}")
+print(f"AICc: {result['aicc']:.2f}")
+print(f"BIC: {result['bic']:.2f}")
+\end{verbatim}
+
+\subsection{مثال ۲: برازش توزیع دوکوهانه بر داده‌های دوگانه}
+
+\begin{verbatim}
+import numpy as np
+from plugins.distributions.bimodal import BimodalDistribution
+
+# تولید داده‌های دوگانه (ترکیب دو نرمال)
+n1, n2 = 500, 500
+data1 = np.random.normal(10, 2, n1)
+data2 = np.random.normal(25, 3, n2)
+data = np.concatenate([data1, data2])
+
+# برازش توزیع دوکوهانه
+dist = BimodalDistribution()
+result = dist.fit(data)
+
+print(f"وزن مؤلفه ۱: {result['p1']:.3f}")
+print(f"میانگین مؤلفه ۱: {result['p2']:.2f}")
+print(f"انحراف معیار مؤلفه ۱: {result['p3']:.2f}")
+print(f"میانگین مؤلفه ۲: {result['p4']:.2f}")
+print(f"انحراف معیار مؤلفه ۲: {result['p5']:.2f}")
+print(f"شاخص اشمن D: {dist.ashman_d:.3f}")
+print(f"قدرت دوکوهانه‌ای: {dist.bimodality_strength:.3f}")
+print(f"AICc: {result['aicc']:.2f}")
+\end{verbatim}
+
+\subsection{مثال ۳: پردازش کامل با استفاده از main.py}
+
+\begin{verbatim}
+# تنظیم فایل config.yaml
+# سپس اجرا:
+python main.py
+
+# خروجی در مسیر مشخص شده در config.yaml ذخیره می‌شود
+\end{verbatim}
+
+% ------------------------------------------------------------
+% بخش ۶: عیب‌یابی
+% ------------------------------------------------------------
+\section{راهنمای عیب‌یابی}
+
+\subsection{خطای حافظه}
+
+\begin{itemize}
+\item \texttt{block\_size} را کاهش دهید (مثلاً به ۱۰۰۰)
+\item \texttt{max\_workers} را کاهش دهید
+\item از \texttt{output\_precision: "float32"} استفاده کنید
+\end{itemize}
+
+\subsection{خطای مسیر}
+
+\begin{itemize}
+\item مسیرهای \texttt{input\_zarr\_base} و \texttt{output\_dir} را در \texttt{config.yaml} بررسی کنید
+\item از مسیرهای مطلق استفاده کنید
+\end{itemize}
+
+\subsection{همگرایی نشدن الگوریتم EM}
+
+\begin{itemize}
+\item \texttt{max\_iter} را افزایش دهید
+\item \texttt{tol} را افزایش دهید (مثلاً به $10^{-4}$)
+\item داده‌های ورودی را بررسی کنید (تعداد نمونه‌ها، وجود داده‌های پرت)
+\end{itemize}
+
+% ------------------------------------------------------------
+% منابع تکمیلی
+% ------------------------------------------------------------
+\section*{منابع}
+
+\subsection*{منابع فارسی}
+
+کاظمی، ا. ف. (۱۴۰۴). \textit{موتور پردازش اقلیم‌شناسی: مستندات فنی و راهنمای کاربر}. سازمان هواشناسی کشور، تهران.
+
+\subsection*{منابع انگلیسی}
+
+Coles, S. (2001). \textit{An Introduction to Statistical Modeling of Extreme Values}. Springer.
+
+Dempster, A. P., Laird, N. M., \& Rubin, D. B. (1977). Maximum likelihood from incomplete data via the EM algorithm. \textit{Journal of the Royal Statistical Society, Series B}, 39(1), 1–38.
+
+Hosking, J. R. M. (1990). L-moments: Analysis and estimation of distributions using linear combinations of order statistics. \textit{Journal of the Royal Statistical Society, Series B}, 52(1), 105–124.
+
+McLachlan, G. J., \& Peel, D. (2000). \textit{Finite Mixture Models}. John Wiley \& Sons.
+
+Wilks, D. S. (2011). \textit{Statistical Methods in the Atmospheric Sciences} (3rd ed.). Academic Press.
+
+\end{document}
 
 
 ================================================================================
@@ -5298,6 +6172,519 @@ def build_cache():
 def main():
     try:
         build_cache()
+    except KeyboardInterrupt:
+        logger.warning("\n⏹️ کاربر متوقف کرد.")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"❌ خطا: {e}", exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+
+
+================================================================================
+📄 فایل: build_cache_only_.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+build_cache_only.py – ساخت کش با پرش از بلوک‌های قفل‌شده
+================================================================================
+- فقط بلوک‌های ۰ تا ۱۹ (نقاط ۰ تا ۳۷۹۹۹) را پردازش می‌کند.
+- اگر یک بلوک قفل باشد (یعنی main.py در حال پردازش آن است)، از آن عبور می‌کند.
+- هر بلوک را با قفل جداگانه محافظت می‌کند.
+================================================================================
+"""
+
+import os
+import sys
+import time
+import gc
+import yaml
+import numpy as np
+from tqdm import tqdm
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+from constants import (
+    ZARR_BASE, YEAR_START, YEAR_END, BLOCK_SIZE, CHECKPOINT_FILE
+)
+from runtime_tables import build_runtime_tables
+from data_adapter import create_adapter
+from monitoring.logger import logger
+from lock_utils import acquire_lock, release_lock, is_locked, clean_stale_locks
+
+# ============================================================
+# بارگذاری config
+# ============================================================
+CONFIG_PATH = "config.yaml"
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    CONFIG = yaml.safe_load(f)
+
+LAT_MIN = CONFIG.get("lat_min")
+LAT_MAX = CONFIG.get("lat_max")
+LON_MIN = CONFIG.get("lon_min")
+LON_MAX = CONFIG.get("lon_max")
+DATA_FORMAT = CONFIG.get("data_format", "auto")
+N_POINTS_MAX = CONFIG.get("n_sample_points", 40000)
+
+# ============================================================
+# توابع کمکی
+# ============================================================
+def cache_exists(adapter, block_start, block_size, year_idx, month, sample_hash="all"):
+    possible_block_sizes = [1000, 2000, 5000]
+    possible_hashes = ["all", sample_hash]
+    
+    for bs in possible_block_sizes:
+        adjusted_start = (block_start // bs) * bs
+        for hs in possible_hashes:
+            try:
+                key = adapter.cache._get_cache_key(
+                    block_start=adjusted_start,
+                    block_size=bs,
+                    year=year_idx,
+                    month=month,
+                    var="all_vars",
+                    sample_hash=hs
+                )
+                path = adapter.cache._get_cache_path(key)
+                if os.path.exists(path):
+                    return True
+            except Exception:
+                continue
+    return False
+
+def get_checkpoint():
+    """خواندن checkpoint از فایل"""
+    if not os.path.exists(CHECKPOINT_FILE):
+        return None
+    data = {}
+    with open(CHECKPOINT_FILE, "r") as f:
+        for line in f:
+            if "=" in line:
+                k, v = line.strip().split("=", 1)
+                data[k] = v
+    if "block" in data and "station" in data:
+        return {"block": int(data["block"]), "station": int(data["station"])}
+    return None
+
+def save_checkpoint(block_idx, station_idx):
+    """ذخیره checkpoint"""
+    with open(CHECKPOINT_FILE, "w") as f:
+        f.write(f"block={block_idx}\n")
+        f.write(f"station={station_idx}\n")
+        f.write(f"timestamp={int(time.time())}\n")
+
+# ============================================================
+# تابع اصلی
+# ============================================================
+def build_cache():
+    logger.info("=" * 80)
+    logger.info("🚀 BUILD CACHE – با پرش از بلوک‌های قفل‌شده")
+    logger.info("   - بلوک‌های ۰ تا ۱۹ (نقاط ۰ تا ۳۷۹۹۹)")
+    logger.info("   - اگر بلوکی قفل باشد، از آن عبور می‌کند")
+    logger.info("=" * 80)
+
+    # پاک کردن قفل‌های قدیمی (بیش از ۵ دقیقه)
+    clean_stale_locks(timeout_seconds=300)
+
+    # ============================================================
+    # تنظیمات اولیه
+    # ============================================================
+    year_list = list(range(YEAR_START, YEAR_END + 1))
+    tables = build_runtime_tables(ZARR_BASE)
+    file_map = tables["file_map"]
+
+    adapter = create_adapter(
+        zarr_base=ZARR_BASE,
+        year_list=year_list,
+        data_format=DATA_FORMAT,
+        cache_enabled=True,
+        max_points=N_POINTS_MAX,
+        lat_min=LAT_MIN,
+        lat_max=LAT_MAX,
+        lon_min=LON_MIN,
+        lon_max=LON_MAX
+    )
+
+    n_stations = adapter.n_points
+    sample_hash = adapter._get_sample_hash()
+
+    # محدوده‌ی هدف
+    TARGET_END_BLOCK = min(19, (n_stations + BLOCK_SIZE - 1) // BLOCK_SIZE - 1)
+    
+    # شروع از checkpoint (اگر معتبر باشد)
+    checkpoint = get_checkpoint()
+    start_block = 0
+    if checkpoint and checkpoint.get("block", 0) <= TARGET_END_BLOCK:
+        start_block = checkpoint["block"]
+        logger.info(f"📌 شروع از checkpoint: بلوک {start_block}")
+
+    logger.info(f"📍 نقاط کل: {n_stations:,}")
+    logger.info(f"📦 بلوک‌های هدف: ۰ تا {TARGET_END_BLOCK}")
+
+    start_time = time.time()
+    total_files_checked = 0
+    total_files_missing = 0
+    total_files_loaded = 0
+    skipped_locked = 0
+
+    # ============================================================
+    # حلقه‌ی اصلی
+    # ============================================================
+    for block_idx in range(start_block, TARGET_END_BLOCK + 1):
+        block_start = block_idx * BLOCK_SIZE
+        block_end = min(block_start + BLOCK_SIZE, n_stations)
+        block_size_actual = block_end - block_start
+
+        # ============================================================
+        # ۱. بررسی قفل
+        # ============================================================
+        if is_locked(block_idx):
+            logger.info(f"🔒 بلوک {block_idx} قفل است (main.py در حال پردازش) – عبور می‌کنیم")
+            skipped_locked += 1
+            continue
+
+        # ============================================================
+        # ۲. گرفتن قفل
+        # ============================================================
+        if not acquire_lock(block_idx, timeout=2):
+            logger.info(f"⏳ بلوک {block_idx} قفل شد – عبور می‌کنیم")
+            skipped_locked += 1
+            continue
+
+        try:
+            logger.info(f"\n📦 بلوک {block_idx + 1}/{TARGET_END_BLOCK + 1}: "
+                        f"ایستگاه‌های {block_start:,}–{block_end:,}")
+
+            months_to_load = []
+            for year in year_list:
+                for month in range(1, 13):
+                    if (year, month) in file_map:
+                        months_to_load.append((year, month))
+
+            pbar = tqdm(months_to_load, desc="   بررسی و ساخت کش", unit="file")
+
+            for year, month in months_to_load:
+                year_idx = year_list.index(year) if year in year_list else 0
+                total_files_checked += 1
+
+                if cache_exists(adapter, block_start, block_size_actual, year_idx, month, sample_hash):
+                    pbar.update(1)
+                    continue
+
+                total_files_missing += 1
+                combined_data = adapter.load_block_all_vars(
+                    block_start=block_start,
+                    block_size=block_size_actual,
+                    year_idx=year_idx,
+                    month=month
+                )
+
+                if combined_data is not None:
+                    total_files_loaded += 1
+                else:
+                    logger.warning(f"   ⚠️ بارگذاری ناموفق: {year}-{month:02d}")
+
+                del combined_data
+                gc.collect()
+                pbar.update(1)
+
+            pbar.close()
+            save_checkpoint(block_idx, block_end - 1)
+
+        finally:
+            # همیشه قفل را آزاد کن
+            release_lock(block_idx)
+
+        elapsed = time.time() - start_time
+        logger.info(f"   ✅ بلوک {block_idx + 1} کامل شد. "
+                    f"زمان: {elapsed:.1f}s | "
+                    f"کش‌های جدید: {total_files_loaded}")
+
+    # ============================================================
+    # گزارش نهایی
+    # ============================================================
+    total_time = time.time() - start_time
+    logger.info("\n" + "=" * 80)
+    logger.info("✅ ساخت کش با موفقیت کامل شد!")
+    logger.info(f"   کش‌های موجود: {total_files_checked - total_files_missing}")
+    logger.info(f"   کش‌های جدید: {total_files_loaded}")
+    logger.info(f"   بلوک‌های قفل‌شده (رد شده): {skipped_locked}")
+    logger.info(f"   زمان کل: {total_time:.1f} ثانیه")
+    logger.info("=" * 80)
+
+if __name__ == "__main__":
+    build_cache()
+
+
+================================================================================
+📄 فایل: build_cache_only_reverse.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+build_cache_only_reverse.py – ساخت کش از ۳۸۰۰۰ به عقب
+================================================================================
+- از بلوک ۱۹ (نقطه ۳۸۰۰۰) شروع می‌کند و به سمت بلوک ۰ (نقطه ۰) برمی‌گردد.
+- فقط بلوک‌های ۰ تا ۱۹ را پردازش می‌کند.
+- از checkpoint_manager برای ادامه‌ی پردازش استفاده می‌کند.
+- اگر checkpoint بلوک بزرگتر از ۱۹ را نشان دهد، آن را نادیده می‌گیرد.
+================================================================================
+"""
+
+import os
+import sys
+import time
+import gc
+import yaml
+import numpy as np
+from tqdm import tqdm
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+# ============================================================
+# ۱. بارگذاری config.yaml
+# ============================================================
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    CONFIG = yaml.safe_load(f)
+
+LAT_MIN = CONFIG.get("lat_min")
+LAT_MAX = CONFIG.get("lat_max")
+LON_MIN = CONFIG.get("lon_min")
+LON_MAX = CONFIG.get("lon_max")
+DATA_FORMAT = CONFIG.get("data_format", "auto")
+N_POINTS_MAX = CONFIG.get("n_sample_points", 40000)
+
+# ============================================================
+# ۲. import از constants و checkpoint_manager
+# ============================================================
+from constants import (
+    ZARR_BASE,
+    YEAR_START,
+    YEAR_END,
+    VARS,
+    BLOCK_SIZE,
+    OUTPUT_ZARR,
+    CHECKPOINT_FILE,
+)
+from runtime_tables import build_runtime_tables
+from data_adapter import create_adapter
+from monitoring.logger import logger
+from checkpoint_manager import ensure_checkpoint, save_checkpoint, delete_checkpoint
+
+
+def cache_exists(adapter, block_start, block_size, year_idx, month, sample_hash="all"):
+    """بررسی وجود فایل کش"""
+    possible_block_sizes = [1000, 2000, 5000]
+    possible_hashes = ["all", sample_hash]
+    
+    for bs in possible_block_sizes:
+        adjusted_start = (block_start // bs) * bs
+        for hs in possible_hashes:
+            try:
+                key = adapter.cache._get_cache_key(
+                    block_start=adjusted_start,
+                    block_size=bs,
+                    year=year_idx,
+                    month=month,
+                    var="all_vars",
+                    sample_hash=hs
+                )
+                path = adapter.cache._get_cache_path(key)
+                if os.path.exists(path):
+                    return True
+            except Exception:
+                continue
+    return False
+
+
+def build_cache_reverse():
+    """
+    حلقه‌ی اصلی ساخت کش – از بلوک ۱۹ به سمت ۰
+    """
+    logger.info("=" * 80)
+    logger.info("🚀 BUILD CACHE (معکوس) – از ۳۸۰۰۰ به عقب")
+    logger.info("   - از بلوک ۱۹ (نقطه ۳۸۰۰۰) شروع می‌کند و به سمت ۰ می‌رود.")
+    logger.info("   - فقط بلوک‌های ۰ تا ۱۹ (نقاط ۰ تا ۳۷۹۹۹) پردازش می‌شوند.")
+    logger.info("   - بلوک‌های ۲۰ به بعد (نقاط ۴۰۰۰۰+) نادیده گرفته می‌شوند.")
+    logger.info("=" * 80)
+
+    # ============================================================
+    # بررسی checkpoint – اگر بلوک > ۱۹ است، آن را نادیده بگیر
+    # ============================================================
+    checkpoint = ensure_checkpoint(auto_detect=False)
+    
+    # محدوده‌ی هدف: بلوک‌های ۰ تا ۱۹
+    TARGET_END_BLOCK = 19
+    TARGET_START_BLOCK = 0
+    
+    # تعیین نقطه‌ی شروع (از انتها به ابتدا)
+    if checkpoint and checkpoint.get("block", 0) > TARGET_END_BLOCK:
+        logger.warning(f"⚠️ checkpoint بلوک {checkpoint['block']} را نشان می‌دهد که بالاتر از محدوده‌ی هدف (۱۹) است.")
+        logger.warning("🔄 نادیده گرفتن checkpoint و شروع از انتها (بلوک ۱۹، ایستگاه آخر بلوک)")
+        if os.path.exists(CHECKPOINT_FILE):
+            os.remove(CHECKPOINT_FILE)
+            logger.info("🗑️ checkpoint.csv پاک شد.")
+        # از انتها شروع می‌کنیم
+        start_block = TARGET_END_BLOCK
+        start_station = (start_block + 1) * BLOCK_SIZE - 1  # آخرین ایستگاه بلوک
+    elif checkpoint and checkpoint.get("block", 0) <= TARGET_END_BLOCK:
+        # از checkpoint موجود استفاده می‌کنیم، اما از همان بلوک به سمت پایین می‌رویم
+        start_block = checkpoint["block"]
+        start_station = checkpoint["station"]
+        logger.info(f"📌 شروع از checkpoint موجود: بلوک {start_block}, ایستگاه {start_station}")
+    else:
+        # از انتها شروع می‌کنیم
+        start_block = TARGET_END_BLOCK
+        start_station = (start_block + 1) * BLOCK_SIZE - 1
+        logger.info("🔍 هیچ checkpoint معتبری یافت نشد. شروع از انتها (بلوک ۱۹، ایستگاه آخر)")
+
+    # ============================================================
+    # آماده‌سازی سال‌ها و جداول
+    # ============================================================
+    year_list = list(range(YEAR_START, YEAR_END + 1))
+    logger.info(f"📅 سال‌ها: {year_list[0]}–{year_list[-1]} ({len(year_list)} سال)")
+
+    tables = build_runtime_tables(ZARR_BASE)
+    file_map = tables["file_map"]
+    logger.info(f"📂 تعداد فایل‌های Zarr پیدا شده: {len(file_map)}")
+
+    # ============================================================
+    # ساخت Adapter
+    # ============================================================
+    logger.info("🔧 ساخت Data Adapter...")
+    adapter = create_adapter(
+        zarr_base=ZARR_BASE,
+        year_list=year_list,
+        data_format=DATA_FORMAT,
+        cache_enabled=True,
+        max_points=N_POINTS_MAX,
+        lat_min=LAT_MIN,
+        lat_max=LAT_MAX,
+        lon_min=LON_MIN,
+        lon_max=LON_MAX
+    )
+
+    n_stations = adapter.n_points
+    total_blocks = (n_stations + BLOCK_SIZE - 1) // BLOCK_SIZE
+
+    # محدوده‌ی هدف: فقط تا ۱۹
+    actual_end_block = min(TARGET_END_BLOCK, total_blocks - 1)
+
+    logger.info(f"📍 تعداد کل نقاط: {n_stations:,}")
+    logger.info(f"📦 اندازه‌ی بلوک: {BLOCK_SIZE}")
+    logger.info(f"📦 بلوک‌های هدف: ۰ تا {actual_end_block} (نقاط ۰ تا {(actual_end_block + 1) * BLOCK_SIZE - 1})")
+    logger.info(f"📦 مسیر پردازش: از بلوک {start_block} به سمت ۰")
+
+    sample_hash = adapter._get_sample_hash()
+
+    start_time = time.time()
+    total_files_checked = 0
+    total_files_missing = 0
+    total_files_loaded = 0
+
+    # ============================================================
+    # حلقه‌ی اصلی – از start_block به سمت ۰
+    # ============================================================
+    # محدوده‌ی حلقه: از start_block تا ۰ (با گام -۱)
+    for block_idx in range(start_block, -1, -1):
+        # اگر از checkpoint شروع کرده‌ایم و در همان بلوک هستیم، از station بعدی ادامه می‌دهیم
+        # اما چون کش‌ها مستقل از ایستگاه هستند، کل بلوک را پردازش می‌کنیم
+        
+        block_start = block_idx * BLOCK_SIZE
+        block_end = min(block_start + BLOCK_SIZE, n_stations)
+        block_size_actual = block_end - block_start
+
+        logger.info(f"\n📦 بلوک {block_idx + 1}/{actual_end_block + 1} (معکوس): "
+                    f"ایستگاه‌های {block_start:,}–{block_end:,} ({block_size_actual} ایستگاه)")
+
+        months_to_load = []
+        for year in year_list:
+            for month in range(1, 13):
+                if (year, month) in file_map:
+                    months_to_load.append((year, month))
+
+        pbar = tqdm(months_to_load, desc=f"   بررسی و ساخت کش", unit="file", position=0, leave=True)
+
+        for year, month in months_to_load:
+            year_idx = year_list.index(year) if year in year_list else 0
+
+            total_files_checked += 1
+
+            # بررسی وجود کش
+            if cache_exists(adapter, block_start, block_size_actual, year_idx, month, sample_hash):
+                pbar.update(1)
+                continue
+
+            # کش وجود ندارد – از Zarr بخوان و کش جدید بساز
+            total_files_missing += 1
+            
+            combined_data = adapter.load_block_all_vars(
+                block_start=block_start,
+                block_size=block_size_actual,
+                year_idx=year_idx,
+                month=month
+            )
+
+            if combined_data is not None:
+                total_files_loaded += 1
+            else:
+                logger.warning(f"   ⚠️ بارگذاری ناموفق: {year}-{month:02d}")
+
+            del combined_data
+            gc.collect()
+            pbar.update(1)
+
+        pbar.close()
+
+        # ذخیره checkpoint بعد از اتمام بلوک (با اندیس بلوک فعلی)
+        save_checkpoint(block_idx, block_end - 1)
+
+        elapsed = time.time() - start_time
+        logger.info(f"   ✅ بلوک {block_idx + 1} کامل شد. "
+                    f"زمان کل: {elapsed:.1f} ثانیه | "
+                    f"میانگین: {elapsed / ((start_block - block_idx) + 1):.1f} ثانیه/بلوک")
+        logger.info(f"      کش‌های موجود: {total_files_checked - total_files_missing} | "
+                    f"کش‌های جدید: {total_files_loaded}")
+
+        # اگر به بلوک ۰ رسیدیم، حلقه تمام می‌شود
+        if block_idx == 0:
+            break
+
+    # ============================================================
+    # گزارش نهایی
+    # ============================================================
+    total_time = time.time() - start_time
+    logger.info("\n" + "=" * 80)
+    logger.info("✅ ساخت کش (معکوس) با موفقیت کامل شد!")
+    logger.info(f"   تعداد کل فایل‌های بررسی‌شده: {total_files_checked:,}")
+    logger.info(f"   تعداد فایل‌های بدون کش (نیاز به ساخت): {total_files_missing:,}")
+    logger.info(f"   تعداد فایل‌های بارگذاری‌شده (کش‌های جدید): {total_files_loaded:,}")
+    logger.info(f"   زمان کل: {total_time:.1f} ثانیه ({total_time / 60:.1f} دقیقه)")
+    logger.info("=" * 80)
+
+    # نمایش مسیر کش
+    cache_path = os.path.join(os.path.dirname(__file__), "cache")
+    if os.path.exists(cache_path):
+        import glob
+        cache_files = glob.glob(os.path.join(cache_path, "*.pkl.gz"))
+        total_size = sum(os.path.getsize(f) for f in cache_files) / (1024**3)
+        logger.info(f"📁 تعداد فایل‌های کش: {len(cache_files):,}")
+        logger.info(f"💾 حجم کل کش: {total_size:.2f} GB")
+        logger.info("=" * 80)
+
+    logger.info("📌 بعد از اتمام ساخت کش، main.py را اجرا کنید تا داده‌ها در Zarr نوشته شوند.")
+    logger.info("   (فقط نقاط خالی بازنویسی می‌شوند و بقیه دست نمی‌خورند.)")
+    logger.info("=" * 80)
+
+
+def main():
+    try:
+        build_cache_reverse()
     except KeyboardInterrupt:
         logger.warning("\n⏹️ کاربر متوقف کرد.")
         sys.exit(1)
@@ -56632,10 +58019,17 @@ distributions:
   - bimodal
   - pearson
 fit_variable_index: 1
+generate_percentile_maps: false
 logging:
   console_output: true
   file_output: true
   level: INFO
+map_days:
+- 1
+- 91
+- 181
+- 271
+map_output_dir: I:/climatology_366_rolling/percentile_maps
 min_valid_years: 10
 n_sample_points: 338627
 output:
@@ -56647,7 +58041,7 @@ parallel:
   backend: multiprocessing
   chunk_size: 100
   enabled: true
-  max_workers: 6
+  max_workers: 12
 paths:
   cache_dir: ./cache
   calendar_file: K:/Temp/needed/calendar.txt
@@ -56657,6 +58051,10 @@ paths:
   output_dir: I:/climatology_366_rolling
   output_zarr_name: climatology_stationwise_final.zarr
   zarr_base: K:/gozareshha/dr vazife/140504 - qc temp/zarr_yearly_monthly
+percentiles:
+- 0.9
+- 0.95
+- 0.99
 point_sampling: all
 processing:
   chunk_size:
@@ -56685,11 +58083,7 @@ window_type: centered
 years:
   end: 1399
   start: 1369
-# تولید نقشه‌های صدک
-generate_percentile_maps: false
-percentiles: [0.9, 0.95, 0.99]
-map_days: [1, 91, 181, 271]
-map_output_dir: "I:/climatology_366_rolling/percentile_maps"
+
 
 
 ================================================================================
@@ -59393,6 +60787,68 @@ print("\nDONE ✅")
 
 
 ================================================================================
+📄 فایل: lock_utils.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+lock_utils.py – مدیریت قفل برای جلوگیری از تداخل کش بین پردازش‌ها
+"""
+
+import os
+import time
+import glob
+from pathlib import Path
+
+LOCK_DIR = Path("./locks")
+LOCK_DIR.mkdir(exist_ok=True)
+
+def get_lock_path(block_idx):
+    """مسیر فایل قفل برای یک بلوک"""
+    return LOCK_DIR / f"lock_{block_idx:04d}.lock"
+
+def acquire_lock(block_idx, timeout=5):
+    """
+    تلاش برای گرفتن قفل یک بلوک.
+    اگر قفل در دسترس بود، True برمی‌گرداند.
+    اگر timeout تمام شد، False برمی‌گرداند.
+    """
+    lock_path = get_lock_path(block_idx)
+    start_time = time.time()
+    
+    while True:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            return True
+        except FileExistsError:
+            if time.time() - start_time > timeout:
+                return False
+            time.sleep(0.5)
+
+def release_lock(block_idx):
+    """آزاد کردن قفل یک بلوک"""
+    lock_path = get_lock_path(block_idx)
+    if lock_path.exists():
+        lock_path.unlink()
+
+def is_locked(block_idx):
+    """بررسی اینکه آیا یک بلوک قفل است"""
+    return get_lock_path(block_idx).exists()
+
+def clean_stale_locks(timeout_seconds=300):
+    """
+    پاک کردن قفل‌های قدیمی (بیش از timeout_seconds ثانیه).
+    این کار از باقی ماندن قفل‌های مرده جلوگیری می‌کند.
+    """
+    now = time.time()
+    for lock_file in LOCK_DIR.glob("*.lock"):
+        if now - lock_file.stat().st_mtime > timeout_seconds:
+            lock_file.unlink()
+            print(f"🗑️ قفل قدیمی پاک شد: {lock_file.name}")
+
+
+================================================================================
 📄 فایل: main.py
 ================================================================================
 #!/usr/bin/env python3
@@ -59676,6 +61132,143 @@ if __name__ == "__main__":
 
 
 ================================================================================
+📄 فایل: main_limited.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+main_limited_fixed.py – پردازش فقط نقاط ۰ تا ۳۸۰۰۰ (امن)
+================================================================================
+- از Zarr موجود استفاده می‌کند و آن را پاک نمی‌کند.
+- فقط بلوک‌های ۰ تا ۱۹ را پردازش می‌کند.
+- با قفل برای جلوگیری از تداخل با build_cache_only.
+================================================================================
+"""
+
+import os
+import sys
+import time
+import gc
+import yaml
+import numpy as np
+import xarray as xr
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+from constants import (
+    YEAR_START, YEAR_END, VAR_INDEX_FOR_FIT,
+    OUTPUT_ZARR, ZARR_BASE, BLOCK_SIZE,
+)
+from calendar_tables import build_doy_table_from_config
+from runtime_tables import build_runtime_tables
+from zarr_schema import get_or_create_zarr_store, add_coords_and_metadata
+from orchestrator.process_block import process_block
+from monitoring.logger import logger
+from data_adapter import create_adapter
+from lock_utils import acquire_lock, release_lock, is_locked, clean_stale_locks
+
+# ============================================================
+# بارگذاری config
+# ============================================================
+CONFIG_PATH = "config.yaml"
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    CONFIG = yaml.safe_load(f)
+
+MAX_POINTS_TO_PROCESS = 38000
+MAX_BLOCK = (MAX_POINTS_TO_PROCESS + BLOCK_SIZE - 1) // BLOCK_SIZE - 1  # = 18
+
+logger.info("=" * 80)
+logger.info("🚀 MAIN LIMITED (امن) – فقط نقاط ۰ تا ۳۸۰۰۰")
+logger.info(f"   - نقاط ۰ تا {MAX_POINTS_TO_PROCESS - 1}")
+logger.info(f"   - بلوک‌های ۰ تا {MAX_BLOCK}")
+logger.info("   - Zarr موجود پاک نمی‌شود")
+logger.info("=" * 80)
+
+# پاک کردن قفل‌های قدیمی
+clean_stale_locks(timeout_seconds=300)
+
+# ============================================================
+# آماده‌سازی
+# ============================================================
+year_list = list(range(YEAR_START, YEAR_END + 1))
+adapter = create_adapter(ZARR_BASE, year_list, cache_enabled=True)
+n_stations = adapter.n_points
+logger.info(f"📍 تعداد کل نقاط در Zarr: {n_stations:,}")
+
+# ============================================================
+# بررسی Zarr بدون دستکاری
+# ============================================================
+if not os.path.exists(OUTPUT_ZARR):
+    logger.error(f"❌ Zarr خروجی وجود ندارد: {OUTPUT_ZARR}")
+    sys.exit(1)
+
+# ============================================================
+# جداول
+# ============================================================
+doy_table, _ = build_doy_table_from_config()
+tables = build_runtime_tables(ZARR_BASE)
+window_table = tables["window_table"]
+
+# ============================================================
+# باز کردن Zarr (با n_stations واقعی)
+# ============================================================
+root = get_or_create_zarr_store(OUTPUT_ZARR, n_stations)
+
+# ============================================================
+# حلقه‌ی پردازش – فقط تا MAX_BLOCK
+# ============================================================
+start_block = 0
+start_station = 0
+
+from checkpoint_manager import ensure_checkpoint, save_checkpoint
+checkpoint = ensure_checkpoint(auto_detect=False)
+if checkpoint and checkpoint.get("block", 0) <= MAX_BLOCK:
+    start_block = checkpoint["block"]
+    start_station = checkpoint["station"]
+
+logger.info(f"📦 شروع از بلوک {start_block} (تا {MAX_BLOCK})")
+
+for block_idx in range(start_block, MAX_BLOCK + 1):
+    block_start = block_idx * BLOCK_SIZE
+    block_end = min(block_start + BLOCK_SIZE, n_stations, MAX_POINTS_TO_PROCESS)
+    
+    if block_start >= MAX_POINTS_TO_PROCESS:
+        break
+
+    if is_locked(block_idx):
+        logger.info(f"🔒 بلوک {block_idx} قفل است – صبر می‌کنیم...")
+        while is_locked(block_idx):
+            time.sleep(1)
+        logger.info(f"🔓 بلوک {block_idx} آزاد شد")
+
+    if not acquire_lock(block_idx, timeout=10):
+        logger.warning(f"⏳ نمی‌توان قفل بلوک {block_idx} را گرفت – رد می‌شود")
+        continue
+
+    try:
+        result = process_block(
+            block_start=block_start,
+            block_end=block_end,
+            block_idx=block_idx,
+            file_map=adapter.file_map,
+            doy_table=doy_table,
+            window_table=window_table,
+            year_list=year_list,
+            root=root,
+            var_idx=VAR_INDEX_FOR_FIT,
+            last_checkpoint_station=start_station if block_idx == start_block else None,
+            adapter=adapter,
+        )
+        save_checkpoint(block_idx, block_end - 1)
+        gc.collect()
+    finally:
+        release_lock(block_idx)
+
+logger.info("🔚 پردازش محدوده‌ی ۰ تا ۳۸۰۰۰ با موفقیت کامل شد!")
+logger.info(f"📁 خروجی: {OUTPUT_ZARR}")
+
+
+================================================================================
 📄 فایل: rebuild_config.py
 ================================================================================
 # ============================================================================
@@ -59729,6 +61322,97 @@ scikit-learn
 shapely
 netcdf4
 zarr
+
+
+================================================================================
+📄 فایل: reset_and_optimize.py
+================================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+reset_and_optimize.py
+=========================================
+۱. پاک کردن checkpoint.csv
+۲. بهینه‌سازی config.yaml برای ساخت کش سریع
+۳. اجرای build_cache_only.py
+=========================================
+"""
+
+import os
+import sys
+import yaml
+import subprocess
+from pathlib import Path
+
+# ============================================================
+# مسیرها
+# ============================================================
+BASE_DIR = Path(__file__).parent
+CONFIG_PATH = BASE_DIR / "config.yaml"
+CHECKPOINT_PATH = BASE_DIR / "checkpoint.csv"
+
+print("=" * 70)
+print("🔄 ریست checkpoint و بهینه‌سازی config.yaml")
+print("=" * 70)
+
+# ============================================================
+# ۱. پاک کردن checkpoint
+# ============================================================
+if CHECKPOINT_PATH.exists():
+    CHECKPOINT_PATH.unlink()
+    print("✅ checkpoint.csv پاک شد.")
+else:
+    print("ℹ️ checkpoint.csv وجود نداشت.")
+
+# ============================================================
+# ۲. بهینه‌سازی config.yaml
+# ============================================================
+if CONFIG_PATH.exists():
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    # تنظیمات بهینه برای ساخت کش سریع
+    config["block_size"] = 2000
+    config["parallel"]["max_workers"] = 6
+    config["use_parallel"] = True
+    config["generate_percentile_maps"] = False  # غیرفعال برای سرعت
+    config["validate_after_load"] = False
+    config["validate_before_write"] = False
+    config["validate_every_n_blocks"] = 10
+
+    # اطمینان از اینکه cache فعال است
+    if "paths" not in config:
+        config["paths"] = {}
+    config["paths"]["cache_dir"] = "./cache"
+
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
+
+    print("✅ config.yaml بهینه‌سازی شد.")
+    print(f"   block_size: 2000")
+    print(f"   max_workers: 6")
+    print(f"   generate_percentile_maps: False")
+else:
+    print("❌ config.yaml پیدا نشد!")
+    sys.exit(1)
+
+# ============================================================
+# ۳. اجرای build_cache_only.py
+# ============================================================
+print("\n🚀 اجرای build_cache_only.py...")
+print("   (فقط بلوک‌های ۰ تا ۱۹ پردازش می‌شوند)")
+print("=" * 70)
+
+result = subprocess.run(
+    [sys.executable, str(BASE_DIR / "build_cache_only.py")],
+    cwd=str(BASE_DIR)
+)
+
+if result.returncode == 0:
+    print("\n✅ ساخت کش با موفقیت کامل شد!")
+    print("📌 حالا main.py را اجرا کنید تا داده‌ها در Zarr نوشته شوند.")
+else:
+    print(f"\n❌ خطا در اجرا (کد بازگشت: {result.returncode})")
 
 
 ================================================================================
@@ -62017,14 +63701,23 @@ def create_zarr_store(output_path, n_stations):
     print(f"   📊 Chunks: ({chunks[0]}, {chunks[1]})")
     return root
 
+# ============================================================
+# ✅ اصلاح شده: get_or_create_zarr_store (امن)
+# ============================================================
 def get_or_create_zarr_store(output_path, n_stations):
-    """باز کردن یا ایجاد فروشگاه Zarr با مدیریت missing variables"""
+    """
+    باز کردن یا ایجاد فروشگاه Zarr با مدیریت missing variables.
+    ⚠️ در صورت mismatch ابعاد، Zarr را پاک نمی‌کند – فقط هشدار می‌دهد.
+    """
     if os.path.exists(output_path):
         print(f"   📂 Zarr exists, opening it: {output_path}")
         root = zarr.open_group(output_path, mode='a')
+        
+        # بررسی متغیرهای موجود
         existing_vars = set(root.array_keys())
         expected_vars = set(VAR_NAMES)
         missing = expected_vars - existing_vars
+        
         if missing:
             print(f"   ⚠️ Missing variables: {missing}. Adding them...")
             compressor = Blosc(cname='zstd', clevel=3, shuffle=2)
@@ -62043,14 +63736,19 @@ def get_or_create_zarr_store(output_path, n_stations):
                 )
                 arr.attrs['_ARRAY_DIMENSIONS'] = ['day', 'point']
                 print(f"      Added missing variable: {name}")
+        
+        # بررسی ابعاد
         sample_name = next(iter(existing_vars)) if existing_vars else None
         if sample_name:
             existing_shape = root[sample_name].shape
             expected_shape = (N_DAYS, n_stations)
             if existing_shape != expected_shape:
+                # ⚠️ فقط هشدار بده، پاک نکن
                 print(f"   ⚠️ Shape mismatch: existing {existing_shape} != expected {expected_shape}")
-                print(f"   🔄 Recreating store with correct shape...")
-                return create_zarr_store(output_path, n_stations)
+                print(f"   ⚠️ Continuing with existing shape ({existing_shape[1]} points).")
+                print(f"   ⚠️ To change shape, delete the Zarr store manually and re-run.")
+                # root را با همان ابعاد برگردان (تغییر نمی‌دهیم)
+                return root
         return root
     else:
         print(f"   🆕 Zarr does not exist, creating new: {output_path}")
@@ -64674,6 +66372,6 @@ def test_normal_fit():
 
 ================================================================================
 📊 آمار اسنپ‌شات:
-   تعداد فایل‌های اسکن‌شده: 85
-   تاریخ ایجاد: 2026-07-31 21:07:10
+   تعداد فایل‌های اسکن‌شده: 91
+   تاریخ ایجاد: 2026-08-02 06:43:05
 ================================================================================

@@ -5,19 +5,26 @@ numerical_engine/analyze_station.py
 ================================================================================
 تحلیل یک ایستگاه کامل.
 ورودی: (N_YEARS, N_DAYS, N_VARS) → خروجی: دیکشنری با کلیدهای دقیق VAR_NAMES
+نسخه ۴.۰ – با ثبت outlierها
 ================================================================================
 """
 
 import numpy as np
-from numerical_engine.window_engine import extract_window_values_fast
+from numerical_engine.window_engine import (
+    extract_window_values_fast,
+    extract_window_values_raw,
+    MIN_TEMP_RAW,
+    MAX_TEMP_RAW
+)
 from numerical_engine.distributions import fit_distribution
 from zarr_schema import VAR_NAMES, DISTRIBUTIONS
-from constants import N_DAYS, VARS
+from constants import N_DAYS, VARS, MIN_VALID_VALUES
+from monitoring.outlier_logger import log_outlier
 
 # نگاشت کد توزیع به نام
 DIST_CODE_TO_NAME = {code: info["name"].lower() for code, info in DISTRIBUTIONS.items()}
 
-def analyze_station(station_data, year_list, window_table, var_idx=None):
+def analyze_station(station_data, year_list, window_table, var_idx, station_idx):
     """
     تحلیل یک ایستگاه برای همه متغیرها.
     """
@@ -32,13 +39,23 @@ def analyze_station(station_data, year_list, window_table, var_idx=None):
     try:
         # پردازش هر متغیر
         for v_idx, var_name in enumerate(VARS):
-            windows = extract_window_values_fast(station_data, window_table, v_idx)
+            # داده‌های خام (بدون فیلتر) برای شناسایی outlier
+            raw_windows = extract_window_values_raw(station_data, window_table, v_idx)
+            # داده‌های پاک‌شده برای برازش
+            clean_windows = extract_window_values_fast(station_data, window_table, v_idx)
 
-            for doy_idx, values in enumerate(windows):
-                if values is None or len(values) < 5:
+            for doy_idx, (raw_vals, clean_vals) in enumerate(zip(raw_windows, clean_windows)):
+                # ثبت outlierها از داده‌های خام
+                if raw_vals is not None:
+                    for val in raw_vals:
+                        if not np.isnan(val) and (val < MIN_TEMP_RAW or val > MAX_TEMP_RAW):
+                            log_outlier(station_idx, doy_idx, val, var_name)
+
+                # ادامه برازش با داده‌های پاک‌شده
+                if clean_vals is None or len(clean_vals) < MIN_VALID_VALUES:
                     continue
 
-                res = fit_distribution(values)  # آرایه ۳۸ عضوی
+                res = fit_distribution(clean_vals)  # آرایه ۳۸ عضوی
                 if res is None or np.isnan(res[0]):
                     continue
 
