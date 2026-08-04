@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-zarr_schema.py - تعریف ساختار خروجی Zarr (با ایجاد مستقیم روی دیسک و پشتیبانی از ادامه پردازش)
+zarr_schema.py - تعریف ساختار خروجی Zarr (نسخه هوشمند)
 """
 
 import os
@@ -22,7 +22,7 @@ DISTRIBUTIONS = {
 }
 
 # ============================================================
-# ساخت لیست کامل متغیرها (۹۳ متغیر)
+# ساخت لیست کامل متغیرها
 # ============================================================
 VAR_NAMES = []
 VAR_DTYPES = {}
@@ -49,22 +49,23 @@ for var in ['tmin', 'tmean', 'tmax']:
 # ============================================================
 # توابع کمکی
 # ============================================================
+
 def create_empty_block_result(block_size):
     """ایجاد دیکشنری خالی برای نتایج یک بلوک"""
     result = {}
     for name in VAR_NAMES:
         dtype = VAR_DTYPES[name]
         if dtype == INT_DTYPE:
-            result[name] = np.full((N_DAYS, block_size), -1, dtype=dtype)
+            if name.endswith('_count'):
+                result[name] = np.zeros((N_DAYS, block_size), dtype=dtype)
+            else:
+                result[name] = np.full((N_DAYS, block_size), -1, dtype=dtype)
         else:
             result[name] = np.full((N_DAYS, block_size), np.nan, dtype=dtype)
     return result
 
 def create_zarr_store(output_path, n_stations):
-    """
-    ایجاد فروشگاه Zarr روی دیسک بدون بارگذاری داده در حافظه.
-    هر آرایه به‌صورت خالی با fill_value ایجاد می‌شود.
-    """
+    """ایجاد فروشگاه Zarr روی دیسک"""
     if os.path.exists(output_path):
         shutil.rmtree(output_path)
         print(f"   🗑️ Removed existing store")
@@ -72,7 +73,7 @@ def create_zarr_store(output_path, n_stations):
     root = zarr.open_group(output_path, mode='w', zarr_format=2)
     compressor = Blosc(cname='zstd', clevel=3, shuffle=2)
 
-    print(f"   📊 Creating {len(VAR_NAMES)} variables directly on disk...")
+    print(f"   📊 Creating {len(VAR_NAMES)} variables...")
     for idx, name in enumerate(VAR_NAMES):
         dtype = VAR_DTYPES[name]
         fill_value = -1 if dtype == INT_DTYPE else np.nan
@@ -93,64 +94,77 @@ def create_zarr_store(output_path, n_stations):
             print(f"      {idx+1}/{len(VAR_NAMES)} variables created")
 
     root.attrs['zarr_version'] = 2
-    print(f"   ✅ Zarr store created successfully at: {output_path}")
-    print(f"   📊 Total variables: {len(VAR_NAMES)}")
-    print(f"   📊 Shape: ({N_DAYS}, {n_stations})")
-    print(f"   📊 Chunks: ({chunks[0]}, {chunks[1]})")
+    print(f"   ✅ Zarr store created: {output_path}")
     return root
 
-# ============================================================
-# ✅ اصلاح شده: get_or_create_zarr_store (امن)
-# ============================================================
 def get_or_create_zarr_store(output_path, n_stations):
     """
-    باز کردن یا ایجاد فروشگاه Zarr با مدیریت missing variables.
-    ⚠️ در صورت mismatch ابعاد، Zarr را پاک نمی‌کند – فقط هشدار می‌دهد.
+    باز کردن یا ایجاد فروشگاه Zarr با مدیریت هوشمند ابعاد.
+    - متغیرهای گم‌شده را اضافه می‌کند.
+    - فقط متغیرهای دو بعدی را برای بررسی ابعاد در نظر می‌گیرد.
+    - اگر متغیر یک‌بعدی (مختصات) وجود داشته باشد، نادیده گرفته می‌شود.
     """
-    if os.path.exists(output_path):
-        print(f"   📂 Zarr exists, opening it: {output_path}")
-        root = zarr.open_group(output_path, mode='a')
-        
-        # بررسی متغیرهای موجود
-        existing_vars = set(root.array_keys())
-        expected_vars = set(VAR_NAMES)
-        missing = expected_vars - existing_vars
-        
-        if missing:
-            print(f"   ⚠️ Missing variables: {missing}. Adding them...")
-            compressor = Blosc(cname='zstd', clevel=3, shuffle=2)
-            for name in missing:
-                dtype = VAR_DTYPES[name]
-                fill_value = -1 if dtype == INT_DTYPE else np.nan
-                chunks = (min(N_DAYS, 366), min(500, n_stations))
-                arr = root.create(
-                    name,
-                    shape=(N_DAYS, n_stations),
-                    chunks=chunks,
-                    dtype=dtype,
-                    fill_value=fill_value,
-                    compressor=compressor,
-                    overwrite=True
-                )
-                arr.attrs['_ARRAY_DIMENSIONS'] = ['day', 'point']
-                print(f"      Added missing variable: {name}")
-        
-        # بررسی ابعاد
-        sample_name = next(iter(existing_vars)) if existing_vars else None
-        if sample_name:
-            existing_shape = root[sample_name].shape
-            expected_shape = (N_DAYS, n_stations)
-            if existing_shape != expected_shape:
-                # ⚠️ فقط هشدار بده، پاک نکن
-                print(f"   ⚠️ Shape mismatch: existing {existing_shape} != expected {expected_shape}")
-                print(f"   ⚠️ Continuing with existing shape ({existing_shape[1]} points).")
-                print(f"   ⚠️ To change shape, delete the Zarr store manually and re-run.")
-                # root را با همان ابعاد برگردان (تغییر نمی‌دهیم)
-                return root
-        return root
-    else:
-        print(f"   🆕 Zarr does not exist, creating new: {output_path}")
+    if not os.path.exists(output_path):
         return create_zarr_store(output_path, n_stations)
+
+    print(f"   📂 Zarr exists, opening it: {output_path}")
+    root = zarr.open_group(output_path, mode='a')
+
+    # ============================================================
+    # ۱. پیدا کردن یک متغیر دو بعدی نمونه برای بررسی ابعاد
+    # ============================================================
+    sample_var = None
+    for name in root.array_keys():
+        arr = root[name]
+        if len(arr.shape) == 2 and arr.shape[0] == N_DAYS:
+            sample_var = name
+            break
+
+    if sample_var is None:
+        # اگر هیچ متغیر دو بعدی با بعد روز وجود ندارد، احتمالاً Zarr خراب است یا خالی
+        print(f"   ⚠️ No valid 2D variable found. Recreating store...")
+        root = create_zarr_store(output_path, n_stations)
+        return root
+
+    # ============================================================
+    # ۲. بررسی ابعاد
+    # ============================================================
+    existing_shape = root[sample_var].shape
+    expected_shape = (N_DAYS, n_stations)
+
+    if existing_shape != expected_shape:
+        print(f"   ⚠️ Shape mismatch: existing {existing_shape} != expected {expected_shape}")
+        print(f"   ⚠️ Continuing with existing shape ({existing_shape[1]} points).")
+        print(f"   ⚠️ To change shape, delete the Zarr store manually and re-run.")
+        # ابعاد را تغییر نمی‌دهیم، فقط هشدار می‌دهیم
+
+    # ============================================================
+    # ۳. اضافه کردن متغیرهای گم‌شده
+    # ============================================================
+    existing_vars = set(root.array_keys())
+    expected_vars = set(VAR_NAMES)
+    missing = expected_vars - existing_vars
+
+    if missing:
+        print(f"   ⚠️ Missing variables: {missing}. Adding them...")
+        compressor = Blosc(cname='zstd', clevel=3, shuffle=2)
+        for name in missing:
+            dtype = VAR_DTYPES[name]
+            fill_value = -1 if dtype == INT_DTYPE else np.nan
+            chunks = (min(N_DAYS, 366), min(500, n_stations))
+            arr = root.create(
+                name,
+                shape=(N_DAYS, n_stations),
+                chunks=chunks,
+                dtype=dtype,
+                fill_value=fill_value,
+                compressor=compressor,
+                overwrite=True
+            )
+            arr.attrs['_ARRAY_DIMENSIONS'] = ['day', 'point']
+            print(f"      Added: {name}")
+
+    return root
 
 def add_coords_and_metadata(ds, station_ids, lons, lats, elevs):
     """افزودن مختصات و متادیتا به دیتاست xarray"""

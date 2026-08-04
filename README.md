@@ -156,6 +156,12 @@ The engine makes several deliberate trade-offs to achieve its goals:
 
 # Installation
 
+  **Station-Wise Processing**   Process all variables (tmin, tmean, tmax) for each station together, with a single cache load per block. Progress is shown per station with tqdm.
+  **Auto-Detect Resume Point**   No need for checkpoint.csv. The engine automatically scans the output Zarr to find the last valid processing point and resumes from there.
+  **Intelligent Disk Cache**   Multi-block-size detection (1000, 2000, 5000) to reuse existing cache files and avoid redundant I/O. Saves significant time on repeated runs.
+  **Selective Cache Builder**   Use `build_cache_only.py` to pre-build cache files for unprocessed blocks without running the full statistical analysis.
+
+
 ## System Requirements
 
   **Component**            **Minimum**                       **Recommended**
@@ -1791,7 +1797,7 @@ If you use this software in your research, please cite:
 **APA:**
 
 ``` {.text caption="APA Citation" language="text"}
-Fazl Kazemi, A. (2025). ClimateProcessingEngine (Version 4.0) \left[Computer software\right].
+Fazl Kazemi, A. (2025). ClimateProcessingEngine (Version 7.0) \left[Computer software\right].
 GitHub. Source: https://github.com/AminFazlKazemi/ClimateProcessingEngine
 ```
 
@@ -1896,7 +1902,35 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 # Changelog
 
 
-## Version 4.1 (2026-07-31)
+## Version 7.0 (2026-08-04)
+
+**New Features:**
+
+- **Station-Wise Processing**: Process all variables (tmin, tmean, tmax) for each station together, with a single cache load per block. Progress is shown per station with tqdm. This eliminates redundant I/O and speeds up processing significantly.
+
+- **Auto-Detect Resume Point**: No need for checkpoint.csv. The engine automatically scans the output Zarr to find the last valid processing point and resumes from there. This makes the system more robust to interruptions and accidental checkpoint deletion.
+
+- **Intelligent Disk Cache**: Multi-block-size detection (1000, 2000, 5000) to reuse existing cache files and avoid redundant I/O. The cache system now checks all possible block sizes and sample hashes before falling back to Zarr I/O.
+
+- **Selective Cache Builder**: `build_cache_only.py` script to pre-build cache files for unprocessed blocks without running the full statistical analysis. This is useful for preparing cache files in advance or for resuming interrupted cache building.
+
+**Performance Improvements:**
+
+- 60% faster I/O for repeated processing due to intelligent cache reuse.
+- Reduced memory footprint during cache loading.
+- Station-wise processing reduces the number of times data is loaded from cache.
+
+**Bug Fixes:**
+
+- Fixed `FutureWarning` in `checkpoint_manager.py` by replacing deprecated `ds.dims` with `ds.sizes`.
+- Fixed `IndexError` in `zarr_schema.py` when checking dimensions of coordinate variables.
+- Improved error handling for missing variables in Zarr store.
+
+**Deprecations:**
+
+- `checkpoint.csv` is no longer required. The engine now auto-detects the resume point from the output Zarr. The checkpoint system is kept for backward compatibility but is no longer the primary mechanism.
+
+## Version 7.0 (2026-07-31)
 
 **New Features:**
 
@@ -1915,7 +1949,7 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 -   60% faster I/O for repeated processing due to intelligent cache reuse.
 -   Reduced memory footprint during cache loading.
 
-## Version 4.0 (2025-07-26)
+## Version 7.0 (2025-07-26)
 
 **Breaking Changes:**
 
@@ -1961,7 +1995,7 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 
 -   Fixed NaN handling in bootstrap
 
-## Version 3.0 (2025-06-15)
+## Version 7.0 (2025-06-15)
 
 -   Added Bimodal distribution
 
@@ -1973,7 +2007,7 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 
 -   Checkpoint resume functionality
 
-## Version 2.0 (2025-05-01)
+## Version 7.0 (2025-05-01)
 
 -   Added Skew-Normal distribution
 
@@ -1985,7 +2019,7 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 
 -   Logging system
 
-## Version 1.0 (2025-04-01)
+## Version 7.0 (2025-04-01)
 
 -   Initial release
 
@@ -1997,7 +2031,7 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 
 # Roadmap
 
-## Version 4.1 (q3 2025)
+## Version 7.0 (q3 2025)
 
 -   Bayesian fitting (PyMC integration)
 
@@ -2011,7 +2045,7 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 
 -   Temporal consistency checks
 
-## Version 4.2 (q4 2025)
+## Version 7.0 (q4 2025)
 
 -   Dask backend for distributed processing
 
@@ -2025,7 +2059,7 @@ spatial extent using `lat_min`, `lat_max`, `lon_min`, `lon_max`.
 
 -   Digital twin framework
 
-## Version 5.0 (q1 2026)
+## Version 7.0 (q1 2026)
 
 -   Full plugin ecosystem
 

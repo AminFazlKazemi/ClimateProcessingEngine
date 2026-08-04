@@ -4,7 +4,7 @@
 numerical_engine/window_engine.py
 ================================================================================
 موتور استخراج پنجره با دو حالت: عادی (۵ روزه) و حدی (بیشینه/کمینه مطلق)
-نسخه ۴.۲ – با پشتیبانی از داده‌های خام (برای ثبت outlier)
+نسخه ۵.۰ - حذف فیلترهای ثابت، ارسال داده‌های خام به مرحله بعد برای تشخیص outlier
 ================================================================================
 """
 
@@ -12,16 +12,16 @@ import numpy as np
 from constants import N_YEARS, N_DAYS, MIN_VALID_VALUES
 
 # ============================================================
-# محدوده‌ی دمای معقول (داده‌های ورودی ×۱۰ هستند)
+# محدوده‌ی دمای معقول (داده‌های ورودی ×۱۰ هستند) - دیگر استفاده نمی‌شود
 # ============================================================
-MIN_TEMP_RAW = -400   # معادل -40 درجه سانتی‌گراد
-MAX_TEMP_RAW = 550    # معادل 55 درجه سانتی‌گراد
+# MIN_TEMP_RAW = -400   # معادل -40 درجه سانتی‌گراد
+# MAX_TEMP_RAW = 550    # معادل 55 درجه سانتی‌گراد
 
 
 def extract_window_values_fast(station_data, window_table, var_idx):
     """
     حالت عادی: استخراج همه مقادیر پنجره ۵ روزه (۱۵۰ مقدار)
-    با فیلتر دمای غیرمنطقی (بر اساس داده‌های خام ×۱۰)
+    بدون فیلتر کردن - داده‌های خام را برمی‌گرداند.
     """
     N_DAYS_LOCAL = 366
     results = []
@@ -64,8 +64,9 @@ def extract_window_values_fast(station_data, window_table, var_idx):
                 window = window.reshape(1)
 
             values = window.reshape(-1)
+            # حذف فیلتر: دیگر مقادیر را پالایش نمی‌کنیم
+            # فقط داده‌های غیر NaN را نگه می‌داریم
             clean = values[~np.isnan(values)]
-            clean = clean[(clean >= MIN_TEMP_RAW) & (clean <= MAX_TEMP_RAW)]
 
             if len(clean) >= MIN_VALID_VALUES:
                 results.append(clean.astype(np.float64))
@@ -131,7 +132,7 @@ def extract_window_values_raw(station_data, window_table, var_idx):
 
 
 def extract_extreme_values_fast(station_data, window_table, var_idx):
-    """حالت حدی (بدون تغییر)"""
+    """حالت حدی: استخراج بیشینه و کمینه مطلق هر سال از پنجره - بدون فیلتر"""
     N_DAYS_LOCAL = 366
     max_results = []
     min_results = []
@@ -177,8 +178,7 @@ def extract_extreme_values_fast(station_data, window_table, var_idx):
             max_clean = max_vals[~np.isnan(max_vals)]
             min_clean = min_vals[~np.isnan(min_vals)]
 
-            max_clean = max_clean[(max_clean >= MIN_TEMP_RAW) & (max_clean <= MAX_TEMP_RAW)]
-            min_clean = min_clean[(min_clean >= MIN_TEMP_RAW) & (min_clean <= MAX_TEMP_RAW)]
+            # حذف فیلترهای ثابت
 
             if len(max_clean) >= MIN_VALID_VALUES:
                 max_results.append(max_clean.astype(np.float64))
@@ -197,5 +197,5 @@ def extract_extreme_values_fast(station_data, window_table, var_idx):
     return max_results, min_results
 
 
-# برای سازگاری با نسخه‌های قدیمی
-extract_window_values = extract_window_values_fast
+# برای سازگاری با نسخه‌های قدیمی - داده‌های خام را برمی‌گرداند
+extract_window_values = extract_window_values_raw

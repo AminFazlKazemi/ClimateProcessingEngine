@@ -3,7 +3,7 @@
 """
 collect_snapshot.py
 ================================================================================
-اسکریپت جمع‌آوری اسنپ‌شات کامل از کل پروژه (مستقل از اصلاحات آینده)
+اسکریپت جمع‌آوری اسنپ‌شات از پروژه (فقط کد پایتون + فایل‌های تنظیمات)
 برای ذخیره‌سازی در گیت‌هاب، ارسال به دیگران، یا بک‌آپ
 ================================================================================
 نحوه اجرا:
@@ -23,15 +23,20 @@ from datetime import datetime
 # تنظیمات
 # ============================================================================
 
-# ریشه پروژه (همان جایی که اسکریپت در آن قرار دارد)
 PROJECT_ROOT = Path(__file__).parent.absolute()
 OUTPUT_FILE = PROJECT_ROOT / "project_snapshot.txt"
 
-# پسوندهای قابل قبول برای اسنپ‌شات
+# پسوندهای قابل قبول: فقط کد پایتون و فایل‌های تنظیمات (بدون مستندات)
 EXTENSIONS = (
-    ".py", ".yaml", ".yml", ".json", ".txt", ".md", ".cff",
-    ".ini", ".cfg", ".sh", ".bat", ".ps1", ".gitignore",
-    ".dockerignore", ".editorconfig", ".pre-commit-config.yaml"
+    # کد پایتون
+    ".py",
+    # فایل‌های تنظیمات (Config)
+    ".yaml", ".yml", ".json", ".toml", ".cfg", ".ini", ".conf",
+    ".env", ".xml",
+    # فایل‌های تنظیمات محیط / ابزارها
+    ".gitignore", ".dockerignore", ".editorconfig",
+    # فایل‌های خاص (مثلاً pre-commit)
+    ".pre-commit-config.yaml",  # این یک اسم کامل است، ولی به دلیل پسوند .yaml قبلاً پوشش داده شده
 )
 
 # پوشه‌هایی که نباید اسکن شوند
@@ -42,10 +47,10 @@ EXCLUDE_DIRS = {
     "backup_*", "*.zarr", "*.nc", "*.hdf5", "*.parquet",
 }
 
-# نام فایل‌هایی که نباید اسکن شوند
+# نام فایل‌هایی که نباید اسکن شوند (فقط خروجی را استثنا می‌کنیم)
 EXCLUDE_FILES = {
     "project_snapshot.txt",  # خود خروجی
-    "collect_snapshot.py",   # خود اسکریپت (اختیاری - می‌تواند شامل شود)
+    # collect_snapshot.py را حذف کردیم تا خودش هم در اسنپ‌شات بیاید
 }
 
 # ============================================================================
@@ -89,7 +94,7 @@ def collect_files() -> str:
     """
     lines = []
     lines.append("=" * 80)
-    lines.append(f"📁 SNAPSHOT از پروژه climatology_engine")
+    lines.append(f"📁 SNAPSHOT از پروژه (کد پایتون + فایل‌های تنظیمات)")
     lines.append(f"📂 ریشه: {PROJECT_ROOT}")
     lines.append(f"📅 تاریخ: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append("=" * 80)

@@ -11,8 +11,8 @@ import numpy as np
 from zarr_schema import VAR_NAMES, VAR_DTYPES
 from constants import N_DAYS
 
-# مقدار معتبر برای best_dist (فقط 0 تا 4)
-VALID_BEST_DIST = set(range(5))
+# ✅ مقدار معتبر برای best_dist: -1 (ناموفق) و 0 تا 4 (موفق)
+VALID_BEST_DIST = {-1, 0, 1, 2, 3, 4}
 
 def validate_result(block_result, block_start, block_size, strict=True):
     report = {"valid": True, "errors": [], "warnings": [], "stats": {}}
@@ -36,11 +36,11 @@ def validate_result(block_result, block_start, block_size, strict=True):
         elif name.endswith("_count"):
             if np.any(arr < 0):
                 report["valid"] = False
-                report["errors"].append("count contains negative values")
+                report["errors"].append(f"{name} contains negative values")
         elif name.endswith("_std"):
             if np.any(arr < 0):
                 report["valid"] = False
-                report["errors"].append("std contains negative values")
+                report["errors"].append(f"{name} contains negative values")
             if np.any(np.isinf(arr)):
                 report["valid"] = False
                 report["errors"].append(f"{name} contains Inf")
