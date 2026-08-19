@@ -33,14 +33,16 @@ class DiskCache:
         - مدیریت حجم کش (حداکثر ۲۰ گیگابایت)
     """
 
-    def __init__(self, cache_dir: str = "./cache", max_size_gb: int = 20):
+    def __init__(self, cache_dir: str = "./cache", max_size_gb: int = 20, verbose: bool = False):
         """
         پارامترها:
             cache_dir: مسیر پوشه‌ی کش
             max_size_gb: حداکثر حجم کش به گیگابایت
+            verbose: اگر True باشد، پیام‌های کش چاپ می‌شود (پیش‌فرض False)
         """
         self.cache_dir = cache_dir
         self.max_size_bytes = max_size_gb * 1024**3
+        self.verbose = verbose
         os.makedirs(cache_dir, exist_ok=True)
 
     def _get_cache_key(
@@ -159,8 +161,9 @@ class DiskCache:
             path = self._get_cache_path(key)
             data = self._load_cached_data(path)
             if data is not None:
-                print(f"   ✅ کش استفاده شد: {path}")
-                print(f"      block_start={bs_start}, block_size={bs_size}, hash={bs_hash}")
+                if self.verbose:
+                    print(f"   ✅ کش استفاده شد: {path}")
+                    print(f"      block_start={bs_start}, block_size={bs_size}, hash={bs_hash}")
                 return data
         
         return None
@@ -198,7 +201,8 @@ class DiskCache:
         # ✅ اگر فایل کش از قبل وجود دارد، هیچ کاری نکن (از duplicate جلوگیری کن)
         # ============================================================
         if os.path.exists(path):
-            print(f"   ⏭️ کش از قبل وجود دارد، ذخیره نشد: {path}")
+            if self.verbose:
+                print(f"   ⏭️ کش از قبل وجود دارد، ذخیره نشد: {path}")
             return
         
         # مدیریت حجم کش
@@ -208,7 +212,8 @@ class DiskCache:
         with gzip.open(path, "wb", compresslevel=6) as f:
             pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
         
-        print(f"   💾 کش جدید ذخیره شد: {path}")
+        if self.verbose:
+            print(f"   💾 کش جدید ذخیره شد: {path}")
 
     def _enforce_cache_limit(self) -> None:
         """
@@ -364,7 +369,7 @@ class BaseDataAdapter:
         self._n_points: Optional[int] = None
         self._selected_indices: Optional[np.ndarray] = None
         self.max_points: Optional[int] = None
-        self.cache = DiskCache() if cache_enabled else None
+        self.cache = DiskCache(verbose=False) if cache_enabled else None  # خاموش
 
     @property
     def n_points(self) -> int:

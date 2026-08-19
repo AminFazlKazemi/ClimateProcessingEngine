@@ -4,22 +4,25 @@ numerical_engine/analyze_station.py
 ================================================================================
 تحلیل یک ایستگاه: محاسبه آماره‌ها، برازش ۵ توزیع و تولید دیکشنری کامل خروجی
 همه کلیدهای تعریف‌شده در zarr_schema.VAR_NAMES تولید می‌شوند.
+نسخه اصلاح‌شده برای پشتیبانی از سال و ایستگاه در لاگر گرابز
 ================================================================================
 """
 
 import numpy as np
 from constants import VARS, N_DAYS, MIN_VALID_VALUES
 from numerical_engine.distributions import fit_distribution
-from numerical_engine.window_engine import extract_window_values
+# 🔴 تغییر: استفاده از extract_window_values_fast به جای extract_window_values
+from numerical_engine.window_engine import extract_window_values_fast
 
 
-def analyze_station(station_data, year_list, window_table, var_idx):
+def analyze_station(station_data, year_list, window_table, var_idx, station_idx):
     """
     پارامترها:
         station_data: آرایه (N_YEARS, N_DAYS, N_VARS) یا (N_YEARS, N_DAYS)
         year_list: لیست سال‌ها
         window_table: جدول پنجره‌ها (هر روز شامل لیست روزهای پنجره)
         var_idx: اندیس متغیر مورد نظر (0= tmin, 1= tmean, 2= tmax)
+        station_idx: ایندکس صفری ایستگاه (برای لاگ‌گیری دقیق)
 
     بازگشت:
         دیکشنری با کلیدهای منطبق بر VAR_NAMES
@@ -89,24 +92,18 @@ def analyze_station(station_data, year_list, window_table, var_idx):
         results[f'{dist}_bic'] = np.full(n_days, np.nan, dtype=np.float32)
         results[f'{dist}_loglik'] = np.full(n_days, np.nan, dtype=np.float32)
 
+    # 🔴 دریافت پنجره‌ها با سال‌ها و ایستگاه (برای لاگ‌گیری دقیق در window_engine)
+    windows = extract_window_values_fast(station_data, year_list, window_table, var_idx, station_idx)
+
     # --------------------------------------------
     # ۲. پردازش هر روز
     # --------------------------------------------
     for day_idx in range(n_days):
-        # استخراج پنجره
-        window_days = window_table[day_idx]  # لیست روزها (0-based)
-        # جمع‌آوری مقادیر برای همه سال‌ها
-        values = []
-        for year_idx in range(N_YEARS):
-            for d in window_days:
-                val = data_3d[year_idx, d]
-                if not np.isnan(val):
-                    values.append(val)
+        values = windows[day_idx]
+        if values is None:
+            continue
 
-        values = np.array(values, dtype=np.float64)
         n_valid = len(values)
-
-        # ذخیره آماره‌ها
         results['count'][day_idx] = n_valid
         if n_valid >= MIN_VALID_VALUES:
             results['mean'][day_idx] = np.mean(values)

@@ -3,14 +3,13 @@
 """
 analyze_distributions_final.py
 ================================================================================
-تحلیل جامع توزیع‌های برازش‌شده (خروجی ۲۹ متغیری) – نسخه نهایی
+تحلیل جامع توزیع‌های برازش‌شده (خروجی ۲۹ متغیری) – نسخه نهایی با پشتیبانی از فارسی
 ================================================================================
 - خواندن فایل Zarr اقلیم‌شناسی (خروجی نهایی پروژه)
 - استفاده از ۵ توزیع: Normal, Skew-Normal, GEV, Bimodal, Pearson
 - تحلیل روزانه، فصلی، ارتفاعی و مکانی
-- بررسی پارامترهای هر توزیع (GEV, Skew‑Normal, Bimodal)
-- خوشه‌بندی ایستگاه‌ها بر اساس ویژگی‌ها
-- خروجی نمودارها، نقشه‌ها و جداول جامع
+- نمایش درصد میانگین سالانه هر توزیع در نقشه‌ها
+- نمایش صحیح متون فارسی با bidi + arabic_reshaper
 """
 
 import os
@@ -22,12 +21,32 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from bidi.algorithm import get_display
+from arabic_reshaper import reshape
 import warnings
 warnings.filterwarnings("ignore")
 
-plt.rcParams['font.family'] = 'DejaVu Sans'
+# ============================================================================
+# تنظیمات فونت و استایل
+# ============================================================================
+plt.rcParams['font.family'] = 'DejaVu Sans'  # فونت پیش‌فرض برای اعداد
 plt.rcParams['font.size'] = 10
 sns.set_style("whitegrid")
+
+# ============================================================================
+# توابع کمکی برای نمایش فارسی
+# ============================================================================
+def persian_text(text):
+    """تبدیل متن فارسی به شکل قابل نمایش در matplotlib"""
+    reshaped = reshape(text)
+    bidi_text = get_display(reshaped)
+    return bidi_text
+
+def en_to_fa(num, formatter='%1.1f%%'):
+    """تبدیل عدد به رشته فارسی با فرمت دلخواه"""
+    num_as_string = formatter % num
+    mapping = dict(zip('0123456789.%', '۰۱۲۳۴۵۶۷۸۹.%'))
+    return ''.join(mapping[digit] for digit in num_as_string)
 
 # ============================================================================
 # ۰. انتخاب متغیر مورد نظر (tmax / tmean / tmin)
@@ -47,12 +66,8 @@ if not os.path.exists(ZARR_PATH):
     print(f"❌ فایل Zarr یافت نشد: {ZARR_PATH}")
     sys.exit()
 
-# ============================================================
-# نکته مهم: consolidated=False چون فایل با متادیتای یکپارچه ذخیره نشده
-# ============================================================
 ds = xr.open_zarr(ZARR_PATH, consolidated=False)
 print(f"✅ فایل بارگذاری شد. ابعاد: {list(ds.dims)}")
-print(f"   متغیرها: {list(ds.data_vars)}")
 
 # تشخیص ابعاد
 day_dim = None
@@ -72,9 +87,8 @@ print(f"   بعد روز: {day_dim} ({n_days})")
 print(f"   بعد نقطه: {point_dim} ({n_points})")
 
 # ============================================================================
-# ۲. استخراج داده‌های اصلی با پیشوند VAR
+# ۲. استخراج داده‌های اصلی
 # ============================================================================
-
 best_dist = ds[f'{VAR}_best_dist'].values
 if best_dist.ndim == 2:
     if best_dist.shape[0] != n_days or best_dist.shape[1] != n_points:
@@ -82,8 +96,12 @@ if best_dist.ndim == 2:
             best_dist = best_dist.T
         else:
             best_dist = best_dist.reshape(n_days, n_points)
+else:
+    raise ValueError("best_dist باید دو بعدی باشد")
 
-# کدهای توزیع (۵ توزیع)
+# تبدیل به int و جایگزینی NaN با -1
+best_dist = np.nan_to_num(best_dist, nan=-1).astype(int)
+
 dist_codes = [0, 1, 2, 3, 4]
 dist_labels = ['Normal', 'Skew-Normal', 'GEV', 'Bimodal', 'Pearson']
 dist_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
@@ -120,7 +138,6 @@ if lon.ndim > 1:
 # ============================================================================
 # ۳. توابع کمکی
 # ============================================================================
-
 def get_season(day_idx):
     day = day_idx + 1
     if day <= 90:
@@ -135,7 +152,6 @@ def get_season(day_idx):
         return 'زمستان'
 
 def to_1d(arr, length, default_val=np.nan):
-    """تبدیل آرایه به یک‌بعدی با طول مشخص"""
     if arr is None:
         return np.full(length, default_val)
     arr = np.asarray(arr)
@@ -155,7 +171,6 @@ def to_1d(arr, length, default_val=np.nan):
 # ============================================================================
 # ۴. تحلیل اصلی
 # ============================================================================
-
 print("\n" + "=" * 60)
 print("🔹 تحلیل توزیع‌های برازش‌شده")
 print("=" * 60)
@@ -178,11 +193,11 @@ days = np.arange(1, n_days + 1)
 bottom = np.zeros(n_days)
 for i, d in enumerate(dist_codes):
     ax.bar(days, daily_percent[d], bottom=bottom,
-           label=dist_labels[i], color=dist_colors[i], alpha=0.7, width=1)
+           label=persian_text(dist_labels[i]), color=dist_colors[i], alpha=0.7, width=1)
     bottom += daily_percent[d]
-ax.set_xlabel('روز سال')
-ax.set_ylabel('درصد ایستگاه‌ها (%)')
-ax.set_title(f'تغییرات توزیع غالب در طول سال ({VAR})')
+ax.set_xlabel(persian_text('روز سال'))
+ax.set_ylabel(persian_text('درصد ایستگاه‌ها (%)'))
+ax.set_title(persian_text(f'تغییرات توزیع غالب در طول سال ({VAR})'))
 ax.legend(loc='upper right')
 ax.grid(True, alpha=0.3)
 ax.set_xlim(0, n_days + 1)
@@ -212,11 +227,11 @@ for i, d in enumerate(dist_codes):
     values = [seasonal_percent[season][d] if season in seasonal_percent else 0
               for season in season_days.keys()]
     ax.bar(x + (i - len(dist_codes) / 2 + 0.5) * width, values, width,
-           label=dist_labels[i], color=dist_colors[i], alpha=0.7)
+           label=persian_text(dist_labels[i]), color=dist_colors[i], alpha=0.7)
 ax.set_xticks(x)
-ax.set_xticklabels(season_days.keys())
-ax.set_ylabel('درصد ایستگاه‌ها (%)')
-ax.set_title(f'توزیع تابع‌ها در فصول مختلف ({VAR})')
+ax.set_xticklabels([persian_text(s) for s in season_days.keys()])
+ax.set_ylabel(persian_text('درصد ایستگاه‌ها (%)'))
+ax.set_title(persian_text(f'توزیع تابع‌ها در فصول مختلف ({VAR})'))
 ax.legend()
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
@@ -248,12 +263,12 @@ x = np.arange(len(elev_labels))
 width = 0.2
 for i, d in enumerate(dist_codes):
     ax.bar(x + (i - len(dist_codes) / 2 + 0.5) * width, elev_counts[d], width,
-           label=dist_labels[i], color=dist_colors[i], alpha=0.7)
+           label=persian_text(dist_labels[i]), color=dist_colors[i], alpha=0.7)
 ax.set_xticks(x)
-ax.set_xticklabels(elev_labels)
-ax.set_xlabel('ارتفاع (متر)')
-ax.set_ylabel('درصد ایستگاه‌ها (%)')
-ax.set_title(f'توزیع تابع‌ها بر اساس ارتفاع ({VAR})')
+ax.set_xticklabels([persian_text(l) for l in elev_labels])
+ax.set_xlabel(persian_text('ارتفاع (متر)'))
+ax.set_ylabel(persian_text('درصد ایستگاه‌ها (%)'))
+ax.set_title(persian_text(f'توزیع تابع‌ها بر اساس ارتفاع ({VAR})'))
 ax.legend()
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
@@ -262,37 +277,70 @@ plt.close()
 print(f"   ✅ elevation_distribution_{VAR}.png")
 
 # ----------------------------------------------------------------
-# ۴-۳. نقشه‌های مکانی
+# ۴-۳. نقشه‌های مکانی با درصد میانگین سالانه
 # ----------------------------------------------------------------
 print("\n📊 نقشه‌های مکانی...")
 
-sample_day = n_days // 2  # روز میانی سال
+# محاسبه درصد میانگین سالانه برای هر توزیع (روزانه)
+annual_percent = {}
+for d in dist_codes:
+    annual_percent[d] = np.mean(daily_percent[d])  # میانگین درصد روزانه
+
+# ساخت رشته فارسی برای نمایش در عنوان
+annual_text_parts = []
+for i, d in enumerate(dist_codes):
+    if annual_percent[d] > 0.1:  # فقط توزیع‌های با سهم قابل توجه
+        label_fa = persian_text(dist_labels[i])
+        percent_fa = en_to_fa(annual_percent[d], '%1.1f%%')
+        annual_text_parts.append(f"{label_fa} {percent_fa}")
+annual_text = ' | '.join(annual_text_parts)
+title_suffix = persian_text(f"میانگین سالانه: {annual_text}")
+
+sample_day = n_days // 2
 sample_season = 'تابستان'
 season_days_list = season_days.get(sample_season, [])
 if season_days_list:
-    season_best = np.zeros(n_points, dtype=int)
+    season_best = np.full(n_points, -1, dtype=int)
     for p in range(n_points):
-        counts = np.bincount(best_dist[season_days_list, p].astype(int))
-        if len(counts) > 0:
+        data = best_dist[season_days_list, p]
+        data = data[data >= 0]
+        if len(data) > 0:
+            counts = np.bincount(data)
             season_best[p] = np.argmax(counts)
-        else:
-            season_best[p] = -1
 else:
     season_best = None
 
 day_best = best_dist[sample_day, :]
+
+# نقشه روز
 fig, axes = plt.subplots(1, 2, figsize=(16, 6))
 sc1 = axes[0].scatter(lon, lat, c=day_best, cmap='tab10', s=1, alpha=0.6, vmin=-1, vmax=4)
-axes[0].set_title(f'روز {sample_day + 1} ({VAR})')
-axes[0].set_xlabel('طول جغرافیایی')
-axes[0].set_ylabel('عرض جغرافیایی')
+axes[0].set_title(persian_text(f'روز {sample_day + 1} ({VAR})') + '\n' + title_suffix)
+axes[0].set_xlabel(persian_text('طول جغرافیایی'))
+axes[0].set_ylabel(persian_text('عرض جغرافیایی'))
 axes[0].grid(True, alpha=0.3)
 
 if season_best is not None:
+    # محاسبه درصد فصل برای این فصل خاص
+    season_counts = {d: 0 for d in dist_codes}
+    for day in season_days_list:
+        for d in dist_codes:
+            season_counts[d] += np.sum(best_dist[day, :] == d)
+    total_season = sum(season_counts.values())
+    season_percent = {d: season_counts[d] / total_season * 100 for d in dist_codes}
+    season_text_parts = []
+    for i, d in enumerate(dist_codes):
+        if season_percent[d] > 0.1:
+            label_fa = persian_text(dist_labels[i])
+            percent_fa = en_to_fa(season_percent[d], '%1.1f%%')
+            season_text_parts.append(f"{label_fa} {percent_fa}")
+    season_text = ' | '.join(season_text_parts)
+    season_title = persian_text(f'فصل {sample_season} ({VAR})') + '\n' + persian_text(f"درصد فصل: {season_text}")
+
     sc2 = axes[1].scatter(lon, lat, c=season_best, cmap='tab10', s=1, alpha=0.6, vmin=-1, vmax=4)
-    axes[1].set_title(f'فصل {sample_season} ({VAR})')
-    axes[1].set_xlabel('طول جغرافیایی')
-    axes[1].set_ylabel('عرض جغرافیایی')
+    axes[1].set_title(season_title)
+    axes[1].set_xlabel(persian_text('طول جغرافیایی'))
+    axes[1].set_ylabel(persian_text('عرض جغرافیایی'))
     axes[1].grid(True, alpha=0.3)
 
 plt.tight_layout()
@@ -328,17 +376,17 @@ if all(v in ds.data_vars for v in gev_vars):
 
     fig, axes = plt.subplots(3, 1, figsize=(14, 10))
     axes[0].plot(days, loc_mean, 'b-', linewidth=2)
-    axes[0].set_ylabel('Location (μ)')
-    axes[0].set_title(f'GEV Location - روزانه ({VAR})')
+    axes[0].set_ylabel(persian_text('Location (μ)'))
+    axes[0].set_title(persian_text(f'GEV Location - روزانه ({VAR})'))
     axes[0].grid(True, alpha=0.3)
     axes[1].plot(days, scale_mean, 'g-', linewidth=2)
-    axes[1].set_ylabel('Scale (σ)')
-    axes[1].set_title(f'GEV Scale - روزانه ({VAR})')
+    axes[1].set_ylabel(persian_text('Scale (σ)'))
+    axes[1].set_title(persian_text(f'GEV Scale - روزانه ({VAR})'))
     axes[1].grid(True, alpha=0.3)
     axes[2].plot(days, shape_mean, 'r-', linewidth=2)
-    axes[2].set_xlabel('روز سال')
-    axes[2].set_ylabel('Shape (ξ)')
-    axes[2].set_title(f'GEV Shape - روزانه ({VAR})')
+    axes[2].set_xlabel(persian_text('روز سال'))
+    axes[2].set_ylabel(persian_text('Shape (ξ)'))
+    axes[2].set_title(persian_text(f'GEV Shape - روزانه ({VAR})'))
     axes[2].grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(f'gev_params_daily_{VAR}.png', dpi=300, bbox_inches='tight')
@@ -361,12 +409,12 @@ if all(v in ds.data_vars for v in gev_vars):
     fig, ax = plt.subplots(figsize=(10, 6))
     x = np.arange(len(elev_labels))
     for name, vals in elev_params.items():
-        ax.plot(x, vals, marker='o', label=name)
+        ax.plot(x, vals, marker='o', label=persian_text(name))
     ax.set_xticks(x)
-    ax.set_xticklabels(elev_labels)
-    ax.set_xlabel('ارتفاع (متر)')
-    ax.set_ylabel('مقدار پارامتر')
-    ax.set_title(f'تغییرات پارامترهای GEV با ارتفاع ({VAR})')
+    ax.set_xticklabels([persian_text(l) for l in elev_labels])
+    ax.set_xlabel(persian_text('ارتفاع (متر)'))
+    ax.set_ylabel(persian_text('مقدار پارامتر'))
+    ax.set_title(persian_text(f'تغییرات پارامترهای GEV با ارتفاع ({VAR})'))
     ax.legend()
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -404,17 +452,17 @@ if all(v in ds.data_vars for v in skew_vars):
 
     fig, axes = plt.subplots(3, 1, figsize=(14, 10))
     axes[0].plot(days, loc_mean, 'c-', linewidth=2)
-    axes[0].set_ylabel('Location')
-    axes[0].set_title(f'Skew-Normal Location - روزانه ({VAR})')
+    axes[0].set_ylabel(persian_text('Location'))
+    axes[0].set_title(persian_text(f'Skew-Normal Location - روزانه ({VAR})'))
     axes[0].grid(True, alpha=0.3)
     axes[1].plot(days, scale_mean, 'm-', linewidth=2)
-    axes[1].set_ylabel('Scale')
-    axes[1].set_title(f'Skew-Normal Scale - روزانه ({VAR})')
+    axes[1].set_ylabel(persian_text('Scale'))
+    axes[1].set_title(persian_text(f'Skew-Normal Scale - روزانه ({VAR})'))
     axes[1].grid(True, alpha=0.3)
     axes[2].plot(days, shape_mean, 'y-', linewidth=2)
-    axes[2].set_xlabel('روز سال')
-    axes[2].set_ylabel('Shape')
-    axes[2].set_title(f'Skew-Normal Shape - روزانه ({VAR})')
+    axes[2].set_xlabel(persian_text('روز سال'))
+    axes[2].set_ylabel(persian_text('Shape'))
+    axes[2].set_title(persian_text(f'Skew-Normal Shape - روزانه ({VAR})'))
     axes[2].grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(f'skew_normal_params_daily_{VAR}.png', dpi=300, bbox_inches='tight')
@@ -424,7 +472,7 @@ else:
     print("   ⚠️ متغیرهای Skew-Normal یافت نشد.")
 
 # ----------------------------------------------------------------
-# ۴-۶. پارامترهای Bimodal (اختیاری)
+# ۴-۶. پارامترهای Bimodal
 # ----------------------------------------------------------------
 print("\n📊 تحلیل پارامترهای Bimodal...")
 
@@ -448,7 +496,6 @@ if all(v in ds.data_vars for v in bimodal_vars):
                 if arr.shape[0] == n_points and arr.shape[1] == n_days:
                     arr = arr.T
 
-    # میانگین روزانه پارامترها
     w1_mean = np.nanmean(bimodal_p1, axis=1)
     mu1_mean = np.nanmean(bimodal_p2, axis=1)
     sigma1_mean = np.nanmean(bimodal_p3, axis=1)
@@ -457,25 +504,25 @@ if all(v in ds.data_vars for v in bimodal_vars):
 
     fig, axes = plt.subplots(5, 1, figsize=(14, 14))
     axes[0].plot(days, w1_mean, 'k-', linewidth=2)
-    axes[0].set_ylabel('w1')
-    axes[0].set_title(f'Bimodal w1 - روزانه ({VAR})')
+    axes[0].set_ylabel(persian_text('w1'))
+    axes[0].set_title(persian_text(f'Bimodal w1 - روزانه ({VAR})'))
     axes[0].grid(True, alpha=0.3)
     axes[1].plot(days, mu1_mean, 'b-', linewidth=2)
-    axes[1].set_ylabel('μ1')
-    axes[1].set_title(f'Bimodal μ1 - روزانه ({VAR})')
+    axes[1].set_ylabel(persian_text('μ1'))
+    axes[1].set_title(persian_text(f'Bimodal μ1 - روزانه ({VAR})'))
     axes[1].grid(True, alpha=0.3)
     axes[2].plot(days, sigma1_mean, 'g-', linewidth=2)
-    axes[2].set_ylabel('σ1')
-    axes[2].set_title(f'Bimodal σ1 - روزانه ({VAR})')
+    axes[2].set_ylabel(persian_text('σ1'))
+    axes[2].set_title(persian_text(f'Bimodal σ1 - روزانه ({VAR})'))
     axes[2].grid(True, alpha=0.3)
     axes[3].plot(days, mu2_mean, 'r-', linewidth=2)
-    axes[3].set_ylabel('μ2')
-    axes[3].set_title(f'Bimodal μ2 - روزانه ({VAR})')
+    axes[3].set_ylabel(persian_text('μ2'))
+    axes[3].set_title(persian_text(f'Bimodal μ2 - روزانه ({VAR})'))
     axes[3].grid(True, alpha=0.3)
     axes[4].plot(days, sigma2_mean, 'm-', linewidth=2)
-    axes[4].set_xlabel('روز سال')
-    axes[4].set_ylabel('σ2')
-    axes[4].set_title(f'Bimodal σ2 - روزانه ({VAR})')
+    axes[4].set_xlabel(persian_text('روز سال'))
+    axes[4].set_ylabel(persian_text('σ2'))
+    axes[4].set_title(persian_text(f'Bimodal σ2 - روزانه ({VAR})'))
     axes[4].grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(f'bimodal_params_daily_{VAR}.png', dpi=300, bbox_inches='tight')
@@ -489,13 +536,13 @@ else:
 # ----------------------------------------------------------------
 print("\n📊 همبستگی نوع توزیع با آماره‌های توصیفی...")
 
-mode_dist = np.zeros(n_points, dtype=int)
+mode_dist = np.full(n_points, -1, dtype=int)
 for p in range(n_points):
-    counts = np.bincount(best_dist[:, p].astype(int))
-    if len(counts) > 0:
+    data = best_dist[:, p]
+    data = data[data >= 0]
+    if len(data) > 0:
+        counts = np.bincount(data)
         mode_dist[p] = np.argmax(counts)
-    else:
-        mode_dist[p] = -1
 
 mean_flat = to_1d(mean_vals, n_points)
 std_flat = to_1d(std_vals, n_points)
@@ -528,8 +575,8 @@ if len(df_points) > 0:
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     for ax, col in zip(axes, ['mean', 'std', 'skew']):
         df_points.boxplot(column=col, by='dist', ax=ax)
-        ax.set_title(f'{col} بر حسب توزیع ({VAR})')
-        ax.set_xlabel('نوع توزیع')
+        ax.set_title(persian_text(f'{col} بر حسب توزیع ({VAR})'))
+        ax.set_xlabel(persian_text('نوع توزیع'))
         ax.grid(True, alpha=0.3)
     plt.suptitle('')
     plt.tight_layout()
@@ -569,9 +616,9 @@ if features:
             inertias.append(kmeans.inertia_)
         fig, ax = plt.subplots(figsize=(8, 5))
         ax.plot(K_range, inertias, 'bo-')
-        ax.set_xlabel('تعداد خوشه‌ها')
-        ax.set_ylabel('اینرسی')
-        ax.set_title(f'نمودار Elbow ({VAR})')
+        ax.set_xlabel(persian_text('تعداد خوشه‌ها'))
+        ax.set_ylabel(persian_text('اینرسی'))
+        ax.set_title(persian_text(f'نمودار Elbow ({VAR})'))
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
         plt.savefig(f'elbow_plot_{VAR}.png', dpi=300, bbox_inches='tight')
@@ -602,12 +649,12 @@ if features:
         bottom = np.zeros(n_clusters)
         for i, d in enumerate(dist_codes):
             ax.bar(x, cluster_percent[:, i], bottom=bottom,
-                   label=dist_labels[i], color=dist_colors[i], alpha=0.7)
+                   label=persian_text(dist_labels[i]), color=dist_colors[i], alpha=0.7)
             bottom += cluster_percent[:, i]
         ax.set_xticks(x)
-        ax.set_xticklabels([f'خوشه {i + 1}' for i in range(n_clusters)])
-        ax.set_ylabel('درصد ایستگاه‌ها (%)')
-        ax.set_title(f'ترکیب خوشه‌ها ({VAR})')
+        ax.set_xticklabels([persian_text(f'خوشه {i + 1}') for i in range(n_clusters)])
+        ax.set_ylabel(persian_text('درصد ایستگاه‌ها (%)'))
+        ax.set_title(persian_text(f'ترکیب خوشه‌ها ({VAR})'))
         ax.legend()
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
@@ -620,7 +667,7 @@ else:
     print("   ⚠️ ویژگی‌های کافی برای خوشه‌بندی موجود نیست.")
 
 # ----------------------------------------------------------------
-# ۴-۹. مقایسه معیارهای اطلاعاتی (AIC و BIC)
+# ۴-۹. مقایسه معیارهای اطلاعاتی
 # ----------------------------------------------------------------
 print("\n📊 مقایسه معیارهای اطلاعاتی (AIC و BIC)...")
 
@@ -660,7 +707,6 @@ if bic_dict:
 # ============================================================================
 # ۵. جمع‌بندی نهایی
 # ============================================================================
-
 print("\n" + "=" * 80)
 print(f"✅ تحلیل کامل شد (متغیر: {VAR})")
 print("📁 فایل‌های خروجی:")

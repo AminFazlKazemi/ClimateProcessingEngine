@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-main.py – نسخه نهایی پایدار
+main.py – نسخه نهایی سریال (بدون هیچ موازی‌سازی)
 ================================================================================
-- بدون چک‌پوینت
-- همیشه از بلوک ۰ شروع می‌کند (بلوک‌های کامل را رد می‌کند)
-- چانک‌های ۲۰۰ تایی با پردازش موازی (۴ کارگر)
-- نوشتن هر چانک به‌محض پردازش
+- اسکن Zarr از ابتدا (بدون checkpoint)
+- پردازش سریال متغیرها در هر بلوک (یک به یک)
+- نوشتن فقط متغیرهای موجود در block_result
+- آزمون گرابز فعال
+- بدون Dask، بدون ThreadPool، بدون هیچ parallelism
 ================================================================================
 """
 
 import os
 import sys
 import gc
+import time
 import yaml
 import numpy as np
 import xarray as xr
 import logging
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -35,17 +36,19 @@ from constants import (
 )
 from calendar_tables import build_doy_table_from_config
 from runtime_tables import build_runtime_tables
-from zarr_schema import get_or_create_zarr_store, add_coords_and_metadata, create_empty_block_result
+from zarr_schema import get_or_create_zarr_store, add_coords_and_metadata
+from orchestrator.process_block import process_block
 from monitoring.logger import logger
 from data_adapter import create_adapter
-from numerical_engine.analyze_station import analyze_station
-from numerical_engine.merge_results import merge_station_result
 
 # ============================================================================
-# تنظیمات سرعت
+# خاموش کردن لاگ‌های مزاحم کش
 # ============================================================================
-CHUNK_SIZE = 200
-MAX_WORKERS = 4
+for name in logging.root.manager.loggerDict:
+    if any(x in name for x in ['data_adapter', 'io_pipeline', 'cache']):
+        logging.getLogger(name).setLevel(logging.CRITICAL)
+        logging.getLogger(name).disabled = True
+logging.getLogger().setLevel(logging.INFO)
 
 # ============================================================================
 # Warmup Numba
@@ -62,116 +65,62 @@ def warmup_numba():
         logger.warning(f"   ⚠️ Warmup failed: {e}")
 
 # ============================================================================
-# توابع بررسی کامل بودن
+# چک کردن وضعیت یک بلوک از Zarr
 # ============================================================================
-def is_block_complete(ds, var_names, block_start, block_size, day_idx=0):
-    """بررسی کامل بودن بلوک برای همه متغیرها (فقط با میانگین)"""
-    for var_name in var_names:
-        mean_var = f'{var_name}_mean'
+def check_block_status(ds, block_idx, vars_list, block_size):
+    start = block_idx * block_size
+    end = min(start + block_size, ds.sizes['point'])
+    
+    block_missing = {}
+    for var in vars_list:
+        mean_var = f'{var}_mean'
         if mean_var not in ds:
-            return False
-        try:
-            data = ds[mean_var].isel(day=day_idx).values
-            block_end = min(block_start + block_size, len(data))
-            block_data = data[block_start:block_end]
-            if not np.all(~np.isnan(block_data)):
-                return False
-        except Exception:
-            return False
-    return True
-
-def is_chunk_complete(ds, var_name, start, end, day_idx=0):
-    mean_var = f'{var_name}_mean'
-    if mean_var not in ds:
-        return False
-    try:
-        data = ds[mean_var].isel(day=day_idx).values[start:end]
-        return np.all(~np.isnan(data))
-    except Exception:
-        return False
-
-def write_chunk(root, block_result, block_start, chunk_start):
-    for name in block_result.keys():
-        root[name][:, block_start + chunk_start : block_start + chunk_start + block_result[name].shape[1]] = block_result[name][:, :]
-
-# ============================================================================
-# پردازش یک چانک
-# ============================================================================
-def process_chunk(chunk_start, chunk_end, block_start, block_idx, adapter,
-                  doy_table, window_table, year_list, root, vars_to_process, ds, block_data):
-    chunk_size = chunk_end - chunk_start
-    n_vars = len(VARS)
-
-    block_result = create_empty_block_result(chunk_size)
-
-    for local_idx in range(chunk_start, chunk_end):
-        station_idx = block_start + local_idx
-        station_data = block_data[local_idx, :, :, :]
-
-        vars_here = []
-        if ds is not None:
-            for var_name in vars_to_process:
-                mean_var = f'{var_name}_mean'
-                if mean_var in ds:
-                    val = ds[mean_var].isel(day=0, point=station_idx).values
-                    if np.isnan(val):
-                        vars_here.append(var_name)
-        else:
-            vars_here = vars_to_process.copy()
-
-        if not vars_here:
+            block_missing[var] = list(range(end - start))
             continue
-
-        if not isinstance(station_data, np.ndarray):
-            station_data = np.array(station_data)
-        if station_data.ndim == 0:
-            station_data = station_data.reshape(1, 1, 1)
-        elif station_data.ndim == 1:
-            try:
-                station_data = station_data.reshape(len(year_list), N_DAYS, n_vars)
-            except:
-                station_data = np.full((len(year_list), N_DAYS, n_vars), np.nan, dtype=np.float32)
-        elif station_data.ndim == 2:
-            if station_data.shape[0] == len(year_list) * N_DAYS and station_data.shape[1] == n_vars:
-                station_data = station_data.reshape(len(year_list), N_DAYS, n_vars)
-
-        for var_name in vars_here:
-            var_idx = VARS.index(var_name)
-            try:
-                result = analyze_station(station_data, year_list, window_table, var_idx)
-                if result is not None:
-                    merge_station_result(block_result, result, local_idx - chunk_start)
-            except Exception as e:
-                logger.warning(f"      ⚠️ Station {station_idx}, var {var_name} failed: {e}")
-
-    write_chunk(root, block_result, block_start, chunk_start)
-    del block_result
-    gc.collect()
+        
+        data = ds[mean_var].isel(day=slice(None)).values[:, start:end]
+        is_missing = np.isnan(data).any(axis=0)
+        missing_indices = np.where(is_missing)[0].tolist()
+        
+        if missing_indices:
+            block_missing[var] = missing_indices
+    
+    return block_missing
 
 # ============================================================================
 # تابع اصلی
 # ============================================================================
 def main():
-    logger.setLevel(logging.INFO)
+    vars_to_process = ['tmin', 'tmean', 'tmax']
+    
+    logger.info("=" * 80)
+    logger.info("🚀 CLIMATOLOGY ENGINE – FINAL SERIAL VERSION (NO PARALLEL)")
+    logger.info(f"   Variables: {vars_to_process}")
+    logger.info(f"   Grubbs test: enabled (alpha=0.05, max_iter=3)")
+    logger.info("   🔄 Serial mode: one variable at a time (fastest for this workload)")
+    logger.info("   💾 Existing data preserved (only missing stations are filled)")
+    logger.info("=" * 80)
+    
     warmup_numba()
-
-    logger.info("=" * 80)
-    logger.info(f"🚀 FINAL VERSION: CHUNK={CHUNK_SIZE}, WORKERS={MAX_WORKERS}, NO CHECKPOINT")
-    logger.info(f"   Years: {YEAR_START}–{YEAR_END}")
-    logger.info(f"   Variables: {VARS}")
-    logger.info(f"   Output: {OUTPUT_ZARR}")
-    logger.info(f"   Block Size: {BLOCK_SIZE}")
-    logger.info("=" * 80)
-
+    
+    # ============================================================
+    # ساخت Adapter و جداول
+    # ============================================================
     year_list = list(range(YEAR_START, YEAR_END + 1))
+    DATA_FORMAT = CONFIG.get("data_format", "auto")
+    N_POINTS_MAX = CONFIG.get("processing", {}).get("n_points_max", 40000)
+    LAT_MIN = CONFIG.get("lat_min", None)
+    LAT_MAX = CONFIG.get("lat_max", None)
+    LON_MIN = CONFIG.get("lon_min", None)
+    LON_MAX = CONFIG.get("lon_max", None)
 
     adapter = create_adapter(
         ZARR_BASE, year_list,
-        data_format=CONFIG.get("data_format", "auto"),
+        data_format=DATA_FORMAT,
         cache_enabled=True,
-        max_points=CONFIG.get("processing", {}).get("n_points_max", 40000),
-        lat_min=CONFIG.get("lat_min"), lat_max=CONFIG.get("lat_max"),
-        lon_min=CONFIG.get("lon_min"), lon_max=CONFIG.get("lon_max"),
+        max_points=N_POINTS_MAX,
+        lat_min=LAT_MIN, lat_max=LAT_MAX,
+        lon_min=LON_MIN, lon_max=LON_MAX,
     )
 
     n_stations = adapter.n_points
@@ -188,137 +137,101 @@ def main():
     window_table = tables["window_table"]
     logger.info("   ✅ Tables built")
 
-    root = get_or_create_zarr_store(OUTPUT_ZARR, n_stations)
-    logger.info(f"   📂 Zarr store ready")
-
+    # ============================================================
+    # آماده‌سازی Zarr
+    # ============================================================
+    if not os.path.exists(OUTPUT_ZARR):
+        logger.warning(f"⚠️ Output Zarr not found: {OUTPUT_ZARR}")
+        logger.info("   Creating new Zarr store...")
+        root = get_or_create_zarr_store(OUTPUT_ZARR, n_stations)
+        logger.info(f"   📂 Zarr store created: {OUTPUT_ZARR}")
+    else:
+        root = get_or_create_zarr_store(OUTPUT_ZARR, n_stations)
+        logger.info(f"   📂 Zarr store ready: {OUTPUT_ZARR}")
+    
     total_blocks = (n_stations + BLOCK_SIZE - 1) // BLOCK_SIZE
-    logger.info(f"📦 تعداد کل بلوک‌ها: {total_blocks}")
+    logger.info(f"📦 Total blocks: {total_blocks}")
 
     # ============================================================
-    # باز کردن دیتاست برای بررسی کامل بودن
+    # پردازش سریال (یک بلوک، یک متغیر)
     # ============================================================
-    ds = None
-    if os.path.exists(OUTPUT_ZARR):
-        try:
-            ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
-        except Exception as e:
-            logger.warning(f"   ⚠️ Could not open Zarr: {e}")
-
-    var_names = VARS
-
-    # ============================================================
-    # حلقه اصلی از بلوک ۰ تا آخر
-    # ============================================================
-    for block_idx in range(0, total_blocks):
+    start_time = time.time()
+    processed_blocks = 0
+    incomplete_blocks_found = 0
+    
+    for block_idx in tqdm(range(total_blocks), desc="Processing blocks", unit="block"):
         block_start = block_idx * BLOCK_SIZE
         block_end = min(block_start + BLOCK_SIZE, n_stations)
-        block_size = block_end - block_start
-
-        # ۱. چک کامل بودن بلوک
-        if ds is not None and is_block_complete(ds, var_names, block_start, block_size, day_idx=0):
-            logger.info(f"   ✅ Block {block_idx} is complete → skip")
+        
+        # اسکن بلوک
+        ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
+        block_missing = check_block_status(ds, block_idx, vars_to_process, BLOCK_SIZE)
+        ds.close()
+        
+        if not block_missing:
             continue
-
-        # ۲. بارگذاری داده
-        logger.info(f"📂 Loading block {block_idx}...")
-        data_dict = {}
-        for year in year_list:
-            for month in range(1, 13):
-                key = (year, month)
-                if key not in adapter.file_map:
-                    continue
-                combined = adapter.load_block_all_vars(
+        
+        incomplete_blocks_found += 1
+        missing_vars = [v for v in vars_to_process if v in block_missing and block_missing[v]]
+        
+        if not missing_vars:
+            continue
+        
+        logger.info(f"   🔄 Block {block_idx}: {len(missing_vars)} variables missing: {missing_vars}")
+        
+        # پردازش سریال هر متغیر
+        for var_name in missing_vars:
+            var_idx = VARS.index(var_name)
+            missing_indices = block_missing[var_name]
+            
+            logger.info(f"   🔄 Block {block_idx}, {var_name}: {len(missing_indices)} stations missing")
+            
+            try:
+                process_block(
                     block_start=block_start,
-                    block_size=block_size,
-                    year_idx=year_list.index(year) if year in year_list else 0,
-                    month=month
+                    block_end=block_end,
+                    block_idx=block_idx,
+                    file_map=adapter.file_map,
+                    doy_table=doy_table,
+                    window_table=window_table,
+                    year_list=year_list,
+                    root=root,
+                    var_idx=var_idx,
+                    last_checkpoint_station=0,
+                    adapter=adapter,
                 )
-                if combined is not None:
-                    data_dict[key] = combined
-
-        if not data_dict:
-            logger.warning(f"   ⚠️ No data for block {block_idx}")
-            continue
-
-        from io_pipeline.assemble_block import assemble_block
-        block_data = assemble_block(data_dict, doy_table, block_size, year_list, var_idx=0)
-        if hasattr(block_data, 'values'):
-            block_data = block_data.values
-        elif not isinstance(block_data, np.ndarray):
-            block_data = np.array(block_data)
-
-        if block_data.ndim != 4:
-            logger.error(f"   ❌ Invalid block_data shape: {block_data.shape}")
-            continue
-
-        # ۳. تشخیص چانک‌های ناقص
-        chunks_to_process = []
-        for chunk_start in range(0, block_size, CHUNK_SIZE):
-            chunk_end = min(chunk_start + CHUNK_SIZE, block_size)
-
-            vars_to_process = []
-            if ds is not None:
-                for var_name in var_names:
-                    if not is_chunk_complete(ds, var_name, block_start + chunk_start, block_start + chunk_end, day_idx=0):
-                        vars_to_process.append(var_name)
-            else:
-                vars_to_process = var_names.copy()
-
-            if vars_to_process:
-                chunks_to_process.append((chunk_start, chunk_end, vars_to_process))
-            else:
-                logger.info(f"   ✅ Block {block_idx}, chunk {chunk_start//CHUNK_SIZE+1}: complete → skip")
-
-        if not chunks_to_process:
-            logger.info(f"   ✅ Block {block_idx} all chunks complete → skip")
-            continue
-
-        logger.info(f"   🔄 Processing {len(chunks_to_process)} incomplete chunks with {MAX_WORKERS} workers...")
-
-        # ۴. پردازش موازی چانک‌ها
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = []
-            for chunk_start, chunk_end, vars_to_process in chunks_to_process:
-                future = executor.submit(
-                    process_chunk,
-                    chunk_start, chunk_end, block_start, block_idx, adapter,
-                    doy_table, window_table, year_list, root, vars_to_process, ds, block_data
-                )
-                futures.append((chunk_start, future))
-
-            for chunk_start, future in futures:
-                try:
-                    future.result()
-                    logger.info(f"   💾 Block {block_idx}, chunk {chunk_start//CHUNK_SIZE+1}: done")
-                except Exception as e:
-                    logger.error(f"   ❌ Block {block_idx}, chunk {chunk_start//CHUNK_SIZE+1} failed: {e}")
-
-        # ۵. به‌روزرسانی دیتاست
-        if ds is not None:
-            ds.close()
-        try:
-            ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
-        except:
-            ds = None
-
-        del data_dict, block_data
+                logger.info(f"   ✅ Block {block_idx}, {var_name}: completed")
+            except Exception as e:
+                logger.error(f"   ❌ Error processing {var_name} in block {block_idx}: {e}")
+                raise
+        
+        processed_blocks += 1
         gc.collect()
-
+        
+        if processed_blocks % 10 == 0:
+            elapsed = time.time() - start_time
+            logger.info(f"   📊 Processed {processed_blocks} incomplete blocks, elapsed: {elapsed/60:.1f} min")
+    
     # ============================================================
     # نهایی‌سازی
     # ============================================================
     logger.info("Finalizing Zarr...")
-    if ds is not None:
-        ds.close()
-
     ds = xr.open_zarr(OUTPUT_ZARR, consolidated=False)
     ds = add_coords_and_metadata(ds, station_ids, lons, lats, elevs)
     ds.attrs["source"] = f"Years {YEAR_START}-{YEAR_END}"
-    ds.attrs["version"] = "final-stable"
+    ds.attrs["version"] = "12.0-serial-final"
+    ds.attrs["outlier_detection"] = "Grubbs test (alpha=0.05, max_iter=3)"
     ds.to_zarr(OUTPUT_ZARR, mode="a", consolidated=False)
     ds.close()
 
-    logger.info("✅ PROCESSING COMPLETED SUCCESSFULLY")
+    total_time = time.time() - start_time
+    logger.info("=" * 80)
+    logger.info(f"✅ PROCESSING COMPLETED SUCCESSFULLY in {total_time/60:.1f} minutes")
+    logger.info(f"   Processed {processed_blocks} incomplete blocks")
+    logger.info(f"   Total incomplete blocks found: {incomplete_blocks_found}")
+    logger.info(f"   Variables: {vars_to_process}")
+    logger.info(f"   Output: {OUTPUT_ZARR}")
+    logger.info("=" * 80)
 
 if __name__ == "__main__":
     main()

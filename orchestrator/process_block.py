@@ -159,8 +159,8 @@ def process_block(block_start, block_end, block_idx, file_map, doy_table, window
                 station_data = station_data.reshape(N_YEARS, N_DAYS_LOCAL, n_vars)
 
         try:
-            # ✅ فراخوانی سریال با ۴ آرگومان
-            result = analyze_station(station_data, year_list, window_table, var_idx)
+            # 🔴 اصلاح مهم: پاس دادن آرگومان پنجم (station_idx) به analyze_station
+            result = analyze_station(station_data, year_list, window_table, var_idx, station_idx)
             if result is not None:
                 merge_station_result(block_result, result, local_idx)
         except Exception as e:

@@ -19,7 +19,7 @@ distributions:
   - skew
   - bimodal
   - pearson
-fit_variable_index: 1
+fit_variable_index: -1
 generate_percentile_maps: false
 logging:
   console_output: true
@@ -42,7 +42,7 @@ parallel:
   backend: multiprocessing
   chunk_size: 100
   enabled: true
-  max_workers: 12
+  max_workers: 2
 paths:
   cache_dir: ./cache
   calendar_file: K:/Temp/needed/calendar.txt
@@ -71,7 +71,7 @@ quality:
   min_sample_size: 3
   outlier_sigma: 4.0
   threshold_aicc: 1000
-use_parallel: true
+use_parallel: false
 validate_after_load: false
 validate_before_write: false
 validate_every_n_blocks: 10

@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 monitoring/outlier_logger.py
-ثبت داده‌های پرت در حین پردازش با قابلیت flush روی دیسک
+ثبت داده‌های پرت با پشتیبانی از سال و اسکیل خودکار دما
+نسخه اصلاح‌شده برای ثبت year و تقسیم بر ۱۰
 """
 
 import os
@@ -10,36 +11,39 @@ import csv
 from datetime import datetime
 from collections import defaultdict
 
-# دیکشنری سراسری برای ذخیره پرت‌ها
 _outlier_store = defaultdict(list)
 
-def log_outlier(station_idx, day_idx, value, var_name="tmean"):
+def log_outlier(station_idx, year, day_idx, value, var_name="tmean"):
     """
-    ثبت یک داده‌ی پرت در حافظه
+    ثبت یک داده‌ی پرت در حافظه.
+    
+    پارامترها:
+        station_idx: ایندکس ایستگاه (0-based) - در زمان flush به stationid تبدیل می‌شود
+        year: سال وقوع
+        day_idx: روز سال (1 تا 366)
+        value: مقدار پرت
+        var_name: نام متغیر ('tmin', 'tmean', 'tmax')
     """
+    # اسکیل خودکار برای tmean: اگر مقدار > 50 بود، بر ۱۰ تقسیم کن
+    final_value = float(value)
+    if var_name == 'tmean' and final_value > 50:
+        final_value = final_value / 10.0
+
     _outlier_store[station_idx].append({
+        'year': year,
         'day': day_idx,
-        'value': float(value),
+        'value': final_value,
         'var': var_name,
         'timestamp': datetime.now().isoformat()
     })
 
 def get_outlier_count(station_idx):
-    """تعداد پرت‌های ثبت‌شده برای یک ایستگاه"""
     return len(_outlier_store.get(station_idx, []))
 
 def get_outlier_summary():
-    """گرفتن خلاصه‌ای از همه پرت‌ها"""
     return dict(_outlier_store)
 
 def flush_outliers_to_csv(output_dir="outlier_reports", metadata_path=None):
-    """
-    نوشتن تمام پرت‌های موجود در حافظه به فایل CSV (حالت append)
-    و سپس پاک کردن حافظه.
-    
-    این تابع را می‌توان بعد از هر بلوک فراخوانی کرد تا داده‌ها
-    به‌طور مداوم روی دیسک ذخیره شوند.
-    """
     global _outlier_store
     if not _outlier_store:
         return
@@ -47,7 +51,6 @@ def flush_outliers_to_csv(output_dir="outlier_reports", metadata_path=None):
     os.makedirs(output_dir, exist_ok=True)
     filepath = os.path.join(output_dir, "outliers.csv")
 
-    # بارگذاری متادیتا (در صورت وجود)
     station_meta = {}
     if metadata_path and os.path.exists(metadata_path):
         try:
@@ -69,20 +72,19 @@ def flush_outliers_to_csv(output_dir="outlier_reports", metadata_path=None):
     with open(filepath, 'a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
 
-        # نوشتن هدر فقط در صورتی که فایل تازه ایجاد شده باشد
         if not file_exists:
-            header = ['station_idx', 'day', 'value', 'var', 'timestamp']
+            header = ['station_idx', 'year', 'day', 'value', 'var', 'timestamp']
             if station_meta:
                 header += ['new_part', 'shahrestan', 'subbasin_i', 'Longitude', 'Latitude', 'new_elevation']
             writer.writerow(header)
 
         total_written = 0
-        # نوشتن همه رکوردها
         for station_idx, outliers in list(_outlier_store.items()):
             meta = station_meta.get(station_idx, {})
             for out in outliers:
                 row = [
                     station_idx,
+                    out['year'],
                     out['day'],
                     out['value'],
                     out['var'],
@@ -100,16 +102,13 @@ def flush_outliers_to_csv(output_dir="outlier_reports", metadata_path=None):
                 writer.writerow(row)
                 total_written += 1
 
-    # پاک کردن حافظه بعد از نوشتن روی دیسک
     count_before = sum(len(v) for v in _outlier_store.values())
     _outlier_store.clear()
     print(f"💾 Flushed {count_before} outlier records to {filepath}")
 
 def save_outlier_report(output_dir="outlier_reports", metadata_path=None):
-    """ذخیره نهایی (همان flush) – برای سازگاری با کدهای قدیمی"""
     flush_outliers_to_csv(output_dir, metadata_path)
 
 def clear_outlier_log():
-    """پاک کردن حافظه (بدون نوشتن روی دیسک)"""
     global _outlier_store
     _outlier_store = defaultdict(list)
